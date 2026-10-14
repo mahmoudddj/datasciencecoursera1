@@ -39,7 +39,7 @@ These are unchanged, because existing caches depend on them: the cohort protocol
 
 ## What actually ran and passed (synthetic data only)
 - Both notebooks ran top to bottom through a real Jupyter kernel in fresh processes, in fixture mode, on two library stacks (pandas 3.0 / numpy 2.5 and pandas 2.2 / numpy 2.0). Python 3.12, CPU.
-- 140 main engineering checks and 49 legacy checks passed. The lists are in `verification/*.json`.
+- 141 main engineering checks and 49 legacy checks passed. The lists are in `verification/*.json`.
 - All 8 arms plus the raw and 80% controls ran through fit, calibration, threshold, metrics and export on both fixture databases. Every arm was scored on identical patient-hours.
 - I killed the kernel mid-training in both notebooks and reran. Results and checkpoints were bit-identical to uninterrupted runs. Completed runs are reused, and a changed config is refused.
 - A clinical-path dry run on schema-shaped synthetic MIMIC-IV/eICU CSVs passed: extraction, onset audit, shard building, and legacy target building with stage reuse.
@@ -57,7 +57,9 @@ These are unchanged, because existing caches depend on them: the cohort protocol
 - **Per-file audit (Section 4).** Core raw tables are checked by file size against full-release minimums. A folder that MIXES full-size and demo-sized files is always refused, and the message lists the exact files to replace. A fully demo folder is refused unless `ALLOW_DEMO_DATA=True` in smoke mode. The ICU stay count is checked as well (the MIMIC-IV demo has 140 stays).
 - **Import consent (Section 4B).** Verified ricu imports are reused without any flag. Only when specific tables are new or changed since their last verified import does the notebook name them and require `ALLOW_FULL_RAW_IMPORT=True`.
 
-**Found on your Drive (14 Oct, file names and sizes only):** `mimic-iv-3.1/mimic-iv-3.1/` contains full-release files, except `icu/icustays.csv.gz` (5.7 KB), `icu/chartevents.csv.gz` (5.5 MB), `hosp/patients.csv.gz` (1 KB) and `hosp/admissions.csv.gz` (11 KB). Those four are byte-for-byte the same sizes as the demo copies elsewhere on your Drive. This is why v9 and V10 found 140 MIMIC stays, and why the v9 MIMIC cohort had 140 stays. Replace these four with the full MIMIC-IV 3.1 files from PhysioNet. The eICU folder is fully intact.
+**Found on your Drive (14 Oct, file names and sizes only):** `mimic-iv-3.1/mimic-iv-3.1/` contains full-release files, except `icu/icustays.csv.gz` (5.7 KB), `icu/chartevents.csv.gz` (5.5 MB), `hosp/patients.csv.gz` (1 KB) and `hosp/admissions.csv.gz` (11 KB). Those four are byte-for-byte the same sizes as the demo copies elsewhere on your Drive. This is why v9 and V10 found 140 MIMIC stays, and why the v9 MIMIC cohort had 140 stays. The ricu import still holds full `icustays`, `patients` and `admissions` from 28 Aug, but `chartevents` was re-imported on 12 Oct from the demo file. No full `chartevents` exists anywhere on the Drive, so the four files must be fetched again. The eICU folder is fully intact.
+
+**One-step fix:** in Section 1 set `REPAIR_FROM_PHYSIONET=True`, `PHYSIONET_USERNAME='<your PhysioNet login>'` and `ALLOW_FULL_RAW_IMPORT=True`, then run all cells. Section 4a asks for your PhysioNet password (never saved). It downloads only the demo-sized files, verifies each against PhysioNet's official SHA-256, and moves the demo copies to `mimic-iv-3.1/_quarantined_demo_files/`. If the connection drops it resumes when rerun. The four changed tables are then re-imported into ricu once (chartevents takes hours); everything else is reused.
 
 ## Where to set paths (Section 1 of each notebook)
 - `PROJECT_PATH` (default `MyDrive/sepsis_colab_project`).

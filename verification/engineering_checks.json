@@ -558,5 +558,9 @@
   {
     "check": "pure_demo_files_allowed_only_in_smoke",
     "passed": true
+  },
+  {
+    "check": "physionet_repair_resumes_and_verifies",
+    "passed": true
   }
 ]
