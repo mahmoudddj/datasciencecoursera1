@@ -39,7 +39,7 @@ These are unchanged, because existing caches depend on them: the cohort protocol
 
 ## What actually ran and passed (synthetic data only)
 - Both notebooks ran top to bottom through a real Jupyter kernel in fresh processes, in fixture mode, on two library stacks (pandas 3.0 / numpy 2.5 and pandas 2.2 / numpy 2.0). Python 3.12, CPU.
-- 137 main engineering checks and 49 legacy checks passed. The lists are in `verification/*.json`.
+- 140 main engineering checks and 49 legacy checks passed. The lists are in `verification/*.json`.
 - All 8 arms plus the raw and 80% controls ran through fit, calibration, threshold, metrics and export on both fixture databases. Every arm was scored on identical patient-hours.
 - I killed the kernel mid-training in both notebooks and reran. Results and checkpoints were bit-identical to uninterrupted runs. Completed runs are reused, and a changed config is refused.
 - A clinical-path dry run on schema-shaped synthetic MIMIC-IV/eICU CSVs passed: extraction, onset audit, shard building, and legacy target building with stage reuse.
@@ -53,9 +53,11 @@ These are unchanged, because existing caches depend on them: the cohort protocol
 4. These are documented, not fixed: eICU's antibiotic-only suspicion proxy; YAIB whole-stay selection filters; eICU entry-time proxies for vitals and infusions; urine coverage is not proof of complete collection; EtCO2, SaO2, TroponinI and Hct are unavailable on the target side for the legacy models; `SOFAproxy` is not SOFA.
 5. Full-mode runtime on Colab is unmeasured. Expect many GPU hours. Everything checkpoints.
 
-## The two stops you may see first on real data
-- **"Raw source is not a full release"**: the folder in `RAW_SOURCE_PATHS` holds a demo or partial copy. A MIMIC-IV folder with 140 ICU stays is the MIMIC-IV Clinical Database Demo; the full release has about 73k (v2.2) or 94k (v3.x) stays. Point the path at the full release. Nothing has been imported at this point.
-- **"One-time prerequisite needed for ..."**: there is no completed cohort yet, so ricu must import that database once, over whole tables. The table printed above the error shows, per database, whether `.fst` files or import markers already exist. Smoke mode cannot shrink this step. Set `ALLOW_FULL_RAW_IMPORT=True` when you are ready (Colab High-RAM recommended, several hours per database, free Drive space roughly comparable to the raw files). Imported tables are written next to the raw files and reused by every later run.
+## Checks that run before any heavy work on real data
+- **Per-file audit (Section 4).** Core raw tables are checked by file size against full-release minimums. A folder that MIXES full-size and demo-sized files is always refused, and the message lists the exact files to replace. A fully demo folder is refused unless `ALLOW_DEMO_DATA=True` in smoke mode. The ICU stay count is checked as well (the MIMIC-IV demo has 140 stays).
+- **Import consent (Section 4B).** Verified ricu imports are reused without any flag. Only when specific tables are new or changed since their last verified import does the notebook name them and require `ALLOW_FULL_RAW_IMPORT=True`.
+
+**Found on your Drive (14 Oct, file names and sizes only):** `mimic-iv-3.1/mimic-iv-3.1/` contains full-release files, except `icu/icustays.csv.gz` (5.7 KB), `icu/chartevents.csv.gz` (5.5 MB), `hosp/patients.csv.gz` (1 KB) and `hosp/admissions.csv.gz` (11 KB). Those four are byte-for-byte the same sizes as the demo copies elsewhere on your Drive. This is why v9 and V10 found 140 MIMIC stays, and why the v9 MIMIC cohort had 140 stays. Replace these four with the full MIMIC-IV 3.1 files from PhysioNet. The eICU folder is fully intact.
 
 ## Where to set paths (Section 1 of each notebook)
 - `PROJECT_PATH` (default `MyDrive/sepsis_colab_project`).

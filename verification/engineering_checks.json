@@ -546,5 +546,17 @@
   {
     "check": "ricu_import_status_counts_tables",
     "passed": true
+  },
+  {
+    "check": "full_release_files_accepted",
+    "passed": true
+  },
+  {
+    "check": "mixed_demo_full_folder_refused_even_with_demo_allowed",
+    "passed": true
+  },
+  {
+    "check": "pure_demo_files_allowed_only_in_smoke",
+    "passed": true
   }
 ]
