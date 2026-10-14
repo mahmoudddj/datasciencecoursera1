@@ -1,0 +1,198 @@
+[
+  {
+    "check": "osta_original_utility_equals_official_on_45_cases",
+    "passed": true
+  },
+  {
+    "check": "osta_normalized_utility_equals_original",
+    "passed": true
+  },
+  {
+    "check": "cnn_original_utility_equals_official_on_45_cases",
+    "passed": true
+  },
+  {
+    "check": "cnn_normalized_utility_equals_original",
+    "passed": true
+  },
+  {
+    "check": "step_label_single_shift",
+    "passed": true
+  },
+  {
+    "check": "persistence_confirmation_not_backdated",
+    "passed": true
+  },
+  {
+    "check": "persistence_gap_resets",
+    "passed": true
+  },
+  {
+    "check": "latched_policy_stays_latched",
+    "passed": true
+  },
+  {
+    "check": "no_compressed_time_utility",
+    "passed": true
+  },
+  {
+    "check": "excessively_early_alarm_classified",
+    "passed": true
+  },
+  {
+    "check": "normalization_matches_original",
+    "passed": true
+  },
+  {
+    "check": "ensemble_uniform_mean",
+    "passed": true
+  },
+  {
+    "check": "sparse_source_detected",
+    "passed": true
+  },
+  {
+    "check": "forward_filled_source_detected",
+    "passed": true
+  },
+  {
+    "check": "adapter_strips_carried_lab_values",
+    "passed": true
+  },
+  {
+    "check": "adapter_forward_fill_representation",
+    "passed": true
+  },
+  {
+    "check": "adapter_unsupported_stay_missing",
+    "passed": true
+  },
+  {
+    "check": "osta_feature_order_generator",
+    "passed": true
+  },
+  {
+    "check": "osta_frozen_eval_prefix",
+    "passed": true
+  },
+  {
+    "check": "osta_historical_threshold_first_max",
+    "passed": true
+  },
+  {
+    "check": "osta_historical_import_reproduces_original_pipeline",
+    "passed": true
+  },
+  {
+    "check": "osta_policy_mismatch_refused",
+    "passed": true
+  },
+  {
+    "check": "osta_weight_hash_enforced",
+    "passed": true
+  },
+  {
+    "check": "cnn_feature_order_generator",
+    "passed": true
+  },
+  {
+    "check": "cnn_frozen_eval_prefix",
+    "passed": true
+  },
+  {
+    "check": "legacy_batchnorm_preserved",
+    "passed": true
+  },
+  {
+    "check": "cnn_historical_threshold_first_max",
+    "passed": true
+  },
+  {
+    "check": "cnn_historical_import_reproduces_original_pipeline",
+    "passed": true
+  },
+  {
+    "check": "cnn_policy_mismatch_refused",
+    "passed": true
+  },
+  {
+    "check": "cnn_weight_hash_enforced",
+    "passed": true
+  },
+  {
+    "check": "osta_full_size_original_loss_backward",
+    "passed": true
+  },
+  {
+    "check": "cnn_full_size_original_loss_backward",
+    "passed": true
+  },
+  {
+    "check": "full_mode_resolution",
+    "passed": true
+  },
+  {
+    "check": "miiv_onset_from_unwindowed_events",
+    "passed": true
+  },
+  {
+    "check": "miiv_main_shards_built",
+    "passed": true
+  },
+  {
+    "check": "miiv_legacy_target_hospadmtime",
+    "passed": true
+  },
+  {
+    "check": "miiv_legacy_followup_to_discharge",
+    "passed": true
+  },
+  {
+    "check": "miiv_legacy_early_onset_excluded",
+    "passed": true
+  },
+  {
+    "check": "miiv_legacy_protected_patients_sealed",
+    "passed": true
+  },
+  {
+    "check": "miiv_legacy_step_label_onset_minus6",
+    "passed": true
+  },
+  {
+    "check": "miiv_legacy_stage_reuse_identical",
+    "passed": true
+  },
+  {
+    "check": "eicu_onset_from_unwindowed_events",
+    "passed": true
+  },
+  {
+    "check": "eicu_main_shards_built",
+    "passed": true
+  },
+  {
+    "check": "eicu_legacy_target_hospadmtime",
+    "passed": true
+  },
+  {
+    "check": "eicu_legacy_followup_to_discharge",
+    "passed": true
+  },
+  {
+    "check": "eicu_legacy_early_onset_excluded",
+    "passed": true
+  },
+  {
+    "check": "eicu_legacy_protected_patients_sealed",
+    "passed": true
+  },
+  {
+    "check": "eicu_legacy_step_label_onset_minus6",
+    "passed": true
+  },
+  {
+    "check": "eicu_legacy_stage_reuse_identical",
+    "passed": true
+  }
+]

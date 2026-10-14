@@ -1,0 +1,526 @@
+[
+  {
+    "check": "late_entry_not_backdated",
+    "passed": "pass"
+  },
+  {
+    "check": "late_old_value_not_overwrite_newer",
+    "passed": "pass"
+  },
+  {
+    "check": "time_since_last_measurement",
+    "passed": "pass"
+  },
+  {
+    "check": "urine_raw_reaches_rolling_volume",
+    "passed": "pass"
+  },
+  {
+    "check": "urine_rate_requires_complete_window",
+    "passed": "pass"
+  },
+  {
+    "check": "missing_urine_not_observed_zero",
+    "passed": "pass"
+  },
+  {
+    "check": "AKI_not_trauma",
+    "passed": "pass"
+  },
+  {
+    "check": "nontraumatic_not_trauma",
+    "passed": "pass"
+  },
+  {
+    "check": "negation_not_postoperative",
+    "passed": "pass"
+  },
+  {
+    "check": "true_trauma_retained",
+    "passed": "pass"
+  },
+  {
+    "check": "urinary_site_over_collection_device",
+    "passed": "pass"
+  },
+  {
+    "check": "pneumonia_source",
+    "passed": "pass"
+  },
+  {
+    "check": "organ_mapping",
+    "passed": "pass"
+  },
+  {
+    "check": "quoted_eicu_note_row_has_8_columns",
+    "passed": "pass"
+  },
+  {
+    "check": "quoted_eicu_note_commas_preserved",
+    "passed": "pass"
+  },
+  {
+    "check": "quoted_eicu_note_partition_id_preserved",
+    "passed": "pass"
+  },
+  {
+    "check": "zero_rate_not_active",
+    "passed": "pass"
+  },
+  {
+    "check": "eicu_entry_time_used",
+    "passed": "pass"
+  },
+  {
+    "check": "delayed_GCS_not_visible_early",
+    "passed": "pass"
+  },
+  {
+    "check": "strict_urine_availability",
+    "passed": "pass"
+  },
+  {
+    "check": "unknown_weight_no_oliguria",
+    "passed": "pass"
+  },
+  {
+    "check": "mimic_store_time_used",
+    "passed": "pass"
+  },
+  {
+    "check": "irrigant_subtracted",
+    "passed": "pass"
+  },
+  {
+    "check": "post_onset_rows_excluded",
+    "passed": "pass"
+  },
+  {
+    "check": "six_hour_target",
+    "passed": "pass"
+  },
+  {
+    "check": "negative_followup_censoring",
+    "passed": "pass"
+  },
+  {
+    "check": "all_missing_observers_exactly_abstain",
+    "passed": "pass"
+  },
+  {
+    "check": "osta_eval_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "osta_train_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "osta_backward_finite",
+    "passed": "pass"
+  },
+  {
+    "check": "observer_features_eval_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "observer_features_train_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "observer_features_backward_finite",
+    "passed": "pass"
+  },
+  {
+    "check": "output_fusion_eval_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "output_fusion_train_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "output_fusion_backward_finite",
+    "passed": "pass"
+  },
+  {
+    "check": "gated_attention_eval_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "gated_attention_train_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "missing_guidance_zero_attention_bias",
+    "passed": "pass"
+  },
+  {
+    "check": "active_guidance_exercised",
+    "passed": "pass"
+  },
+  {
+    "check": "gated_attention_backward_finite",
+    "passed": "pass"
+  },
+  {
+    "check": "cnn_eval_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "cnn_train_future_invariance",
+    "passed": "pass"
+  },
+  {
+    "check": "cnn_backward_finite",
+    "passed": "pass"
+  },
+  {
+    "check": "missing_GCS_keeps_qSOFA_total_unknown",
+    "passed": true
+  },
+  {
+    "check": "missing_SOFA_components_unknown",
+    "passed": true
+  },
+  {
+    "check": "unknown_age_not_zero",
+    "passed": true
+  },
+  {
+    "check": "measured_MAP_preserved",
+    "passed": true
+  },
+  {
+    "check": "last_event_resets_real_elapsed_hours",
+    "passed": true
+  },
+  {
+    "check": "first_event_not_reset",
+    "passed": true
+  },
+  {
+    "check": "true_regression_slope_irregular_hours",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_1_51",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_1_52",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_1_53",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_1_54",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_2_55",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_2_56",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_2_57",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_2_58",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_3_59",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_3_60",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_3_61",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_3_62",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_4_63",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_4_64",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_4_65",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_4_66",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_5_67",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_5_68",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_5_69",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_5_70",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_6_71",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_6_72",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_6_73",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_6_74",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_7_75",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_7_76",
+    "passed": true
+  },
+  {
+    "check": "prefix_values_7_77",
+    "passed": true
+  },
+  {
+    "check": "prefix_masks_7_78",
+    "passed": true
+  },
+  {
+    "check": "patient_keys_preserved",
+    "passed": true
+  },
+  {
+    "check": "duplicate_or_unsorted_hours_rejected",
+    "passed": true
+  },
+  {
+    "check": "duplicate_or_unsorted_hours_rejected",
+    "passed": true
+  },
+  {
+    "check": "osta_full_size_prefix",
+    "passed": true
+  },
+  {
+    "check": "osta_padding",
+    "passed": true
+  },
+  {
+    "check": "osta_full_size_backward",
+    "passed": true
+  },
+  {
+    "check": "osta_checkpoint_equivalence",
+    "passed": true
+  },
+  {
+    "check": "observer_features_full_size_prefix",
+    "passed": true
+  },
+  {
+    "check": "observer_features_padding",
+    "passed": true
+  },
+  {
+    "check": "observer_features_full_size_backward",
+    "passed": true
+  },
+  {
+    "check": "observer_features_checkpoint_equivalence",
+    "passed": true
+  },
+  {
+    "check": "output_fusion_full_size_prefix",
+    "passed": true
+  },
+  {
+    "check": "output_fusion_padding",
+    "passed": true
+  },
+  {
+    "check": "output_fusion_full_size_backward",
+    "passed": true
+  },
+  {
+    "check": "output_fusion_checkpoint_equivalence",
+    "passed": true
+  },
+  {
+    "check": "gated_attention_full_size_prefix",
+    "passed": true
+  },
+  {
+    "check": "gated_attention_padding",
+    "passed": true
+  },
+  {
+    "check": "gated_attention_full_size_backward",
+    "passed": true
+  },
+  {
+    "check": "gated_attention_checkpoint_equivalence",
+    "passed": true
+  },
+  {
+    "check": "ungated_attention_full_size_prefix",
+    "passed": true
+  },
+  {
+    "check": "ungated_attention_padding",
+    "passed": true
+  },
+  {
+    "check": "ungated_attention_full_size_backward",
+    "passed": true
+  },
+  {
+    "check": "ungated_attention_checkpoint_equivalence",
+    "passed": true
+  },
+  {
+    "check": "cnn_full_size_prefix",
+    "passed": true
+  },
+  {
+    "check": "cnn_padding",
+    "passed": true
+  },
+  {
+    "check": "cnn_full_size_backward",
+    "passed": true
+  },
+  {
+    "check": "cnn_checkpoint_equivalence",
+    "passed": true
+  },
+  {
+    "check": "guidance_missing_all",
+    "passed": true
+  },
+  {
+    "check": "guidance_missing_half",
+    "passed": true
+  },
+  {
+    "check": "guidance_incorrect",
+    "passed": true
+  },
+  {
+    "check": "guidance_conflicting",
+    "passed": true
+  },
+  {
+    "check": "guidance_stale_6h",
+    "passed": true
+  },
+  {
+    "check": "guidance_delayed_2h",
+    "passed": true
+  },
+  {
+    "check": "full_mode_no_smoke_epoch_or_architecture",
+    "passed": true
+  },
+  {
+    "check": "smoke_budget",
+    "passed": true
+  },
+  {
+    "check": "clipped_window_does_not_shift_onset",
+    "passed": true
+  },
+  {
+    "check": "fresh_times_skip_carried_values",
+    "passed": true
+  },
+  {
+    "check": "fresh_slope_uses_measurement_times",
+    "passed": true
+  },
+  {
+    "check": "carried_values_not_double_counted",
+    "passed": true
+  },
+  {
+    "check": "fresh_times_float32_roundtrip",
+    "passed": true
+  },
+  {
+    "check": "engineer_uses_age_channels",
+    "passed": true
+  },
+  {
+    "check": "vasopressor_first_vs_last",
+    "passed": true
+  },
+  {
+    "check": "qsofa2_event_unknown_handling",
+    "passed": true
+  },
+  {
+    "check": "every_engineered_feature_mapped",
+    "passed": true
+  },
+  {
+    "check": "adapter_prefix_values_and_masks_t3",
+    "passed": true
+  },
+  {
+    "check": "adapter_prefix_values_and_masks_t8",
+    "passed": true
+  },
+  {
+    "check": "adapter_prefix_values_and_masks_t15",
+    "passed": true
+  },
+  {
+    "check": "adapter_prefix_values_and_masks_t22",
+    "passed": true
+  },
+  {
+    "check": "postoperative_not_a_predictor",
+    "passed": true
+  },
+  {
+    "check": "weight_known_beyond_24h",
+    "passed": true
+  },
+  {
+    "check": "shard_resume_identical_index",
+    "passed": true
+  },
+  {
+    "check": "shard_resume_identical_values",
+    "passed": true
+  }
+]
