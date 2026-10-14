@@ -5,7 +5,7 @@ Two self-contained notebooks, both defaulting to `RUN_MODE='smoke'`:
 - `Sepsis_V10_Improved_MIMIC_eICU.ipynb` — main development notebook (MIMIC-IV + eICU).
 - `PhysioNet_Models_External_Validation_MIMIC_eICU.ipynb` — legacy PhysioNet-model external validation. It runs on its own from a fresh session.
 
-All code is embedded with SHA-256 checks (28 files). The original OSTA and CNN scripts, your handcrafted module and the pinned PhysioNet scorer are embedded byte-for-byte. Nothing calls a language-model API during training or inference. The notebooks are delivered **without outputs**, so no stale synthetic numbers or local paths are shown.
+All code is embedded with SHA-256 checks (29 files). The original OSTA and CNN scripts, your handcrafted module and the pinned PhysioNet scorer are embedded byte-for-byte. Nothing calls a language-model API during training or inference. The notebooks are delivered **without outputs**, so no stale synthetic numbers or local paths are shown.
 
 ## What changed and why
 
@@ -39,7 +39,7 @@ These are unchanged, because existing caches depend on them: the cohort protocol
 
 ## What actually ran and passed (synthetic data only)
 - Both notebooks ran top to bottom through a real Jupyter kernel in fresh processes, in fixture mode, on two library stacks (pandas 3.0 / numpy 2.5 and pandas 2.2 / numpy 2.0). Python 3.12, CPU.
-- 131 main engineering checks and 49 legacy checks passed. The lists are in `verification/*.json`.
+- 137 main engineering checks and 49 legacy checks passed. The lists are in `verification/*.json`.
 - All 8 arms plus the raw and 80% controls ran through fit, calibration, threshold, metrics and export on both fixture databases. Every arm was scored on identical patient-hours.
 - I killed the kernel mid-training in both notebooks and reran. Results and checkpoints were bit-identical to uninterrupted runs. Completed runs are reused, and a changed config is refused.
 - A clinical-path dry run on schema-shaped synthetic MIMIC-IV/eICU CSVs passed: extraction, onset audit, shard building, and legacy target building with stage reuse.
@@ -52,6 +52,10 @@ These are unchanged, because existing caches depend on them: the cohort protocol
 3. If your original OSTA run used `OSTA_ENSEMBLE_WEIGHTING` other than uniform, set `OSTA_HISTORICAL_ENSEMBLE` explicitly (weights, or stacking coefficients).
 4. These are documented, not fixed: eICU's antibiotic-only suspicion proxy; YAIB whole-stay selection filters; eICU entry-time proxies for vitals and infusions; urine coverage is not proof of complete collection; EtCO2, SaO2, TroponinI and Hct are unavailable on the target side for the legacy models; `SOFAproxy` is not SOFA.
 5. Full-mode runtime on Colab is unmeasured. Expect many GPU hours. Everything checkpoints.
+
+## The two stops you may see first on real data
+- **"Raw source is not a full release"**: the folder in `RAW_SOURCE_PATHS` holds a demo or partial copy. A MIMIC-IV folder with 140 ICU stays is the MIMIC-IV Clinical Database Demo; the full release has about 73k (v2.2) or 94k (v3.x) stays. Point the path at the full release. Nothing has been imported at this point.
+- **"One-time prerequisite needed for ..."**: there is no completed cohort yet, so ricu must import that database once, over whole tables. The table printed above the error shows, per database, whether `.fst` files or import markers already exist. Smoke mode cannot shrink this step. Set `ALLOW_FULL_RAW_IMPORT=True` when you are ready (Colab High-RAM recommended, several hours per database, free Drive space roughly comparable to the raw files). Imported tables are written next to the raw files and reused by every later run.
 
 ## Where to set paths (Section 1 of each notebook)
 - `PROJECT_PATH` (default `MyDrive/sepsis_colab_project`).

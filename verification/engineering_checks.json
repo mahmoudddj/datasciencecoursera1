@@ -522,5 +522,29 @@
   {
     "check": "shard_resume_identical_values",
     "passed": true
+  },
+  {
+    "check": "mimic_demo_140_stays_refused",
+    "passed": true
+  },
+  {
+    "check": "eicu_demo_refused",
+    "passed": true
+  },
+  {
+    "check": "partial_copy_refused",
+    "passed": true
+  },
+  {
+    "check": "full_releases_accepted",
+    "passed": true
+  },
+  {
+    "check": "demo_allowed_only_in_smoke",
+    "passed": true
+  },
+  {
+    "check": "ricu_import_status_counts_tables",
+    "passed": true
   }
 ]
