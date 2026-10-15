@@ -93,7 +93,12 @@ Shared design:
 | 4 | `RuntimeError: miiv: 4 ricu table(s) are new or changed … ['admissions','patients','icustays','chartevents']` | Expected consent stop: those 4 tables needed re-import. | User set `ALLOW_FULL_RAW_IMPORT=True`. The re-import completed; the run proceeded to labels. |
 | 5 | Label batches 1–4 of 19 succeeded; batch 5 failed: `RRuntimeError: Error in .subset2(x, i, exact = exact): attempt to select less than one element in get1index`, right after `V9_INTERVAL_NAMESPACE_FALLBACK: 3600 secs` | Bug in the worker's ricu interval fallback (inherited from v9). It returned the grid as `3600 secs`, while ricu's `interval.difftime` returns it in the time column's units (`hours`). ricu `re_time()` and the sep3 windows then mixed secs and hours. | Fallback now sets `units(res) <- units(x)`, and the self-test checks the units. Verified in R 4.3 against ricu commit `0969a52` semantics: old gave `secs`, new gives `1 hours` (`bcffa7c`). **Not yet confirmed on Colab; this is the first thing to check.** |
 
-Earlier, in v9 only: eICU labels failed with `assert_that(): y is not a list`. V10's worker contains the eICU nested-dictionary bridge for this, but **it has not yet run on real eICU** under V10.
+| 6 | Two people ran notebooks on the same Drive project at once (the user and the collaborator `elrggalme`) | Logs in `pipeline_logs_v10/` were overwritten by both. Drive's "Owner" column shows the file's creator, not the last writer. | The user only ran the top cells, which write identical small notes; saved batches were not touched. **Rule: only one notebook may run past the release-check cell at a time on this Drive.** |
+| 7 | Collaborator's run (`Sepsis_V11_Improved_MIMIC_eICU_1.ipynb`): MIMIC labels and cohort **complete**, eICU label batches 1–14 of 19 complete; batch 15 (folder `00014`) failed: `Error in .checkTypos(e, names_x): Object 'max_gap' not found amongst patientunitstayid, infusionoffset, dur_var, index_var, death_icu`, after the warning `max(numeric(0))` | Bug in the **pinned YAIB** callback `abx_cont()` (`ricu-extensions/callbacks/callback-sepsis.R`, commit 74ac699f). When no stay in the batch has an antibiotic record before death, `ricu::slide()` returns its empty input unchanged (the `hopper()` early return), so the `max_gap` column is never created and `res[max_gap <= abx_max_gap]` fails. | Notebook cell **4c** (`dev/work/cells/fix_4c_abx_cont.py`), inserted between the raw-import cell and the extract-labels cell. It patches only the empty case to return the same empty `abx_cont` table the normal path would give. It checks the pinned file's SHA-256 first (`f88c1007…` → `b42caa98…`), is idempotent, and writes `cohorts_v9/<key>/yaib_callback_amendment.json`. Tested on ricu 0.6.0 sources in R 4.3 (`dev/tools/test_abx_cont.R`): reproduces the exact Colab error; patched empty batch returns 0 rows with columns `id, index, abx_cont`; non-empty batch is `identical()` to the original; `susp_inf_alt`/`sep3_alt` accept the empty table, and a positive control still yields a `sep3_alt` label. Because the worker is unchanged, the cohort key stays `52af15d8cc7f3935` and batches 1–14 are reused. Completed batches never reached this code path, so reusing them is valid. **Not yet confirmed on Colab.** |
+
+Earlier, in v9 only: eICU labels failed with `assert_that(): y is not a list`. The worker's eICU nested-dictionary bridge works on real eICU: batches 1–14 passed with `V9_EICU_NESTED_DICTIONARY_OK`.
+
+**Which notebook is actually running.** The collaborator's `Sepsis_V11_Improved_MIMIC_eICU_1.ipynb` is the V10.2 build from **before** commit `bcffa7c`. Its embedded worker is the original one (sha `3e5e87fd…`, without the `units(res) <- units(x)` line), and it has no PhysioNet-repair cell (cell 7 is empty). It also has two debug cells (log reader and `sep3_alt` concept print). In that run the interval fallback printed `1 hours`, not `3600 secs`, and all 19 MIMIC batches finished. So error #5 did not recur there, and why it appeared in the user's earlier run is not fully explained. **Keep using that V11 notebook until labels are complete.** Switching to the repo's notebook (worker sha `13a2d99e…`) changes the cohort key and restarts all label extraction.
 
 ---
 
@@ -105,15 +110,27 @@ Earlier, in v9 only: eICU labels failed with `assert_that(): y is not a list`. V
   - A demo folder `mimic-iv-clinical-database-demo-2.2` still exists elsewhere on the Drive. Do not use it.
 - **Project folder**: `/content/drive/MyDrive/sepsis_colab_project`.
 - **ricu imports**: complete for both databases, including the 4 re-imported MIMIC tables.
-- **Labels and cohorts**: not complete. The worker fix (#5) changes the worker hash, so label extraction restarts under a **new cohort key**. The old key `52af15d8cc7f3935` with 4 finished batches is abandoned and will not be reused. Each smoke batch takes minutes.
+- **Labels and cohorts**, under cohort key `52af15d8cc7f3935` (V11 notebook):
+  - MIMIC: complete (`sepsis/miiv/v9_complete.json`).
+  - eICU: label batches 1–14 of 19 complete (plan folder `batches/fcb2514d8e9794ca`). Batch 15 needs fix #7. The eICU cohort pass (19 more batches) has not started.
+  - Each batch takes about 7 minutes.
 - **Never run on real data yet**: feature building, training, evaluation, and Notebook B on real data.
-- **Recommended Section 1 settings for the next run**:
-  - `RUN_MODE='smoke'`
-  - `ALLOW_FULL_RAW_IMPORT=True` (harmless now)
-  - `REPAIR_FROM_PHYSIONET=False`
+- **Settings in the V11 notebook that must change before any rerun from the top.** It had `FORCE_RICU_REIMPORT=True` and `ALLOW_FULL_RAW_IMPORT=True`, which is why it re-imported every eICU ricu table (about 11:00–12:02). Set:
   - `FORCE_RICU_REIMPORT=False`
+  - `ALLOW_FULL_RAW_IMPORT=False`
+
+  Neither is part of the cohort key. Keep the rest unchanged:
+  - `RUN_MODE='smoke'`
+  - `SMOKE_STAYS_PER_DATASET=1200`
+  - `RANDOM_STATE`
   - `FORCE_YAIB_REEXTRACT=False`
-  - Use a High-RAM Colab runtime with a GPU if available.
+
+  Also, don't touch the raw folders: file sizes and modification times are in the key.
+- **Resume after the fix.**
+  - If the Colab kernel is still alive: insert cell 4c, run it, then rerun only the extract-labels cell.
+  - If the kernel restarted: correct the two flags above, then run all cells. Environment setup re-clones YAIB, and cell 4c re-applies the fix after it.
+
+  You should see `Reuse completed cohort: miiv` and `eicu: reuse completed labels batch 1/19 … 14/19`.
 
 ---
 
@@ -135,7 +152,7 @@ Smoke numbers are **execution evidence only**. Never rank models or tune anythin
 
 ## 6. Pending tasks (priority order)
 
-1. Confirm the batch-5 fix on Colab and finish MIMIC and eICU label/cohort extraction. **eICU labels under V10 are untested**; if eICU fails, read the worker log (`pipeline_logs_v10/eicu_labels_*.log`).
+1. Confirm fix #7 on Colab. eICU batch 15 should pass, and `yaib_callback_amendment.json` should exist. Then finish the 5 remaining eICU label batches and the eICU cohort pass. If another batch fails, read `pipeline_logs_v10/eicu_labels_*.log`. Afterwards, add cell 4c to the repo notebooks as well (`dev/work/cells/fix_4c_abx_cont.py`, rebuild with `dev/tools/build.py`). This is not done yet; the delivered repo notebooks still lack it. Report the number of batches that took the empty-antibiotic path (one so far) in the methods.
 2. Complete one real smoke run of Notebook A. Inspect the onset audit (`v10_onset_audit.parquet`), units, coverage, registry and attrition.
 3. **Notebook B**:
    - Ask the user for the original output folders (`outputs/osta`, `outputs/paper1`), then use `LEGACY_MODE='import_original'`.
@@ -175,6 +192,7 @@ Patient-level files stay on Drive only. Only aggregate CSVs and JSONs may be sha
 - `.../v10_onset_audit.parquet` (patient-level; Drive only)
 - `.../batches/*/hospital_prevalence.csv`
 - `extraction_patch.json`
+- `cohorts_v9/<COHORT_KEY>/yaib_callback_amendment.json` (the YAIB `abx_cont` fix; cite it in the methods as a deviation from pinned YAIB)
 - `validation_v10/yaib_environment_manifest.json` (R/Python/package versions)
 - `validation_v10/v10_candidate_counts.json`
 - `physionet_repair_log.json` (if used)
@@ -222,9 +240,10 @@ Patient-level files stay on Drive only. Only aggregate CSVs and JSONs may be sha
 - **Rebuild**: `python3 dev/tools/build.py dev <outdir>`. The committed sources reproduce the delivered notebooks byte-for-byte.
 - **Test**: run each notebook in fixture mode with `SEPSIS_DATA_SOURCE=fixture` using `dev/tools/runnb.py <nb> <out.ipynb> <project_dir>` (needs Python 3.12, torch, pandas, duckdb≥1.2, nbclient, ipykernel). Expected: 141 main and 49 legacy checks pass, and both runs end in `COMPLETE`.
 - **R check of the worker fix**: `dev/tools/test_patch.R` (needs base R only).
+- **R check of the abx_cont fix**: `dev/tools/test_abx_cont.R`. It needs the ricu 0.6.0 sources (`git clone https://github.com/eth-mds/ricu`), YAIB-cohorts at `74ac699f`, and the packages rlang, vctrs, cli, data.table and assertthat. CRAN is blocked here, so they are built from `github.com/cran/<pkg>` with `R CMD INSTALL`. Paths and instructions are at the top of the script.
 
 ---
 
 ## 10. Message for Dr. Mohamed to paste into the new session
 
-> I am continuing my sepsis V10.2 project. Read `HANDOVER_FOR_NEXT_CLAUDE.md` in repo `mahmoudddj/datasciencecoursera1`, branch `claude/happy-thompson-ngxbp8`, then help me finish the real smoke run, the legacy validation and full mode. Save all outputs needed to write the paper exactly as described in its Section 8. I run the notebooks myself on Colab; ask me for tracebacks and log tails when something fails.
+> I am continuing my sepsis V10.2 project. Read `HANDOVER_FOR_NEXT_CLAUDE.md` in repo `mahmoudddj/datasciencecoursera1`, branch `claude/happy-thompson-ngxbp8`, then help me finish the real smoke run (we are continuing in `Sepsis_V11_Improved_MIMIC_eICU_1.ipynb`, cohort key `52af15d8cc7f3935`, with cell 4c added; see Sections 3–4), the legacy validation and full mode. Save all outputs needed to write the paper exactly as described in its Section 8. I run the notebooks myself on Colab; ask me for tracebacks and log tails when something fails.
