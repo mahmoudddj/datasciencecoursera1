@@ -1,0 +1,58 @@
+# 1. Configuration — change RUN_MODE only when you choose to launch full training.
+from pathlib import Path
+import os,sys,json,time,subprocess,hashlib,shutil,re,gc,importlib.util,warnings
+RUN_MODE = 'smoke'                         # 'smoke' | 'full'; never auto-escalates
+DATA_SOURCE = os.environ.get('SEPSIS_DATA_SOURCE','clinical')  # 'clinical' | 'fixture'
+MOUNT_GOOGLE_DRIVE = DATA_SOURCE == 'clinical' and importlib.util.find_spec('google') is not None and importlib.util.find_spec('google.colab') is not None
+PROJECT_PATH = os.environ.get('SEPSIS_PROJECT_ROOT','')
+RAW_SOURCE_PATHS = {'miiv':os.environ.get('SEPSIS_MIMIC_ROOT',''),
+                    'eicu':os.environ.get('SEPSIS_EICU_ROOT','')}
+REUSE_COHORT_ROOT = ''                     # optional existing .../cohorts_v9/<key>/sepsis
+RELEASE_FINAL_HOLDOUT = False              # full only; prespecify before opening final results
+ALLOW_FULL_RAW_IMPORT = False              # explicit one-time prerequisite if ricu tables absent
+RUN_EXTRACTION = True
+FORCE_RICU_REIMPORT = False
+FORCE_YAIB_REEXTRACT = False
+SMOKE_STAYS_PER_DATASET = 1200             # random candidate sample before YAIB extraction
+MAX_HOURS = 120
+HORIZON_HOURS = 6
+RANDOM_STATE = 42
+R_IMPORT_CHUNK_ROWS = 250_000
+R_IMPORT_PARTITION_ROWS = 250_000
+COHORT_BATCH_STAYS = 64
+FEATURE_BATCH_STAYS = 32
+TRAIN_BATCH_SIZE = 8
+DUCKDB_MEMORY = '1GB'
+RUN_CORE_FEATURE_ABLATION = True
+RUN_FULL_LABEL_BASELINE = True
+RUN_UNGATED_ABLATION = True
+AUTO_FIND_RAW = True
+ALLOW_DEMO_DATA = False
+MAX_SEARCH_DEPTH = 8
+DATASETS = ['miiv','eicu']; YAIB_DATASETS = DATASETS.copy()
+YAIB_COHORTS_COMMIT = '74ac699f5d4117613f9c48bdc4e0852099c42e19'
+assert RUN_MODE in {'smoke','full'} and DATA_SOURCE in {'clinical','fixture'}
+assert not (RUN_MODE=='smoke' and RELEASE_FINAL_HOLDOUT)
+assert not (DATA_SOURCE=='fixture' and RUN_MODE=='full'), 'Fixtures are engineering smoke only.'
+if MOUNT_GOOGLE_DRIVE:
+    from google.colab import drive
+    drive.mount('/content/drive')
+DRIVE_ROOT=Path('/content/drive/MyDrive') if MOUNT_GOOGLE_DRIVE else Path.home()
+PROJECT=Path(PROJECT_PATH or (DRIVE_ROOT/'sepsis_colab_project')).expanduser().resolve()
+RUNTIME_ROOT=Path('/content') if MOUNT_GOOGLE_DRIVE else PROJECT/'runtime'
+RUNTIME_ROOT.mkdir(parents=True,exist_ok=True)
+COHORT_REPO=RUNTIME_ROOT/'YAIB-cohorts';YAIB_VENV=RUNTIME_ROOT/'yaib_py310_r422';YAIB_PYTHON=YAIB_VENV/'bin/python'
+VALIDATION_ROOT=PROJECT/'validation_v10';CODE_DIR=VALIDATION_ROOT/'code'
+TOOLS_ROOT=PROJECT/'tools';LOG_ROOT=PROJECT/'pipeline_logs_v10';RICU_MOUNT=RUNTIME_ROOT/'ricu_rich_mount'
+COHORT_BASE=PROJECT/'cohorts_v9';COHORT_ROOT=COHORT_BASE/'sepsis'
+for p in [PROJECT,CODE_DIR,TOOLS_ROOT,LOG_ROOT,RICU_MOUNT,COHORT_ROOT]:p.mkdir(parents=True,exist_ok=True)
+needed={'numpy':'numpy','pandas':'pandas','torch':'torch','pyarrow':'pyarrow','duckdb':'duckdb','sklearn':'scikit-learn','psutil':'psutil','matplotlib':'matplotlib'}
+missing=[v for k,v in needed.items() if importlib.util.find_spec(k) is None]
+if missing:subprocess.check_call([sys.executable,'-m','pip','install','-q',*missing])
+import numpy as np,pandas as pd,torch,psutil
+from importlib.metadata import version
+torch.set_num_threads(2)
+RUNTIME_VERSIONS={p:version(p) for p in needed.values()}
+warnings.filterwarnings('ignore',message='enable_nested_tensor is True')
+print('Mode:',RUN_MODE,'| data:',DATA_SOURCE,'| full holdout released:',RELEASE_FINAL_HOLDOUT)
+print('RAM available GB:',round(psutil.virtual_memory().available/1024**3,1),'| project:',PROJECT)

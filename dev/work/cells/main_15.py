@@ -1,0 +1,17 @@
+# 7. Matched comparisons; concise console output, detailed logs on disk.
+RESULT_PARTS=[]
+for target in DATASETS:
+    jobs=[('rich',FEATURES,TRAIN_CONFIG)]
+    # Raw-vs-engineered control: same split/eligible rows, raw values+masks+ages only.
+    if RUN_CORE_FEATURE_ABLATION:jobs.append(('raw',CORE_FEATURES,{**TRAIN_CONFIG,'arms':RAW_CONTROL_ARMS,'stress_conditions':[]}))
+    # Extra-label-budget control: OSTA also trained on the observer-fitting patients (80% of development).
+    if RUN_FULL_LABEL_BASELINE:jobs.append(('rich_80pct',FEATURES,{**TRAIN_CONFIG,'arms':['osta'],'stress_conditions':[],'baseline_full_development':True}))
+    for label,fs,cfg in jobs:
+        with (RESULTS_ROOT/(target+'_'+label+'.log')).open('a') as log,contextlib.redirect_stdout(log),contextlib.redirect_stderr(log):
+            result=run_fold(INDEX,fs,target,cfg,RESULTS_ROOT/label/target)
+        result['feature_set']=label;RESULT_PARTS.append(result)
+        print('Completed',target,label)
+RESULTS=pd.concat(RESULT_PARTS,ignore_index=True);RESULTS.to_csv(RESULTS_ROOT/'all_results.csv',index=False)
+atomic_json(RESULTS_ROOT/'COMPLETE.json',{'status':'complete','mode':RUN_MODE,'data_source':DATA_SOURCE,'rows':len(RESULTS),
+  'real_extraction_verified_in_this_run':DATA_SOURCE=='clinical'})
+print('COMPLETE:',RESULTS_ROOT)

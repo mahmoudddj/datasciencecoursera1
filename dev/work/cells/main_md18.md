@@ -1,0 +1,6 @@
+## 9. Switching to full mode
+1. Run this notebook in smoke mode on the real data and check the audit files (`raw_stage_v10/<key>/<ds>/extraction_counts.csv`, `units.csv`, `coverage_all.csv`, `feature_registry.csv`, `v10_onset_audit.parquet`, worker logs).
+2. Fill in `PRIOR_TEST_EXPOSURE`, set `RUN_MODE='full'`, rerun from the top. Full mode removes the 1,200-candidate cap (a new cohort key — smoke caches are never mixed in), uses the larger architectures, up to 30 epochs (patience 5), 10 observer epochs, three seeds, 200 bootstrap draws, 200 boosting iterations and all six guidance stress tests. Section 6 prints the resolved smoke-vs-full table without launching anything.
+3. Keep `RELEASE_FINAL_HOLDOUT=False` until features, outcome rules, alarm policy, threshold budget and contrasts are frozen. Then set it to `True` for the prespecified cross-database directions on protected patients.
+
+Expect full mode to need a GPU runtime and many hours; every epoch, arm and feature batch checkpoints, so rerunning resumes. Histogram boosting has a RAM preflight (`tabular_max_bytes`); raise it only on an adequate runtime. Report with [TRIPOD+AI](https://www.bmj.com/content/385/bmj-2023-078378) and assess with [PROBAST+AI](https://www.bmj.com/content/388/bmj-2024-082505).

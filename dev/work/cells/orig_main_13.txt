@@ -1,0 +1,20 @@
+if DATA_SOURCE == 'clinical':
+    COVERAGE=pd.concat([pd.read_csv(DATA_ROOT/ds/'shards/coverage.csv') for ds in DATASETS],ignore_index=True)
+    display(COVERAGE.groupby('dataset',as_index=False).agg(features=('feature','size'),mean_missing_fraction=('missing_fraction','mean')).round(3))
+    registry=[]
+    for feature in PRIMARY:
+        if feature=='PostoperativeAdmission':status='reserved/unavailable comparably; always missing'
+        else:status='primary candidate; verify observed coverage'
+        registry.append({'feature':feature,'role':status,'organ':organ_mapping([feature])[0][feature],
+          'unit':str(SPEC.get(feature,{}).get('unit','see definition')),
+          'source_mapping':json.dumps(SPEC.get(feature,{}).get('sources',{}))})
+    for f in PHENO:registry.append({'feature':'Phenotype_'+f,'role':'retrospective documentation subgroup only'})
+    for f in MED_CONTEXT:registry.append({'feature':'TreatmentContext_'+f,'role':'retrospective order proxy only'})
+    REGISTRY=pd.DataFrame(registry);REGISTRY.to_csv(DATA_ROOT/'feature_registry.csv',index=False)
+    COVERAGE.to_csv(DATA_ROOT/'coverage_all.csv',index=False)
+    for ds in DATASETS:
+        print(ds,'audit files:',DATA_ROOT/ds/'raw_stage/extraction_counts.csv',DATA_ROOT/ds/'shards/units.csv')
+    if COVERAGE.query("feature == 'UrineOutput'").observed_rows.eq(0).any():
+        raise ValueError('Urine output was not captured in one database. Inspect its table labels/units before training; do not accept an all-missing renal channel.')
+else:
+    print("Synthetic engineering run: clinical extraction skipped.")

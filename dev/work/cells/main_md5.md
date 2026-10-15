@@ -1,0 +1,2 @@
+## 4. Locate data and reuse extraction
+The v9 source recovery, strict RFC CSV parsing (`strict_mode=true`, explicit quote/escape), memory watchdog, balanced ≤64-stay R batches, pinned Python 3.10 / R 4.2.2 / GCC 12 environment, YAIB commit pin and the eICU nested-dictionary repair are preserved unchanged, so existing cohort caches stay valid. A dictionary preflight message (`V9_EICU_NESTED_DICTIONARY_OK`) only shows the dictionary parsed; label extraction is evidenced by each batch's `labels_complete.json`, the worker logs and the onset audit.

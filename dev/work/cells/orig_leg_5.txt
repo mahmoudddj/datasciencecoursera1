@@ -1,0 +1,19 @@
+from v10_legacy import load_bundle,source_files,reproduce,score_target
+from v10_fixture import make_legacy_fixture
+BUNDLE_KEY=signature({'code':CODE_SIGNATURE,'mode':RUN_MODE,'data':DATA_SOURCE,'source':PHYSIONET_SOURCE,'legacy_mode':LEGACY_MODE})[:16]
+BUNDLE_ROOT=VALIDATION_ROOT/'source_bundles'/BUNDLE_KEY
+BUNDLES={}
+if DATA_SOURCE=='fixture':
+    SOURCE_INDEX,TARGET_INDEX=make_legacy_fixture(VALIDATION_ROOT/'synthetic_fixture')
+elif LEGACY_MODE=='reproduce':
+    if not PHYSIONET_SOURCE:raise FileNotFoundError('Set PHYSIONET_SOURCE to your PhysioNet PSV folder or CSV. No weights were included in the supplied archive. Target extraction has not started.')
+    SOURCE_INDEX=source_files(PHYSIONET_SOURCE,BUNDLE_ROOT/'source_stays',RUN_MODE)
+for arm in ['osta','cnn']:
+    with (LOG_ROOT/('legacy_'+arm+'_source.log')).open('a') as log,contextlib.redirect_stdout(log),contextlib.redirect_stderr(log):
+        if DATA_SOURCE=='fixture' or LEGACY_MODE=='reproduce':
+            BUNDLES[arm]=reproduce(SOURCE_INDEX,arm,BUNDLE_ROOT/arm,RUN_MODE,synthetic=DATA_SOURCE=='fixture')
+        else:
+            if not HISTORICAL_BUNDLES[arm]:raise FileNotFoundError('Set HISTORICAL_BUNDLES['+arm+'] to its complete source bundle.')
+            BUNDLES[arm]=load_bundle(HISTORICAL_BUNDLES[arm],arm,RUN_MODE)
+    assert BUNDLES[arm][1]['max_hours']==MAX_HOURS, 'Both frozen models must use the same declared target trajectory length'
+    print('Source bundle verified:',arm,'|',BUNDLES[arm][1]['provenance'])

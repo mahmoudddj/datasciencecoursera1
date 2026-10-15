@@ -1,0 +1,1203 @@
+{
+  "Albumin": {
+    "concept": "alb",
+    "unit": "g/dL",
+    "min": 0,
+    "max": 6,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50862,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "albumin",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Alkalinephos": {
+    "concept": "alp",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50863,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "alkaline phos.",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "ALT": {
+    "concept": "alt",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50861,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "ALT (SGPT)",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "AST": {
+    "concept": "ast",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50878,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "AST (SGOT)",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "BaseExcess": {
+    "concept": "be",
+    "unit": [
+      "mEq/L",
+      "mmol/l"
+    ],
+    "min": -25,
+    "max": 25,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50802,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "Base Excess",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "HCO3": {
+    "concept": "bicar",
+    "unit": [
+      "mEq/L",
+      "mmol/l"
+    ],
+    "min": 5,
+    "max": 50,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50882,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "bicarbonate",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Bilirubin_total": {
+    "concept": "bili",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50885,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "total bilirubin",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Bilirubin_direct": {
+    "concept": "bili_dir",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 50,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50883,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "direct bilirubin",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Bands": {
+    "concept": "bnd",
+    "unit": "%",
+    "min": null,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51144,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "-bands",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "BUN": {
+    "concept": "bun",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 200,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51006,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "BUN",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Calcium": {
+    "concept": "ca",
+    "unit": "mg/dL",
+    "min": 4,
+    "max": 20,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50893,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "calcium",
+          "table": "lab",
+          "sub_var": "labname",
+          "callback": "convert_unit(binary_op(`*`, 4), 'mg/dL', 'mmol/l')"
+        }
+      ]
+    }
+  },
+  "CalciumIonized": {
+    "concept": "cai",
+    "unit": "mmol/L",
+    "min": 0.5,
+    "max": 2,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50808,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "ionized calcium",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "CK": {
+    "concept": "ck",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50910,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "CPK",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "CKMB": {
+    "concept": "ckmb",
+    "unit": "ng/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50911,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "CPK-MB",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Chloride": {
+    "concept": "cl",
+    "unit": [
+      "mEq/L",
+      "mmol/l"
+    ],
+    "min": 80,
+    "max": 130,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50902,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "chloride",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Creatinine": {
+    "concept": "crea",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 15,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50912,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "creatinine",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "CRP": {
+    "concept": "crp",
+    "unit": "mg/L",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50889,
+          "table": "labevents",
+          "sub_var": "itemid",
+          "callback": "convert_unit(binary_op(`*`, 10), 'mg/L', 'mg/dl')"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "CRP",
+          "table": "lab",
+          "sub_var": "labname",
+          "callback": "convert_unit(binary_op(`*`, 10), 'mg/L', 'mg/dl')"
+        }
+      ]
+    }
+  },
+  "DBP": {
+    "concept": "dbp",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 0,
+    "max": 200,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220051,
+            220180
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "systemicdiastolic",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "Fibrinogen": {
+    "concept": "fgn",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 1500,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51214,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "fibrinogen",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "FiO2": {
+    "concept": "fio2",
+    "unit": "%",
+    "min": 21,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 223835,
+          "table": "chartevents",
+          "sub_var": "itemid"
+        },
+        {
+          "ids": 50816,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "FiO2",
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel",
+          "callback": "transform_fun(percent_as_numeric)"
+        },
+        {
+          "ids": "FiO2",
+          "table": "lab",
+          "sub_var": "labname",
+          "callback": "convert_unit(set_val(NA), '%', 'mm\\\\(hg\\\\)')"
+        }
+      ]
+    }
+  },
+  "Glucose": {
+    "concept": "glu",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 1000,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50809,
+            50931
+          ],
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "glucose",
+          "table": "lab",
+          "sub_var": "labname"
+        },
+        {
+          "ids": "bedside glucose",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Hgb": {
+    "concept": "hgb",
+    "unit": "g/dL",
+    "min": 4,
+    "max": 18,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51222,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "Hgb",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "HR": {
+    "concept": "hr",
+    "unit": [
+      "bpm",
+      "/min"
+    ],
+    "min": 0,
+    "max": 300,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 220045,
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "heartrate",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "INR": {
+    "concept": "inr_pt",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51237,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "PT - INR",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Potassium": {
+    "concept": "k",
+    "unit": [
+      "mEq/L",
+      "mmol/l"
+    ],
+    "min": 0,
+    "max": 10,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50971,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "potassium",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Lactate": {
+    "concept": "lact",
+    "unit": "mmol/L",
+    "min": 0,
+    "max": 50,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50813,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "lactate",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Lymphocytes": {
+    "concept": "lymph",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51244,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "-lymphs",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "MAP": {
+    "concept": "map",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 0,
+    "max": 250,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220052,
+            220181,
+            225312
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "systemicmean",
+          "class": "col_itm"
+        },
+        {
+          "table": "vitalaperiodic",
+          "val_var": "noninvasivemean",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "MCH": {
+    "concept": "mch",
+    "unit": "pg",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51248,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "MCH",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "MCHC": {
+    "concept": "mchc",
+    "unit": "%",
+    "min": 20,
+    "max": 50,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51249,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "MCHC",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "MCV": {
+    "concept": "mcv",
+    "unit": "fL",
+    "min": 50,
+    "max": 150,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51250,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "MCV",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "MetHb": {
+    "concept": "methb",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50814,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "Methemoglobin",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Magnesium": {
+    "concept": "mg",
+    "unit": "mg/dL",
+    "min": 0.5,
+    "max": 5,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50960,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "magnesium",
+          "table": "lab",
+          "sub_var": "labname",
+          "callback": "convert_unit(binary_op(`/`, 1.215), 'mg/dL', 'mEq/L')"
+        }
+      ]
+    }
+  },
+  "Sodium": {
+    "concept": "na",
+    "unit": [
+      "mEq/L",
+      "mmol/l"
+    ],
+    "min": 110,
+    "max": 165,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50983,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "sodium",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Neutrophils": {
+    "concept": "neut",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51256,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "-polys",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "O2Sat": {
+    "concept": "o2sat",
+    "unit": [
+      "%",
+      "% Sat."
+    ],
+    "min": 50,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220277,
+            226253,
+            50817
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "sao2",
+          "unit_val": "%",
+          "class": "col_itm"
+        },
+        {
+          "ids": "O2 Sat (%)",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "PaCO2": {
+    "concept": "pco2",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 10,
+    "max": 150,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50818,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "paCO2",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "pH": {
+    "concept": "ph",
+    "unit": null,
+    "min": 6.8,
+    "max": 8,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50820,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "pH",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Phosphate": {
+    "concept": "phos",
+    "unit": "mg/dL",
+    "min": 0,
+    "max": 40,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50970,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "phosphate",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Platelets": {
+    "concept": "plt",
+    "unit": [
+      "K/uL",
+      "G/l"
+    ],
+    "min": 5,
+    "max": 1200,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51265,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "platelets x 1000",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "PaO2": {
+    "concept": "po2",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 40,
+    "max": 600,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 50821,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "paO2",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "PTT": {
+    "concept": "ptt",
+    "unit": "sec",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51275,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "PTT",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Resp": {
+    "concept": "resp",
+    "unit": [
+      "insp/min",
+      "/min"
+    ],
+    "min": 0,
+    "max": 120,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220210,
+            224688,
+            224689,
+            224690
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "respiration",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "SBP": {
+    "concept": "sbp",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 0,
+    "max": 300,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220050,
+            220179
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "systemicsystolic",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "Temp": {
+    "concept": "temp",
+    "unit": [
+      "C",
+      "\u00b0C"
+    ],
+    "min": 32,
+    "max": 42,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 223762,
+          "table": "chartevents",
+          "sub_var": "itemid"
+        },
+        {
+          "ids": [
+            223761,
+            224027
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid",
+          "callback": "convert_unit(fahr_to_cels, 'C', 'f')"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "temperature",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "TroponinT": {
+    "concept": "tnt",
+    "unit": "ng/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51003,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "troponin - T",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "UrineOutput": {
+    "concept": "urine",
+    "unit": "mL",
+    "min": 0,
+    "max": 2000,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            226557,
+            226558,
+            226559,
+            226560,
+            226561,
+            226563,
+            226564,
+            226565,
+            226566,
+            226567,
+            226584,
+            227510
+          ],
+          "table": "outputevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Urine",
+            "URINE CATHETER"
+          ],
+          "table": "intakeoutput",
+          "sub_var": "celllabel"
+        },
+        {
+          "regex": "catheter.+output|output.+catheter",
+          "table": "intakeoutput",
+          "sub_var": "celllabel",
+          "class": "rgx_itm"
+        }
+      ]
+    }
+  },
+  "WBC": {
+    "concept": "wbc",
+    "unit": [
+      "K/uL",
+      "G/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": 51301,
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "WBC x 1000",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+if DATA_SOURCE=='fixture':
+    display(RESULTS.groupby(['target','feature_set'],as_index=False).agg(completed_rows=('arm','size'),arms=('arm','nunique')))
+    print('Synthetic fit/calibration/metric/export checks completed; clinical performance is unverified.')
+else:
+    display(RESULTS.loc[RESULTS.condition.eq('normal'),['target','scope','feature_set','arm','seed','prevalence','hourly_AUPRC','hourly_AUROC','hourly_Brier','event_sensitivity','alarm_PPV','false_alarms_per_patient_day']].round(4))
+    import matplotlib.pyplot as plt
+    # Export a diagnostic with explicit axes; no winner selection or test retuning.
+    for target in DATASETS:
+        path=RESULTS_ROOT/'rich'/target/'seed_42'/'osta'/'calibration_normal.csv'
+        if not path.exists():continue
+        p=pd.read_csv(path);fig,ax=plt.subplots(figsize=(5,4))
+        ax.plot([0,1],[0,1],'--',color='#555555',label='Ideal')
+        ax.plot(p.mean_risk,p.event_fraction,'o-',color='#285f8f',label='OSTA')
+        ax.set(xlim=(0,1),ylim=(0,1),xlabel='Mean predicted six-hour risk',ylabel='Observed fraction',title=target+' | '+RUN_MODE+' calibration')
+        ax.legend();fig.tight_layout();fig.savefig(RESULTS_ROOT/(target+'_calibration.png'),dpi=160);plt.show()

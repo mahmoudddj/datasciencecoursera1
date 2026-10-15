@@ -1,0 +1,4 @@
+## 7. Evaluation contract
+The [official scorer](https://github.com/physionetchallenges/evaluation-2019) is pinned to commit `467c49b514542be7a4a0bafe40fa2c3b064dda2e` (embedded SHA-256 `26b8b26267ed32e8b7a7a27e45201cfc8c6640e717ba4cdc1f452b32f12b99e5`, re-verified against GitHub during preparation). Both archived utility functions are checked against it, including edge cases. Utility requires contiguous hourly trajectories (time is never compressed). Result: **challenge-compatible utility on a restricted external cohort**, not the original leaderboard score, and not comparable to utility on truncated incident-prediction records.
+
+Event metrics use operational onset: timely (0–6 h before onset), late (at/after onset) and excessively early (> 6 h) alarm episodes are counted separately, with false-alarm burden per patient-day. Source thresholds and calibration stay frozen; nothing is tuned on target results.

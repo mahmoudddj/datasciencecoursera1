@@ -1,0 +1,21 @@
+{
+ "main": {
+  "default_mode": "smoke",
+  "prepared": "2026-10-14",
+  "kernel_execution": "passed (nbclient, fresh kernel, fixture mode, two library stacks)",
+  "real_clinical_data": "not run",
+  "full_training": "not run",
+  "interruption_resume": "bit-identical after kernel kill",
+  "engineering_checks": 141
+ },
+ "legacy": {
+  "default_mode": "smoke",
+  "prepared": "2026-10-14",
+  "kernel_execution": "passed (nbclient, fresh kernel, fixture mode, two library stacks)",
+  "real_clinical_data": "not run",
+  "full_training": "not run",
+  "interruption_resume": "bit-identical after kernel kill",
+  "legacy_checks": 49,
+  "historical_weights": "not supplied"
+ }
+}

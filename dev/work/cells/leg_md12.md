@@ -1,0 +1,2 @@
+## 6. Target adapter
+Full hourly trajectories (not the main notebook's pre-onset shards): follow-up to actual ICU discharge capped at 120 h, PhysioNet step label `Hour ≥ onset − 6` applied **once**, HospAdmTime from hospital vs ICU admission times, development-designated patients only unless the final holdout is released. Stays whose onset is < 7 h are excluded with an audit file (their first label hour would be clipped and the official scorer would misplace onset). Chunks resume after interruption.
