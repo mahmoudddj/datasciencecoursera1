@@ -10,7 +10,7 @@ RAW_SOURCE_PATHS = {'miiv':os.environ.get('SEPSIS_MIMIC_ROOT',''),
                     'eicu':os.environ.get('SEPSIS_EICU_ROOT','')}
 REUSE_COHORT_ROOT = ''                     # optional existing .../cohorts_v9/<key>/sepsis
 RELEASE_FINAL_HOLDOUT = False              # full only; prespecify before opening final results
-ALLOW_FULL_RAW_IMPORT = False              # explicit one-time prerequisite if ricu tables absent
+ALLOW_FULL_RAW_IMPORT = False              # False = reuse the existing ricu import (verify only); stops and names any table that would need re-import
 REPAIR_FROM_PHYSIONET = False              # True: download full versions of demo-sized MIMIC-IV core tables (Section 4a)
 PHYSIONET_USERNAME = ''                    # your PhysioNet login; the password is asked for and never saved
 MIMIC_IV_VERSION = '3.1'                   # must match the release in RAW_SOURCE_PATHS['miiv']
