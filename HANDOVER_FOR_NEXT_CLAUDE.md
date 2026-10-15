@@ -134,6 +134,8 @@ Earlier, in v9 only: eICU labels failed with `assert_that(): y is not a list`. T
 
 ---
 
+**Update 15 Oct 2026 (session on branch `claude/tender-keller-5szu1g`).** `Sepsis_V11_Improved_MIMIC_eICU_2.ipynb` at the repo root is the collaborator's V11 notebook with only these changes: cell 4c inserted between the raw-import and extract-labels cells; `FORCE_RICU_REIMPORT=False` and `ALLOW_FULL_RAW_IMPORT=False`; the two debug cells removed; outputs cleared. The embedded modules (and so the worker sha and cohort key `52af15d8cc7f3935`) are unchanged. The 4c hashes were re-checked against the YAIB-cohorts file at `74ac699f` (pinned `f88c1007…`, patched `b42caa98…`).
+
 ## 5. Expected outcome of the next smoke run (Notebook A)
 
 1. **Section 4 audit**: every row `ok`. Stay counts about 94,000 (miiv) and 200,859 (eicu).
