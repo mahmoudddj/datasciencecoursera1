@@ -3,7 +3,7 @@
 #   git clone https://github.com/eth-mds/ricu /home/user/eth-mds/ricu           # ricu 0.6.0 sources
 #   git clone https://github.com/rvandewater/YAIB-cohorts && git -C YAIB-cohorts checkout 74ac699f
 #   cp YAIB-cohorts/ricu-extensions/callbacks/callback-sepsis.R orig.R
-#   python3 -c "exec(open('dev/work/cells/fix_4c_abx_cont.py').read().split('if DATA_SOURCE')[0]); open('patched.R','w').write(open('orig.R').read().replace(_OLD,_NEW))"
+#   python3 -c "from pathlib import Path; COHORT_REPO=Path('.'); exec(open('dev/work/cells/fix_4c_abx_cont.py').read().split('if DATA_SOURCE')[0]); open('patched.R','w').write(open('orig.R').read().replace(_OLD,_NEW))"
 #   for p in rlang glue cli lifecycle vctrs data.table assertthat; do git clone --depth 1 https://github.com/cran/$p; R CMD INSTALL -l ../rlib $p; done
 # Run from the folder holding orig.R/patched.R:  Rscript test_abx_cont.R
 .libPaths(c("../rlib", .libPaths()))
