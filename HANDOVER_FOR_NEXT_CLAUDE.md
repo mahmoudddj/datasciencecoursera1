@@ -164,7 +164,20 @@ Worker and `v9_data` are unchanged. All 140 checks pass. The fake-worker batch r
 - New cell 7b (`dev/work/cells/team_summary_7b.py`) writes `team_summary_performance.csv` and `team_summary_cohort.csv`. It works on partial results after an interrupt.
 - A fixture run of the whole notebook is OK.
 
-**Set N from the first `BATCH_TIMING` line of `_5_timing`, before the run starts.** Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
+**Timing test result (Colab, local copy, 500 stays per batch, sequential):**
+
+| Database | Labels | Cohort | Peak machine RAM |
+|---|---|---|---|
+| MIMIC | 2.5–2.6 min | 5.9 min | about 6 GB |
+| eICU | 6.5–6.6 min | 14.2 min | about 15 GB |
+
+That is about 20× faster per stay than the 7 min per 64 stays seen on Drive. Linear extrapolation to all stays, sequentially: MIMIC about 27 h, eICU about 139 h.
+
+Added `LABEL_PARALLEL_BATCHES` (`v9_runtime.extract_cohort_batched(parallel=)`): thread pool of subprocesses, capped by CPU−1 and by free RAM ÷ 16 GB. A per-log `RUN_STATS`, a lock on `batch_timing.csv`, and failure or interrupt stops the others (`stop_active`). Tested with a fake worker: parallel run, failure path, resume.
+
+Interim N stays 10,000 per database with 4 parallel batches. Expected labels about 2.5–3.5 h.
+
+**Original note:** Set N from the first `BATCH_TIMING` line of `_5_timing`, before the run starts. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
 
 ## 5. Expected outcome of the next smoke run (Notebook A)
 

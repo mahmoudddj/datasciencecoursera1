@@ -64,6 +64,9 @@ def re_identifier(name):
     return bool(re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*',name))
 
 LAST_RUN={}  # wall time and peak machine RAM in use during the latest run_logged call
+RUN_STATS={}  # the same, per log path (safe when batches run in parallel)
+TIMING_LOCK=threading.Lock()
+ACTIVE_PROCS=set()  # running subprocesses, stopped together if a parallel batch fails or is interrupted
 
 def run_logged(cmd,log_path,cwd=None,env=None,reserve_gb=1.5):
     log_path=Path(log_path);log_path.parent.mkdir(parents=True,exist_ok=True)
@@ -76,6 +79,7 @@ def run_logged(cmd,log_path,cwd=None,env=None,reserve_gb=1.5):
     with log_path.open('w') as f:
         proc=subprocess.Popen(list(map(str,cmd)),cwd=cwd,env=run_env,stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,text=True,bufsize=1,start_new_session=True)
+        ACTIVE_PROCS.add(proc)
         def watch():
             while not done.wait(.5):
                 vm=psutil.virtual_memory();peak[0]=max(peak[0],(vm.total-vm.available)/1024**3)
@@ -94,8 +98,9 @@ def run_logged(cmd,log_path,cwd=None,env=None,reserve_gb=1.5):
                 if time.time()-last>10 or any(s in line for s in ['Error','ERROR','COMPLETE','Failed','Traceback']):
                     print(line.rstrip(),flush=True);last=time.time()
             rc=proc.wait()
-        finally:done.set();thread.join(timeout=1)
+        finally:done.set();thread.join(timeout=1);ACTIVE_PROCS.discard(proc)
     LAST_RUN.update(minutes=(time.time()-started)/60,peak_used_gb=peak[0])
+    RUN_STATS[str(log_path)]=dict(LAST_RUN)
     if stopped:
         raise MemoryError('Stopped the subprocess to preserve Colab RAM. Completed batches remain saved. '
                           'Lower COHORT_BATCH_STAYS (e.g. 64 to 32) or R_IMPORT_CHUNK_ROWS, then rerun. Log: '+str(log_path))
@@ -132,7 +137,12 @@ def merge_parquets(paths,target):
     finally:
         if writer is not None:writer.close()
 
-def extract_cohort_batched(ds,root,output,worker,python,py_dir,env,batch_size=64,smoke_n=1200,seed=42,log_root=None):
+def stop_active():
+    for proc in list(ACTIVE_PROCS):
+        try:os.killpg(proc.pid,signal.SIGTERM)
+        except ProcessLookupError:pass
+
+def extract_cohort_batched(ds,root,output,worker,python,py_dir,env,batch_size=64,smoke_n=1200,seed=42,log_root=None,parallel=1):
     """Build the YAIB cohort in balanced, bounded subprocess batches.
 
     The original plan used fixed slices and could leave a very small final
@@ -203,47 +213,45 @@ def extract_cohort_batched(ds,root,output,worker,python,py_dir,env,batch_size=64
             counts['prevalence']=counts['sum']/counts['count']
             counts.to_csv(plan/'hospital_prevalence.csv',index=False)
 
-        for n,p in enumerate(folders,1):
-            complete=p/(mode+'_complete.json')
-
-            if complete.is_file():
-                print(f'{ds}: reuse completed {mode} batch {n}/{len(folders)}',flush=True)
-                continue
-
+        def run_batch(n,p):
             batch_ids=json.loads((p/'ids.json').read_text())
-
-            print(
-                f'{ds}: {mode} batch {n}/{len(folders)} '
-                f'({len(batch_ids)} stays; {len(ids)} total candidates)',
-                flush=True
-            )
-
-            cmd=[
-                python,worker,
-                '--mode',mode,
-                '--src',ds,
-                '--ids',p/'ids.json',
-                '--out',p
-            ]
-
-            if mode=='cohort':
-                cmd+=['--hospital-map',plan/'hospital_prevalence.csv']
-
-            run_logged(
-                cmd,
-                Path(log_root or output)/f'{ds}_{mode}_{n:05d}.log',
-                cwd=str(py_dir),
-                env=env
-            )
+            print(f'{ds}: {mode} batch {n}/{len(folders)} ({len(batch_ids)} stays; {len(ids)} total candidates)',flush=True)
+            cmd=[python,worker,'--mode',mode,'--src',ds,'--ids',p/'ids.json','--out',p]
+            if mode=='cohort':cmd+=['--hospital-map',plan/'hospital_prevalence.csv']
+            log=Path(log_root or output)/f'{ds}_{mode}_{n:05d}.log'
+            run_logged(cmd,log,cwd=str(py_dir),env=env)
             # Timing record for planning full mode (aggregate only: counts, minutes, GB).
-            timing=Path(log_root or output)/'batch_timing.csv'
+            st=RUN_STATS.get(str(log),{});timing=Path(log_root or output)/'batch_timing.csv'
             row=pd.DataFrame([{'finished':time.strftime('%Y-%m-%d %H:%M:%S'),'dataset':ds,'mode':mode,
                 'batch':n,'batches':len(folders),'stays':len(batch_ids),'max_batch_size':int(batch_size),
-                'minutes':round(LAST_RUN.get('minutes',float('nan')),2),
-                'peak_ram_used_gb':round(LAST_RUN.get('peak_used_gb',float('nan')),1),'data_root':str(root)}])
-            row.to_csv(timing,mode='a',header=not timing.is_file(),index=False)
+                'minutes':round(st.get('minutes',float('nan')),2),'peak_ram_used_gb':round(st.get('peak_used_gb',float('nan')),1),
+                'parallel_batches':workers,'data_root':str(root)}])
+            with TIMING_LOCK:row.to_csv(timing,mode='a',header=not timing.is_file(),index=False)
             print(f"BATCH_TIMING {ds} {mode} {n}/{len(folders)}: {len(batch_ids)} stays, "
-                  f"{LAST_RUN.get('minutes',0):.1f} min, peak RAM in use {LAST_RUN.get('peak_used_gb',0):.1f} GB",flush=True)
+                  f"{st.get('minutes',0):.1f} min, peak RAM in use {st.get('peak_used_gb',0):.1f} GB",flush=True)
+        pending=[]
+        for n,p in enumerate(folders,1):
+            if (p/(mode+'_complete.json')).is_file():print(f'{ds}: reuse completed {mode} batch {n}/{len(folders)}',flush=True)
+            else:pending.append((n,p))
+        # Batches are independent within a phase (each writes only its own folder), so they may run in
+        # parallel. Capped by CPU count; the RAM watchdog in run_logged still guards every process.
+        # ~16 GB headroom per batch (largest measured: eICU cohort, 500 stays, about 11-15 GB machine-wide).
+        ram_cap=max(1,int(psutil.virtual_memory().available/1024**3//16))
+        workers=max(1,min(int(parallel),len(pending) or 1,max(1,(os.cpu_count() or 2)-1),ram_cap))
+        if workers>1:print(f'{ds}: {mode}: running up to {workers} batches in parallel (CPUs: {os.cpu_count()}, RAM cap: {ram_cap})',flush=True)
+        if workers==1:
+            for n,p in pending:run_batch(n,p);gc.collect()
+        else:
+            from concurrent.futures import ThreadPoolExecutor,as_completed
+            pool=ThreadPoolExecutor(workers);futures=[]
+            try:
+                futures=[pool.submit(run_batch,n,p) for n,p in pending]
+                for f in as_completed(futures):f.result()
+            except BaseException:
+                # One failure (or a manual interrupt) stops the others; completed batches stay saved.
+                for f in futures:f.cancel()
+                stop_active();raise
+            finally:pool.shutdown(wait=True,cancel_futures=True)
             gc.collect()
 
     for name in ['outc','dyn','sta']:

@@ -15,7 +15,7 @@ if need_extract:
         extract_cohort_batched(ds,resolved_raw[ds],COHORT_ROOT/ds,worker,YAIB_PYTHON,py_dir,
             ds_extract_env,batch_size=COHORT_BATCH_STAYS,
             smoke_n=COHORT_PROTOCOL['candidate_n'],  # smoke cap, prespecified full-mode sample, or None (all stays)
-            seed=RANDOM_STATE,log_root=LOG_ROOT)
+            seed=RANDOM_STATE,log_root=LOG_ROOT,parallel=globals().get('LABEL_PARALLEL_BATCHES',1))
         atomic_json(COHORT_ROOT/ds/'v9_complete.json',{'protocol':COHORT_KEY})
         gc.collect()
 for ds in DATASETS:
