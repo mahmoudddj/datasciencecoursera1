@@ -183,7 +183,29 @@ Interim N stays 10,000 per database with 4 parallel batches. Expected labels abo
 - RAW_STAGE_KEY `27c40d91ac0d67e8`, DATA_KEY `3270da0c0f507369`, RUN_KEY `bd4f8ab28e59f7e2`.
 - Config: full, seeds [42], 301 features (159 raw-control).
 - No never-observed channel was reported. Mean missing fraction: eicu 0.534, miiv 0.407.
-- Training (Section 7) has started. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
+- Training (Section 7) has started.
+
+**17 Oct: interim run `bd4f8ab28e59f7e2` COMPLETE.** Training on the A100 took about 3 h (early stopping); everything finished by 19:12.
+
+Cohort:
+
+| | Sampled | After YAIB | Sealed | Development stays (patients) | Hospitals | Sepsis prediction window |
+|---|---|---|---|---|---|---|
+| MIMIC | 10,000 | 8,758 | 1,679 | 7,079 (6,713) | 1 | 350 |
+| eICU | 10,000 | 5,623 | 1,168 | 4,455 (4,363) | 101 | 226 |
+
+MIMIC test results (63,488 hours, prevalence 0.65%, 71 events) look plausible:
+- AUROC: OSTA 0.819, gated 0.819, observer features 0.817, CNN 0.814, fusion 0.807, logistic 0.775, boosted trees 0.762, ungated 0.762.
+- Gated − OSTA AUPRC +0.0022 (−0.0007, 0.0049).
+
+**eICU results were INVALID.** AUROC was 0.31–0.39 for most arms (only rich logistic 0.66 and raw OSTA 0.67 were above 0.5), and the test calibration slopes were about −3.
+- Cause: `v9_train.calibrate()` allowed a NEGATIVE Platt slope, fitted on the small eICU calibration split (about 18 positive stays). A negative slope reverses the ranking of every test prediction.
+- Fix in `dev/work/mods/v9_train.py`: when the fitted slope is ≤ 0, fall back to intercept-only recalibration (slope 1). Both `fallback` and `fitted_slope` are recorded in `calibration_and_threshold.json`.
+- Team summary 7b now shows `platt_slope_fitted` and `platt_fallback`.
+
+**Notebook `Sepsis_V11_Improved_MIMIC_eICU_7_interim_calfix.ipynb`** is built from the user's `_6`. It keeps `LABEL_PARALLEL_BATCHES=6` and adds the final `PRIOR_TEST_EXPOSURE` text, which discloses that this interim look led to the fix. The new code means a new RUN_KEY, so training reruns; labels, raw stage and features are reused. Fixture OK; 140 checks pass.
+
+Disclose this in the paper as a deviation found from implausible interim results (a monotonicity bug, not tuning). Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
 
 ## 5. Expected outcome of the next smoke run (Notebook A)
 

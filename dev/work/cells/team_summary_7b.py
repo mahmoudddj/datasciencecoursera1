@@ -4,10 +4,14 @@
 perf=[]
 for p in sorted(RESULTS_ROOT.glob('*/*/seed_*/*/completed.json')):
     for r in json.loads(p.read_text()):
-        if r.get('condition')=='normal':perf.append({**r,'feature_set':p.parts[-5]})
+        if r.get('condition')=='normal':
+            cal=p.parent/'calibration_and_threshold.json'
+            platt=json.loads(cal.read_text())['platt'] if cal.is_file() else {}
+            perf.append({**r,'feature_set':p.parts[-5],'platt_slope_fitted':platt.get('fitted_slope',platt.get('slope')),
+                         'platt_fallback':platt.get('fallback','')})
 cols=['target','feature_set','arm','seed','stays','eligible_hours','positive_hours','prevalence','hourly_AUROC','hourly_AUPRC',
       'AUPRC_CI_low','AUPRC_CI_high','hourly_Brier','ECE_10bin','calibration_slope','event_sensitivity',
-      'false_alarms_per_patient_day','median_warning_hours_detected']
+      'false_alarms_per_patient_day','median_warning_hours_detected','platt_slope_fitted','platt_fallback']
 TEAM_PERF=pd.DataFrame(perf)
 if len(TEAM_PERF):
     TEAM_PERF=TEAM_PERF[[c for c in cols if c in TEAM_PERF]].sort_values(['target','feature_set','arm']).reset_index(drop=True)

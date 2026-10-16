@@ -184,7 +184,17 @@ def calibrate(cal):
     # Fit on an independent development partition, never on external test labels.
     sample=cal.sample(min(len(cal),250000),random_state=42)
     fit=LogisticRegression(C=1e6,solver='lbfgs',max_iter=1000).fit(sample[['logit']],sample.y)
-    return {'intercept':float(fit.intercept_[0]),'slope':float(fit.coef_[0,0])}
+    slope=float(fit.coef_[0,0])
+    if slope>0:return {'intercept':float(fit.intercept_[0]),'slope':slope}
+    # A non-positive Platt slope would REVERSE the model's ranking on every later dataset (seen on a small
+    # eICU calibration split). Calibration must be monotone increasing, so keep the ranking and
+    # recalibrate the intercept only (slope fixed at 1). The fitted slope is recorded for reporting.
+    from scipy.optimize import minimize_scalar
+    z=sample.logit.to_numpy(dtype=float);y=sample.y.to_numpy(dtype=float)
+    def loss(b):
+        s=np.clip(b+z,-30,30);return float(np.mean(np.logaddexp(0,s)-y*s))
+    b=float(minimize_scalar(loss,bounds=(-30,30),method='bounded').x)
+    return {'intercept':b,'slope':1.0,'fallback':'intercept_only_nonpositive_platt_slope','fitted_slope':slope}
 
 def apply_calibration(d,params):
     d=d.copy();x=np.clip(params['intercept']+params['slope']*d.logit.to_numpy(),-30,30);d['risk']=(1/(1+np.exp(-x))).astype(np.float32);return d
