@@ -14,7 +14,7 @@ if need_extract:
         ds_extract_env['RICU_SRC_LOAD']=ds
         extract_cohort_batched(ds,resolved_raw[ds],COHORT_ROOT/ds,worker,YAIB_PYTHON,py_dir,
             ds_extract_env,batch_size=COHORT_BATCH_STAYS,
-            smoke_n=SMOKE_STAYS_PER_DATASET if RUN_MODE=='smoke' else None,
+            smoke_n=COHORT_PROTOCOL['candidate_n'],  # smoke cap, prespecified full-mode sample, or None (all stays)
             seed=RANDOM_STATE,log_root=LOG_ROOT)
         atomic_json(COHORT_ROOT/ds/'v9_complete.json',{'protocol':COHORT_KEY})
         gc.collect()

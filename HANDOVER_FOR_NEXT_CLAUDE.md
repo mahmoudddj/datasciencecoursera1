@@ -155,6 +155,17 @@ Earlier, in v9 only: eICU labels failed with `assert_that(): y is not a list`. T
 
 Worker and `v9_data` are unchanged. All 140 checks pass. The fake-worker batch run and the copy cell (including an interrupted-copy rerun) were tested locally. Compare the result with the about 7 min per 64-stay batch from Drive.
 
+**16 Oct (Friday): MONDAY 19 OCT TEAM MEETING.** The user must show interim cohort and performance results. Plan agreed with the user: Colab (local disk plus bigger batches) with a **prespecified random sample**, run now. Google Cloud is set up in parallel for the paper-scale run afterwards. Team wants both cohort and performance numbers; seeds = 1 for the interim (my default; the user did not object).
+
+`Sepsis_V11_Improved_MIMIC_eICU_6_interim.ipynb`, built from `_5_timing`:
+- Config: `RUN_MODE='full'` (30 epochs, full-size models, 200 bootstraps) with `FULL_SAMPLE_STAYS_PER_DATASET=10000`. This goes into `candidate_n`, so it is part of the cohort key and is prespecified. Also `FULL_SEEDS=[42]`, `TABULAR_MAX_GB=24`, a `STUDY_STAGE` text, and a DRAFT `PRIOR_TEST_EXPOSURE` that the user must check.
+- `v9_extract_labels.py` now uses `COHORT_PROTOCOL['candidate_n']`; it is identical for smoke.
+- Training order: `rich` on both databases first, then the raw and 80% controls.
+- New cell 7b (`dev/work/cells/team_summary_7b.py`) writes `team_summary_performance.csv` and `team_summary_cohort.csv`. It works on partial results after an interrupt.
+- A fixture run of the whole notebook is OK.
+
+**Set N from the first `BATCH_TIMING` line of `_5_timing`, before the run starts.** Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
+
 ## 5. Expected outcome of the next smoke run (Notebook A)
 
 1. **Section 4 audit**: every row `ok`. Stay counts about 94,000 (miiv) and 200,859 (eicu).
