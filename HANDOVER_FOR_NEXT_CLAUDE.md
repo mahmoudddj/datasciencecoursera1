@@ -1,5 +1,7 @@
 # Handover: Sepsis V10.2 project (MIMIC-IV + eICU) for Dr. Mahmoud Mohamed
 
+> **Status, 16 Oct 2026: the real smoke run of Notebook A has COMPLETED on Colab** (V11 notebook, cohort key `52af15d8cc7f3935`, with cell 4c). The next phase is **full mode on a rented high-memory cloud machine**. You lead that move: see **Section 11** (Google Cloud recommended, AWS as the alternative). Do the Section 8 archive of the smoke outputs first.
+
 **For the next Claude session.** Read this whole file before acting. It records what was built, every error met on real data and how it was fixed, the exact current state, what to expect next, and what is still pending. **Your standing instruction from Dr. Mohamed: save every output needed to write the paper (see Section 8).**
 
 - Repository: `mahmoudddj/datasciencecoursera1`, branch `claude/happy-thompson-ngxbp8` (latest commit `bcffa7c` plus this handover).
@@ -152,14 +154,28 @@ Smoke numbers are **execution evidence only**. Never rank models or tune anythin
 
 ## 6. Pending tasks (priority order)
 
-1. Confirm fix #7 on Colab. eICU batch 15 should pass, and `yaib_callback_amendment.json` should exist. Then finish the 5 remaining eICU label batches and the eICU cohort pass. If another batch fails, read `pipeline_logs_v10/eicu_labels_*.log`. Afterwards, add cell 4c to the repo notebooks as well (`dev/work/cells/fix_4c_abx_cont.py`, rebuild with `dev/tools/build.py`). This is not done yet; the delivered repo notebooks still lack it. Report the number of batches that took the empty-antibiotic path (one so far) in the methods.
-2. Complete one real smoke run of Notebook A. Inspect the onset audit (`v10_onset_audit.parquet`), units, coverage, registry and attrition.
+1. **Done (16 Oct):** fix #7 worked and the real smoke run of Notebook A completed. Its numbers were not reviewed in the previous session. First, ask the user for the aggregate files only:
+   - `COMPLETE.json`, `summary_normal_condition.csv`
+   - `attrition_by_batch.csv` (both databases), `coverage_all.csv`, `units.csv`, `feature_registry.csv`
+   - the batch log tails
+
+   Check them:
+   - every arm scored the same number of eligible hours,
+   - no core channel is all-missing,
+   - the sepsis counts are plausible.
+
+   Never treat smoke scores as results. Then archive the smoke outputs per Section 8 (`paper_outputs/<date>_smoke_<RUN_KEY>/`, plus a `RUN_LOG.md` row). Record how many label batches took the empty-antibiotic path; `yaib_callback_amendment.json` exists, and the batch logs show which batches.
+2. **Prepare full mode (Section 11).**
+   - Add cell 4c to the repo notebooks (`dev/work/cells/fix_4c_abx_cont.py`, rebuild with `dev/tools/build.py`, rerun the fixture tests).
+   - Add a full-mode label batch-size setting.
+   - Run the timing test on the cloud machine.
+   - Then the user decides between all stays and a prespecified large sample.
 3. **Notebook B**:
    - Ask the user for the original output folders (`outputs/osta`, `outputs/paper1`), then use `LEGACY_MODE='import_original'`.
    - The CNN needs `preprocessed_data_cache_paper1.npz`, because its checkpoint has no scaler.
    - Set `PHYSIONET_SOURCE` (PSV folder or the cleaned CSV) so that the source representation and units are measured.
    - If the original outputs are unavailable, run the labelled `reproduce` path instead.
-4. Before full mode: the user fills in `PRIOR_TEST_EXPOSURE` (v9 results were seen), then sets `RUN_MODE='full'`. Full mode is a long GPU job, but it checkpoints and resumes. Keep `RELEASE_FINAL_HOLDOUT=False` until the protocol is frozen.
+4. Before full mode (on the cloud machine, Section 11): the user fills in `PRIOR_TEST_EXPOSURE` (v9 results were seen), then sets `RUN_MODE='full'`. Full mode is a long GPU job, but it checkpoints and resumes. Keep `RELEASE_FINAL_HOLDOUT=False` until the protocol is frozen.
 5. Final evaluation: the prespecified cross-database directions on protected patients, run once. No retuning after the results are seen.
 6. Paper: TRIPOD+AI reporting and PROBAST+AI risk-of-bias assessment.
 
@@ -246,4 +262,93 @@ Patient-level files stay on Drive only. Only aggregate CSVs and JSONs may be sha
 
 ## 10. Message for Dr. Mohamed to paste into the new session
 
-> I am continuing my sepsis V10.2 project. Read `HANDOVER_FOR_NEXT_CLAUDE.md` in repo `mahmoudddj/datasciencecoursera1`, branch `claude/happy-thompson-ngxbp8`, then help me finish the real smoke run (we are continuing in `Sepsis_V11_Improved_MIMIC_eICU_1.ipynb`, cohort key `52af15d8cc7f3935`, with cell 4c added; see Sections 3–4), the legacy validation and full mode. Save all outputs needed to write the paper exactly as described in its Section 8. I run the notebooks myself on Colab; ask me for tracebacks and log tails when something fails.
+> I am continuing my sepsis V10.2 project. Read `HANDOVER_FOR_NEXT_CLAUDE.md` in repo `mahmoudddj/datasciencecoursera1`, branch `claude/happy-thompson-ngxbp8`, The real smoke run has finished on Colab. Lead me through Section 11: archiving the smoke outputs, moving to a high-memory cloud machine (Google Cloud preferred, AWS as an alternative), the timing test, and then full mode and the legacy validation. Explain each step in plain language, because I am not a cloud engineer. Save all outputs needed to write the paper exactly as described in its Section 8. I run the notebooks myself on Colab; ask me for tracebacks and log tails when something fails.
+
+
+---
+
+## 11. Full mode: moving off Colab to a high-memory cloud machine (you lead this)
+
+### 11.1 Why
+Measured on Colab in the smoke run:
+- About **7 minutes per label batch** of 64 stays (eICU batches 6–13, from Drive timestamps).
+- The whole smoke run took about 10 h. Some of that was avoidable: an unnecessary full eICU ricu re-import caused by `FORCE_RICU_REIMPORT=True`.
+
+Full mode has about 94,458 MIMIC and about 200,859 eICU candidate stays. At 64 per batch that is about 4,600 label batches **plus** the same number of cohort batches, so **hundreds of hours. Not workable on Colab.**
+
+Most of the 7 minutes is probably fixed cost per batch rather than per patient. **This is a hypothesis: verify it with the timing test (11.4).** The likely fixed costs:
+- starting R and renv,
+- parsing the concept dictionary,
+- ricu scanning the large partitioned `.fst` tables (chartevents, vitalPeriodic, …) to pick out 64 patients,
+- doing all of that through the **Google Drive FUSE mount**, which is slow for large files.
+
+The batch size of 64 exists only because of Colab's RAM (`COHORT_BATCH_STAYS`, the RAM watchdog in `v9_runtime.py`). With 128–256 GB of RAM and local SSD, batches can be much larger.
+
+### 11.2 Recommendation: Google Cloud first, AWS second
+Both work. The notebook runs on any x86-64 Linux machine; it was tested outside Colab:
+- `RUNTIME_ROOT` becomes `PROJECT/runtime` when Drive is not mounted.
+- Paths can be set through `SEPSIS_PROJECT_ROOT`, `SEPSIS_MIMIC_ROOT` and `SEPSIS_EICU_ROOT`.
+- The conda R 4.2.2 / Python 3.10 environment is built by `v9_environment_setup.py`.
+
+**Google Cloud is the smaller step for this user:**
+- same Google account and billing,
+- the data is already on Google Drive,
+- Colab can connect to a rented Compute Engine VM, so the Colab interface the user knows stays the same.
+
+Check the current Colab menu wording: "Connect to a custom GCE VM" (paid Colab plans), or use Colab Enterprise / Vertex AI Workbench. **AWS** is equally capable, but needs a new account, plain Jupyter over an SSH tunnel, and copying the data out of Drive.
+
+Prices below are approximate on-demand list prices. **Always confirm in the provider's pricing calculator with the user before creating anything.**
+
+| Stage | Google Cloud | AWS | RAM / GPU | ≈ price |
+|---|---|---|---|---|
+| Labels + raw stage + features | `n2-highmem-16` / `n2-highmem-32` | `r6i.4xlarge` / `r6i.8xlarge` | 128 / 256 GB | ≈ $1 / $2 per h |
+| Neural training (8 arms, 3 seeds) | `g2-standard-8` (L4 24 GB) | `g5.xlarge` (A10G 24 GB) | 24 GB GPU | ≈ $1 per h |
+| Disk | pd-ssd / pd-balanced 500 GB | gp3 500 GB | — | ≈ $40–85 per month |
+
+Use the CPU machine for extraction, then stop it and attach the same disk to a GPU machine for training. Or use one GPU machine with enough RAM. Spot/preemptible machines are cheaper, but they can be stopped at any time. Batch-level resume makes that tolerable for extraction; use on-demand for anything that is not resumable.
+
+### 11.3 Setup steps (the user runs them; you explain each in plain language)
+1. **Data agreement and security.** PhysioNet credentialed data may be used on commercial cloud if kept secure. The user must check the wording of their DUA. Rules:
+   - private VM, no public buckets or disks,
+   - firewall closed except SSH,
+   - Jupyter reached only through an SSH tunnel or the Colab/Workbench connector, never an open port,
+   - disk encrypted (the default on both clouds),
+   - no other users.
+2. **Budget guardrail.** Before anything else, create a budget alert (for example $100 and $300). Teach the user to **stop the VM when it is idle**. A stopped VM still bills for its disk.
+3. **Create the machine.**
+   - Ubuntu 22.04 LTS, x86-64, 16 or 32 vCPU / 128 or 256 GB.
+   - 500 GB SSD boot or data disk, in a region close to the user.
+   - Google Cloud: either connect Colab to it, or install JupyterLab and tunnel (`gcloud compute ssh VM -- -L 8888:localhost:8888`).
+   - AWS: `ssh -i key.pem -L 8888:localhost:8888 ubuntu@host`.
+4. **Put the data on the machine's local disk**, not on a Drive mount. Option (a) is better.
+   - (a) PhysioNet's own cloud access for credentialed users: MIMIC-IV and eICU are offered on Google Cloud and AWS after linking the cloud account on PhysioNet. Check the dataset pages for the current method.
+   - (b) Copy from Drive with `rclone` (configured with the user's Google login) or `gdown`.
+   - Then verify sizes with the per-file audit (Section 4 cell). It also catches demo copies, see error #2.
+5. **Copy the project folder** `sepsis_colab_project` to local disk. That includes `ricu_import_status_v9`, the ricu `.fst` files under the raw folders, and the logs. **Reusing the ricu import saves hours.**
+   - Caution: the import markers and the cohort key contain raw-file fingerprints, which include modification time. A copy that changes mtimes looks like "changed tables", and the import step then stops and asks for consent.
+   - Preserve times when copying (`rclone copy` keeps modtimes by default; `rsync -t`). Otherwise accept one re-import (`ALLOW_FULL_RAW_IMPORT=True`), which is hours, not days, on a big machine.
+6. **Point Section 1 at local paths.** Set `PROJECT_PATH` and `RAW_SOURCE_PATHS` (or the `SEPSIS_*` environment variables). Keep:
+   - `FORCE_RICU_REIMPORT=False`
+   - `FORCE_YAIB_REEXTRACT=False`
+   - `RELEASE_FINAL_HOLDOUT=False`
+7. **At the end of each stage, copy the outputs back to Drive** and make the dated read-only archive (Section 8).
+
+### 11.4 Timing test before committing to full mode (code work for you)
+1. **Notebook to use.** Full mode creates a new cohort key anyway (`candidate_n=None`), so smoke labels are not reused. That makes it the right time to switch to the **repo notebook**, whose worker has the units fix (`13a2d99e…`), **plus cell 4c**. Rebuild from `dev/`, rerun the fixture tests (141 + 49 checks), commit, then give the user the new notebook.
+2. **Add the batch-size settings.** Add `FULL_COHORT_BATCH_STAYS` (and the RAM-watchdog threshold) to Section 1. The batch plan signature already includes the batch size, so plans never mix.
+3. **Run the test** on the cloud machine. Use smoke mode with a temporary `SMOKE_STAYS_PER_DATASET` of about 3000 (a new key; disposable) and batch sizes 64, 500 and 1500. Record for each:
+   - minutes per batch,
+   - peak RAM (`free -g`, or the watchdog log),
+   - the label counts.
+4. **Extrapolate** the full-mode time and cost and present them to the user. Options if it is still too slow:
+   - (i) parallel batch processes, which is a code change (a process pool in `extract_cohort_batched`, RAM-bounded) and must keep the per-batch markers;
+   - (ii) one YAIB run per database without batching, if RAM allows;
+   - (iii) a **prespecified random sample** (for example 20,000 stays per database). That is the user's scientific decision. Write it into `run_protocol.json` and the paper **before** any full-mode results are seen.
+5. **The raw-table stage and features** (Section 5, DuckDB) also scan whole CSVs once per database. On local SSD with `DUCKDB_MEMORY` raised (for example to 64 GB) this should take tens of minutes, not hours. Measure it in the same test.
+
+### 11.5 Then full mode
+1. The user fills in `PRIOR_TEST_EXPOSURE`, sets `RUN_MODE='full'`, and keeps `RELEASE_FINAL_HOLDOUT=False`.
+2. Extraction runs on the high-memory machine. Training runs on the GPU machine: same disk, rerun from the top; completed stages are reused through their markers.
+3. Archive per Section 8 after every stage.
+4. The final holdout evaluation runs once, only after the protocol is frozen.
+5. Notebook B (legacy) can run on the same machine. It reuses the raw stage (`raw_stage_v10/<key>`).
