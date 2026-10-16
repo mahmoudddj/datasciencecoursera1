@@ -145,6 +145,16 @@ Earlier, in v9 only: eICU labels failed with `assert_that(): y is not a list`. T
 2. (Checked 16 Oct: tanh(scale) after smoke = 0.099–0.104, essentially its initial 0.0997. Mean gates: gated 0.18–0.51, ungated 0.36–0.99. So the wiring works and the guidance simply did not grow in 2 epochs. Report tanh(scale) per arm and seed after full mode.) gated_attention, ungated_attention and osta give near-identical smoke results (paired AUPRC difference about 0). The wiring is correct (observer names equal OSTA organ names). The likely reason is that `scale` starts at 0.1 and only 2 smoke epochs run. A check printing tanh(scale) and the mean gates from `best.pt` and `gates_normal.json` was requested. Re-check after full mode before interpreting.
 3. Full-mode label extraction at 64 stays per batch and about 7 minutes per batch would take about 1,476 MIMIC plus 3,138 eICU batches (weeks). Plan the batch size and runtime with the user before full mode.
 
+**16 Oct, later: smoke run with the calcium fix COMPLETE** (`_4`, RUN_KEY `07bb74c54242e095`, DATA_KEY `a909e82f8c6c73ad`; no never-observed channel). Data sizes on Drive: MIMIC folder 24 GB, eICU folder 12 GB (both include the ricu `.fst` imports), project 432 MB; Colab local disk free 208 GB, RAM 164 GB.
+
+**Timing test notebook `Sepsis_V11_Improved_MIMIC_eICU_5_timing.ipynb`** (instead of renting a VM first). Changes from `_4`:
+- New cell 4b (`dev/work/cells/local_copy_4b.py`, `LOCAL_DATA_COPY=True`). It copies both raw folders to `/content/local_raw` with exact mtimes (8 threads, resumable, `.partial` then rename), verifies size, mtime and `fingerprint()` equality, then repoints `resolved_raw` and the `RICU_MOUNT` links. Cohort-key and import-marker fingerprints are unchanged by design.
+- `v9_locate_raw.py` re-resolves from `DRIVE_RAW_SOURCES` on reruns, so the Drive manifest never records local paths.
+- `v9_runtime.py`: `run_logged` records wall minutes and peak machine RAM (`LAST_RUN`). `extract_cohort_batched` appends one row per batch to `pipeline_logs_v10/batch_timing.csv` and prints `BATCH_TIMING ...`.
+- Test settings: `SMOKE_STAYS_PER_DATASET=2000` and `COHORT_BATCH_STAYS=500`. This is a new, disposable cohort key: 4 label plus 4 cohort batches per database.
+
+Worker and `v9_data` are unchanged. All 140 checks pass. The fake-worker batch run and the copy cell (including an interrupted-copy rerun) were tested locally. Compare the result with the about 7 min per 64-stay batch from Drive.
+
 ## 5. Expected outcome of the next smoke run (Notebook A)
 
 1. **Section 4 audit**: every row `ok`. Stay counts about 94,000 (miiv) and 200,859 (eicu).

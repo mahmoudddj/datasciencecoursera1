@@ -277,7 +277,8 @@ def recover_raw_sources(previous=None):
 # RAW_SOURCE_PATHS['miiv'] = '/content/drive/MyDrive/ACTUAL_MIMIC_FOLDER'
 # RAW_SOURCE_PATHS['eicu'] = '/content/drive/MyDrive/ACTUAL_EICU_FOLDER'
 
-resolved_raw = recover_raw_sources(globals().get('resolved_raw', {}))
+# Section 4b may point this session at local copies; always re-resolve from the Drive sources.
+resolved_raw = recover_raw_sources(globals().get('DRIVE_RAW_SOURCES') or globals().get('resolved_raw', {}))
 
 # Check every target before changing any links. Never overwrite a real folder.
 RICU_MOUNT.mkdir(parents=True, exist_ok=True)

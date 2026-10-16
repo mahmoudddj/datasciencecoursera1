@@ -63,6 +63,8 @@ def re_identifier(name):
     import re
     return bool(re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*',name))
 
+LAST_RUN={}  # wall time and peak machine RAM in use during the latest run_logged call
+
 def run_logged(cmd,log_path,cwd=None,env=None,reserve_gb=1.5):
     log_path=Path(log_path);log_path.parent.mkdir(parents=True,exist_ok=True)
     run_env=os.environ.copy();run_env.update({k:str(v) for k,v in (env or {}).items()})
@@ -70,13 +72,14 @@ def run_logged(cmd,log_path,cwd=None,env=None,reserve_gb=1.5):
                     'OPENBLAS_NUM_THREADS':'1','MKL_NUM_THREADS':'1','R_DATATABLE_NUM_THREADS':'1',
                     'RENV_CONFIG_INSTALL_PARALLEL':'FALSE'})
     print('Running:', ' '.join(map(str,cmd)),'\nLog:',log_path,flush=True)
-    stopped=[];done=threading.Event()
+    stopped=[];done=threading.Event();started=time.time();peak=[0.]
     with log_path.open('w') as f:
         proc=subprocess.Popen(list(map(str,cmd)),cwd=cwd,env=run_env,stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,text=True,bufsize=1,start_new_session=True)
         def watch():
             while not done.wait(.5):
-                if psutil.virtual_memory().available<reserve_gb*1024**3:
+                vm=psutil.virtual_memory();peak[0]=max(peak[0],(vm.total-vm.available)/1024**3)
+                if vm.available<reserve_gb*1024**3:
                     stopped.append(True)
                     try:os.killpg(proc.pid,signal.SIGTERM)
                     except ProcessLookupError:pass
@@ -92,6 +95,7 @@ def run_logged(cmd,log_path,cwd=None,env=None,reserve_gb=1.5):
                     print(line.rstrip(),flush=True);last=time.time()
             rc=proc.wait()
         finally:done.set();thread.join(timeout=1)
+    LAST_RUN.update(minutes=(time.time()-started)/60,peak_used_gb=peak[0])
     if stopped:
         raise MemoryError('Stopped the subprocess to preserve Colab RAM. Completed batches remain saved. '
                           'Lower COHORT_BATCH_STAYS (e.g. 64 to 32) or R_IMPORT_CHUNK_ROWS, then rerun. Log: '+str(log_path))
@@ -231,6 +235,15 @@ def extract_cohort_batched(ds,root,output,worker,python,py_dir,env,batch_size=64
                 cwd=str(py_dir),
                 env=env
             )
+            # Timing record for planning full mode (aggregate only: counts, minutes, GB).
+            timing=Path(log_root or output)/'batch_timing.csv'
+            row=pd.DataFrame([{'finished':time.strftime('%Y-%m-%d %H:%M:%S'),'dataset':ds,'mode':mode,
+                'batch':n,'batches':len(folders),'stays':len(batch_ids),'max_batch_size':int(batch_size),
+                'minutes':round(LAST_RUN.get('minutes',float('nan')),2),
+                'peak_ram_used_gb':round(LAST_RUN.get('peak_used_gb',float('nan')),1),'data_root':str(root)}])
+            row.to_csv(timing,mode='a',header=not timing.is_file(),index=False)
+            print(f"BATCH_TIMING {ds} {mode} {n}/{len(folders)}: {len(batch_ids)} stays, "
+                  f"{LAST_RUN.get('minutes',0):.1f} min, peak RAM in use {LAST_RUN.get('peak_used_gb',0):.1f} GB",flush=True)
             gc.collect()
 
     for name in ['outc','dyn','sta']:
