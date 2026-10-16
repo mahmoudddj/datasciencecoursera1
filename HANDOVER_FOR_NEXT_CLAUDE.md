@@ -177,7 +177,13 @@ Added `LABEL_PARALLEL_BATCHES` (`v9_runtime.extract_cohort_batched(parallel=)`):
 
 Interim N stays 10,000 per database with 4 parallel batches. Expected labels about 2.5–3.5 h.
 
-**Original note:** Set N from the first `BATCH_TIMING` line of `_5_timing`, before the run starts. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
+**Original note:** Set N from the first `BATCH_TIMING` line of `_5_timing`, before the run starts.
+
+**Interim run in progress (16–17 Oct, A100 80 GB, 179 GB RAM, 12 CPUs, `LABEL_PARALLEL_BATCHES=6`).** Labels, raw scans and features completed without error.
+- RAW_STAGE_KEY `27c40d91ac0d67e8`, DATA_KEY `3270da0c0f507369`, RUN_KEY `bd4f8ab28e59f7e2`.
+- Config: full, seeds [42], 301 features (159 raw-control).
+- No never-observed channel was reported. Mean missing fraction: eicu 0.534, miiv 0.407.
+- Training (Section 7) has started. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
 
 ## 5. Expected outcome of the next smoke run (Notebook A)
 
