@@ -368,13 +368,14 @@ def normalize_events(d):
     f=d.feature
     d.loc[f.eq('Temp')&u.isin(['f','°f','degf']),'value']=(d.value-32)*5/9
     d.loc[f.eq('FiO2')&d.value.between(.2,1),'value']*=100
-    for name,factor,units in [('Calcium',4.,['mmol/l']),('Magnesium',1/1.215,['meq/l']),('CRP',10.,['mg/dl'])]:
+    # eICU reports ionized calcium in mg/dL (~4-5); the channel is mmol/L (same 4x factor as total Calcium).
+    for name,factor,units in [('Calcium',4.,['mmol/l']),('CalciumIonized',.25,['mg/dl']),('Magnesium',1/1.215,['meq/l']),('CRP',10.,['mg/dl'])]:
         d.loc[f.eq(name)&u.isin(units),'value']*=factor
     # Reject known incompatible units instead of accepting by numeric appearance.
     allowed={
       'Albumin':{'g/dl'},'Bilirubin_total':{'mg/dl'},'Bilirubin_direct':{'mg/dl'},'Creatinine':{'mg/dl'},
       'BUN':{'mg/dl'},'Glucose':{'mg/dl'},'Lactate':{'mmol/l'},'Magnesium':{'mg/dl','meq/l'},
-      'Calcium':{'mg/dl','mmol/l'},'CRP':{'mg/l','mg/dl'},'Phosphate':{'mg/dl'},'Weight':{'kg'},
+      'Calcium':{'mg/dl','mmol/l'},'CalciumIonized':{'mmol/l','mg/dl'},'CRP':{'mg/l','mg/dl'},'Phosphate':{'mg/dl'},'Weight':{'kg'},
       'UrineOutput':{'ml'},'FiO2':{'%','fraction',''},'Temp':{'c','°c','degc','f','°f','degf'}}
     for name,units in allowed.items():
         bad=f.eq(name)&~u.isin(units|{''});d.loc[bad,'value']=np.nan
