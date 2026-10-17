@@ -44,7 +44,8 @@ if not PROJECT_PATH and importlib.util.find_spec('google') and importlib.util.fi
 else:
     PROJECT = Path(PROJECT_PATH or 'sepsis_colab_project')
 RUN = PROJECT/'validation_v10'/'runs'/RUN_KEY
-if not (RUN/'COMPLETE.json').is_file(): raise FileNotFoundError(f'Run not complete or not found: {RUN}')
+if not (RUN/'run_protocol.json').is_file(): raise FileNotFoundError(f'Run not found: {RUN}')
+if not (RUN/'COMPLETE.json').is_file(): print('NOTE: run is INCOMPLETE; analysing the arms/datasets finished so far')
 PROTO = json.loads((RUN/'run_protocol.json').read_text())
 DATA_ROOT = Path(DATA_ROOT_OVERRIDE) if DATA_ROOT_OVERRIDE else PROJECT/'validation_v10'/'data'/PROTO['data_key']
 OUT = RUN/'analysis_v1'; OUT.mkdir(exist_ok=True)
@@ -99,7 +100,7 @@ for ds in ['miiv', 'eicu']:
             n0 = len(base); base = base.merge(p, on=['Patient_ID','Hour'], how='inner', validate='one_to_one')
             if len(base) != n0 or not (base['y_'+col] == base.y).all(): raise ValueError(f'{ds}/{col}: prediction rows do not match')
             base = base.drop(columns='y_'+col); SEEDCOLS[ds].setdefault(arm, []).append(col)
-    if base is None: raise FileNotFoundError(f'No predictions found for {ds}')
+    if base is None: print(f'{ds}: no finished predictions yet; skipped'); continue
     # One column per arm: first seed (s42); plus the ensemble when there are several seeds.
     for arm, cols in SEEDCOLS[ds].items():
         base[arm] = base[cols[0]]
