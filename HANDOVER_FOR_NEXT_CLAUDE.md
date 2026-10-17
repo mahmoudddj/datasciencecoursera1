@@ -205,7 +205,31 @@ MIMIC test results (63,488 hours, prevalence 0.65%, 71 events) look plausible:
 
 **Notebook `Sepsis_V11_Improved_MIMIC_eICU_7_interim_calfix.ipynb`** is built from the user's `_6`. It keeps `LABEL_PARALLEL_BATCHES=6` and adds the final `PRIOR_TEST_EXPOSURE` text, which discloses that this interim look led to the fix. The new code means a new RUN_KEY, so training reruns; labels, raw stage and features are reused. Fixture OK; 140 checks pass.
 
-Disclose this in the paper as a deviation found from implausible interim results (a monotonicity bug, not tuning). Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
+Disclose this in the paper as a deviation found from implausible interim results (a monotonicity bug, not tuning).
+
+**17 Oct night: corrected interim run `ed26e1692aa04d2c` COMPLETE** (`_7`). Labels and features were reused; training took about 1 h 40 min. MIMIC results are identical to the earlier run (deterministic). These are the Monday results.
+
+**MIMIC test split:** 1,422 stays, 63,488 hours, 411 positive hours (0.65%), 71 events. AUROC / AUPRC (95% CI) / event sensitivity / false alarms per patient-day / median lead (h):
+
+| Arm | AUROC | AUPRC (95% CI) | Event sens. | FA/pt-day | Lead (h) |
+|---|---|---|---|---|---|
+| OSTA | 0.819 | 0.032 (0.021–0.050) | 0.52 | 0.51 | 5 |
+| Gated | 0.819 | 0.035 (0.023–0.053) | 0.55 | 0.50 | 5 |
+| Observer features | 0.817 | 0.029 | 0.44 | 0.41 | |
+| Fusion | 0.807 | 0.032 | 0.48 | 0.44 | |
+| CNN | 0.815 | 0.042 (0.028–0.065) | 0.52 | 0.44 | |
+| Logistic | 0.775 | 0.026 | 0.52 | | |
+| Boosted trees | 0.762 | 0.031 | 0.35 | | |
+| Ungated | 0.762 | 0.021 | 0.34 | | |
+
+- Raw-feature control: OSTA 0.815, logistic 0.760, boosted trees 0.741. OSTA trained on the 80%: 0.809.
+- Paired AUPRC differences: gated − OSTA +0.0022 (−0.0007, 0.0049); gated − ungated +0.0135 (0.0047, 0.0272); gated − observer features +0.0056 (0.0005, 0.0144).
+
+**eICU test split:** 888 stays, 37,648 hours, 265 positive hours (0.70%), 45 events.
+- AUROC: OSTA, gated and ungated 0.665 (gated − OSTA AUPRC 0.0000: the guidance had no effect in eICU); observer features 0.667; fusion 0.653; CNN 0.690; logistic 0.658; boosted trees 0.622. Raw control: OSTA 0.668, logistic 0.643, boosted trees 0.609. OSTA trained on the 80%: 0.661.
+- 10/12 arms used the calibration fallback.
+- **Remaining limitation:** for the 7 neural arms that used the fallback, the threshold chosen on the inverted calibration split produced NO alarms (event sensitivity 0, false alarms 0). eICU event-level metrics are therefore not interpretable in this interim run; report only the threshold-free metrics (AUROC, AUPRC, Brier) for eICU.
+- Paper-run fix to prespecify: a larger calibration/threshold set (full cohort) and/or cross-fitting. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
 
 ## 5. Expected outcome of the next smoke run (Notebook A)
 
