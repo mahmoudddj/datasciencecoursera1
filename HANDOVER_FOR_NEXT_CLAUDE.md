@@ -207,7 +207,7 @@ MIMIC test results (63,488 hours, prevalence 0.65%, 71 events) look plausible:
 
 Disclose this in the paper as a deviation found from implausible interim results (a monotonicity bug, not tuning).
 
-**17 Oct night: corrected interim run `ed26e1692aa04d2c` COMPLETE** (`_7`). Labels and features were reused; training took about 1 h 40 min. MIMIC results are identical to the earlier run (deterministic). These are the Monday results.
+**17 Oct night: corrected interim run `ed26e1692aa04d2c` COMPLETE** (`_7`). Labels and features were reused. Training took about 3 h: per-job ends were miiv rich 22:07, eicu rich +47 min, miiv raw +17, eicu raw +10, miiv 80% +14, eicu 80% +7; miiv rich is estimated at about 80 min. MIMIC results are identical to the earlier run (deterministic). These are the Monday results.
 
 **MIMIC test split:** 1,422 stays, 63,488 hours, 411 positive hours (0.65%), 71 events. AUROC / AUPRC (95% CI) / event sensitivity / false alarms per patient-day / median lead (h):
 
