@@ -11,14 +11,15 @@ for p in sorted(RESULTS_ROOT.glob('*/*/seed_*/*/completed.json')):
                          'platt_fallback':platt.get('fallback','')})
 cols=['target','feature_set','arm','seed','stays','eligible_hours','positive_hours','prevalence','hourly_AUROC','hourly_AUPRC',
       'AUPRC_CI_low','AUPRC_CI_high','hourly_Brier','ECE_10bin','calibration_slope','event_sensitivity',
-      'false_alarms_per_patient_day','median_warning_hours_detected','platt_slope_fitted','platt_fallback']
+      'false_alarms_per_patient_day','median_warning_hours_detected','normalized_utility','utility_CI_low','utility_CI_high',
+      'utility_threshold','platt_slope_fitted','platt_fallback']
 TEAM_PERF=pd.DataFrame(perf)
 if len(TEAM_PERF):
     TEAM_PERF=TEAM_PERF[[c for c in cols if c in TEAM_PERF]].sort_values(['target','feature_set','arm']).reset_index(drop=True)
     TEAM_PERF.to_csv(RESULTS_ROOT/'team_summary_performance.csv',index=False)
     display(TEAM_PERF.round(3))
     if TEAM_PERF.seed.nunique()>1:   # several seeds: mean and SD across seeds per model (ensemble: analysis notebook)
-        m=['hourly_AUROC','hourly_AUPRC','event_sensitivity','false_alarms_per_patient_day']
+        m=[c for c in ['hourly_AUROC','hourly_AUPRC','normalized_utility','event_sensitivity','false_alarms_per_patient_day'] if c in TEAM_PERF]
         SEED_SUMMARY=TEAM_PERF.groupby(['target','feature_set','arm'])[m].agg(['mean','std']).round(3)
         SEED_SUMMARY.to_csv(RESULTS_ROOT/'team_summary_seed_mean_sd.csv');print('Mean and SD across seeds:');display(SEED_SUMMARY)
 else:print('No completed arms yet.')

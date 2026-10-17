@@ -12,6 +12,32 @@ from sklearn.metrics import average_precision_score,roc_auc_score,brier_score_lo
 from sklearn.linear_model import LogisticRegression
 from v9_models import ObserverBank,ExperimentModel,perturb_guidance
 
+OSTA_FAMILY=['osta','observer_features','output_fusion','gated_attention','ungated_attention']
+
+def osta_original_loss(output,targets,masks,organ_consistency_weight=.1,organ_diversity_weight=.05,early_alpha=.3,focal_gamma=2.,
+                       alpha_pos=.75,alpha_neg=.25,post_weight=1.5):
+    """Port of legacy_osta_original.osta_loss (the loss the original OSTA was trained with), with the
+    per-row time-weight loop vectorised; the optional rank loss (off by default there) is not included.
+    Terms: focal BCE (gamma 2, alpha 0.75/0.25) x time weights (exp(-0.3*(t_first_pos - t)) before the first
+    positive hour, 1.5 from it on) averaged over masked hours; + 0.1 x mean organ BCE; + 0.05 x -log var(organ weights)."""
+    logits=output['logits'];B,T=targets.shape
+    bce=nn.functional.binary_cross_entropy_with_logits(logits,targets,reduction='none')
+    probs=torch.sigmoid(logits);pt=torch.where(targets==1,probs,1-probs)
+    alpha_t=torch.where(targets==1,torch.tensor(alpha_pos,device=logits.device),torch.tensor(alpha_neg,device=logits.device))
+    focal=alpha_t*(1-pt)**focal_gamma*bce
+    pos=(targets==1);has=pos.any(1);first=torch.argmax(pos.int(),dim=1)
+    t=torch.arange(T,device=logits.device).unsqueeze(0).float();f=first.unsqueeze(1).float()
+    tw=torch.where(t<f,torch.exp(-early_alpha*(f-t)),torch.full_like(t.expand(B,T),post_weight))
+    tw=torch.where(has.unsqueeze(1),tw,torch.ones_like(tw))
+    loss=(focal*tw*masks).sum()/(masks.sum()+1e-8)
+    if 'organ_risks' in output and output['organ_risks']:
+        organ=sum((nn.functional.binary_cross_entropy_with_logits(r,targets,reduction='none')*masks).sum()/(masks.sum()+1e-8)
+                  for r in output['organ_risks'].values())/len(output['organ_risks'])
+        loss=loss+organ_consistency_weight*organ
+    if 'organ_risk_weights' in output:
+        loss=loss+organ_diversity_weight*(-torch.log(output['organ_risk_weights'].var()+1e-8))
+    return loss
+
 def seed_all(seed):
     random.seed(seed);np.random.seed(seed);torch.manual_seed(seed)
     if torch.cuda.is_available():torch.cuda.manual_seed_all(seed)
@@ -118,7 +144,8 @@ def train_observers(store,features,cfg,seed,path,device):
     return bank.eval().requires_grad_(False)
 
 @torch.no_grad()
-def predict(model,bank,store,batch,device,condition='normal'):
+def predict(model,bank,store,batch,device,condition='normal',all_hours=False):
+    """all_hours=True exports every observed hour (Eligible flag included) for trajectory scoring."""
     model.eval();bank.eval();parts=[];gate_sum=None;gate_n=0
     patient_categories=store.index.Patient_ID.astype(str).to_numpy()
     group_cat=pd.Categorical(store.index.Group_ID.astype(str));hospital_cat=pd.Categorical(store.index.Hospital_ID.astype(str))
@@ -128,13 +155,14 @@ def predict(model,bank,store,batch,device,condition='normal'):
         z=perturb_guidance(bank(b['x']),condition) if model.arm not in ['osta','cnn'] else None
         logits=model(b['x'],b['mask'],b['hours'],z)
         if not torch.isfinite(logits[b['mask'].bool()]).all():raise FloatingPointError('Nonfinite prediction')
-        ok=b['eligible'].cpu().numpy().astype(bool).ravel()
+        elig=b['eligible'].cpu().numpy().astype(bool).ravel()
+        ok=b['mask'].cpu().numpy().astype(bool).ravel() if all_hours else elig
         code=np.repeat(b['idx'].cpu().numpy(),logits.size(1))[ok].astype(np.int32)
         # Compact numeric arrays avoid hundreds of thousands of small DataFrames
         # and repeated copies of patient/hospital identifier strings.
         parts.append({'code':code,'Hour':b['hours'].cpu().numpy().ravel()[ok],
             'y':b['y'].cpu().numpy().ravel()[ok].astype(np.int8),
-            'logit':logits.cpu().numpy().ravel()[ok].astype(np.float32)})
+            'logit':logits.cpu().numpy().ravel()[ok].astype(np.float32),'Eligible':elig[ok].astype(np.int8)})
         if model.last_gates is not None:
             eligible_tensor=b['eligible'].unsqueeze(-1);summed=(model.last_gates*eligible_tensor).sum((0,1)).cpu().numpy()
             gate_sum=summed if gate_sum is None else gate_sum+summed;gate_n+=float(eligible_tensor.sum())
@@ -164,7 +192,12 @@ def train_arm(arm,train,val,bank,features,cfg,seed,path,device):
             with torch.no_grad():z=bank(b['x']) if arm not in ['osta','cnn'] else None
             logits=model(b['x'],b['mask'],b['hours'],z);valid=b['eligible']
             if valid.sum()==0:continue
-            loss=(nn.functional.binary_cross_entropy_with_logits(logits,b['y'],reduction='none')*valid).sum()/valid.sum()
+            if cfg.get('loss','bce')=='osta_original' and arm in OSTA_FAMILY:
+                core=model.last_core_output
+                loss=osta_original_loss({'logits':logits,'organ_risks':core['organ_risks'],'organ_risk_weights':core['organ_risk_weights']},b['y'],valid)
+            elif cfg.get('loss','bce') in ('bce','osta_original'):
+                loss=(nn.functional.binary_cross_entropy_with_logits(logits,b['y'],reduction='none')*valid).sum()/valid.sum()
+            else:raise ValueError('Unknown loss: '+str(cfg.get('loss')))
             if not torch.isfinite(loss):raise FloatingPointError(f'{arm}: nonfinite training loss')
             opt.zero_grad();loss.backward();nn.utils.clip_grad_norm_(model.parameters(),1.);opt.step();loss_sum+=float(loss.detach());nb+=1
         pred,_=predict(model,bank,val,cfg['batch'],device)

@@ -91,7 +91,11 @@ def run_selftests():
 
     meta={'followup_end':24.,'OnsetHour':10.,'Age':60.,'Gender':1.}
     seq=build_sequence(all_ev,meta,12,6)
-    check('post_onset_rows_excluded',seq.Hour.max()==9)
+    # Post-onset hours are kept for trajectory (utility) scoring but can never be trained on or scored as incident risk;
+    # and keeping them must not change any pre-onset row (feature causality).
+    post=seq[seq.Hour>=10];pre=seq[seq.Hour<=9];trunc=build_sequence(all_ev,{**meta},9,6)
+    check('post_onset_rows_present_ineligible',seq.Hour.max()==12 and len(post)==3 and post.Eligible.eq(0).all() and post.SepsisLabel.eq(0).all())
+    check('pre_onset_rows_unchanged_by_post_onset_rows',pre.reset_index(drop=True).equals(trunc.reset_index(drop=True)))
     check('six_hour_target',seq.loc[seq.Hour.eq(3),'SepsisLabel'].item()==0 and seq.loc[seq.Hour.eq(4),'SepsisLabel'].item()==1)
     seq2=build_sequence(all_ev,{**meta,'OnsetHour':np.nan,'followup_end':10.},12,6)
     check('negative_followup_censoring',seq2.loc[seq2.Hour.eq(4),'Eligible'].item()==1 and seq2.loc[seq2.Hour.eq(5),'Eligible'].item()==0)

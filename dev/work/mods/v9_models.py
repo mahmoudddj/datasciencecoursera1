@@ -100,7 +100,7 @@ class GuidedInterOrgan(original_osta.InterOrganAttention):
 class ExperimentModel(nn.Module):
     def __init__(self,features,arm,observer_names=(),small=False,dropout=.1):
         super().__init__();self.arm=arm;self.features=features;self.observer_names=list(observer_names)
-        self.last_gates=None;self.last_bias=None
+        self.last_gates=None;self.last_bias=None;self.last_core_output=None
         if arm=='cnn':
             self.core=original_cnn.EnhancedSepsisTransformer(len(features),d_model=32 if small else 128,n_heads=4,num_layers=1 if small else 2,dim_feedforward=64 if small else 256,dropout=dropout,use_cnn=True,use_continuous_time=True)
             replace_sequence_batchnorm(self.core);return
@@ -117,14 +117,17 @@ class ExperimentModel(nn.Module):
             self.gates=nn.ModuleDict({g:nn.Sequential(nn.Linear(3,8),nn.GELU(),nn.Linear(8,1)) for g in self.observer_names})
             self.scale=nn.Parameter(torch.tensor(.1))
 
+    def _core(self,*args):
+        # The original OSTA loss needs organ_risks and organ_risk_weights; keep the full dict.
+        out=self.core(*args);self.last_core_output=out;return out
     def forward(self,x,mask,hours,guidance=None):
-        self.last_gates=None;self.last_bias=None
+        self.last_gates=None;self.last_bias=None;self.last_core_output=None
         if self.arm=='cnn':return self.core(x,mask,hours)
-        if self.arm=='osta':return self.core(x,mask,hours)['logits']
+        if self.arm=='osta':return self._core(x,mask,hours)['logits']
         if guidance is None:raise ValueError('Observer integration requires an explicit evidence package.')
         z=guidance;summary=torch.cat([z['logit']*z['active'],z['active'],z['coverage']*z['active']],dim=-1)
-        if self.arm=='observer_features':return self.core(torch.cat([x,summary],dim=-1),mask,hours)['logits']
-        if self.arm=='output_fusion':return self.core(x,mask,hours)['logits']+self.fusion(summary).squeeze(-1)
+        if self.arm=='observer_features':return self._core(torch.cat([x,summary],dim=-1),mask,hours)['logits']
+        if self.arm=='output_fusion':return self._core(x,mask,hours)['logits']+self.fusion(summary).squeeze(-1)
         B,T,_=x.shape;K=self.core.n_organs
         priority=torch.zeros((B,T,K),device=x.device,dtype=x.dtype);gates=[]
         for j,g in enumerate(self.observer_names):
@@ -138,4 +141,4 @@ class ExperimentModel(nn.Module):
         bias=torch.tanh(self.scale)*priority.unsqueeze(-2).expand(B,T,K,K)
         self.last_gates=torch.stack(gates,-1);self.last_bias=bias
         for layer in self.core.inter_organ_layers:layer.bias=bias.reshape(B*T,K,K)
-        return self.core(x,mask,hours)['logits']
+        return self._core(x,mask,hours)['logits']

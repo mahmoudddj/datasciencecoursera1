@@ -12,6 +12,7 @@ from v9_train import (SequenceStore,fit_normalizer,train_arm,train_observers,pre
 from v9_models import ObserverBank
 from v9_data import signature,sha
 from v10_protocol import partition
+from v10_evaluation import patient_utilities,normalized_from,utility_threshold_sweep,utility_ci,SCORER_CONTRACT
 
 BASELINES=['osta','cnn','logistic','boosted_tree']
 
@@ -25,16 +26,32 @@ def tabular_arrays(store,budget):
         b=store[i];ok=b['eligible'].astype(bool);k=int(ok.sum());x[j:j+k]=b['x'][ok];y[j:j+k]=b['y'][ok];j+=k
     return x,y
 
-def tabular_predict(model,store):
+def tabular_predict(model,store,all_hours=False):
     parts=[]
     for i in range(len(store)):
-        b=store[i];ok=b['eligible'].astype(bool);row=store.index.iloc[i]
+        b=store[i];elig=b['eligible'].astype(bool);ok=b['mask'].astype(bool) if all_hours else elig;row=store.index.iloc[i]
         if not ok.any():continue
         p=np.clip(model.predict_proba(b['x'][ok])[:,1],1e-7,1-1e-7)
         parts.append(pd.DataFrame({'Patient_ID':row.Patient_ID,'Group_ID':row.Group_ID,
           'Hospital_ID':row.Hospital_ID,'OnsetHour':row.OnsetHour,'Hour':b['hours'][ok],
-          'y':b['y'][ok],'logit':np.log(p/(1-p))}))
+          'y':b['y'][ok],'logit':np.log(p/(1-p)),'Eligible':elig[ok].astype(np.int8)}))
     return pd.concat(parts,ignore_index=True)
+
+def utility_block(full_cal,full_test,params,cfg,seed,path):
+    """PhysioNet normalized utility (official scorer) on hourly trajectories of the first MAX_HOURS hours.
+    Threshold: first maximum of the calibration-split sweep (as the original scripts did on their validation
+    set); evaluated once on the test split. Separate from the 0.5 false-alarm/patient-day alarm policy."""
+    cal=apply_calibration(full_cal,params);test=apply_calibration(full_test,params)
+    grid=np.unique(np.round(np.quantile(cal.risk,np.linspace(.5,.999,60)),6))
+    thr,sweep=utility_threshold_sweep(cal,grid);sweep.to_csv(path/'utility_threshold_sweep.csv',index=False)
+    pu=patient_utilities(test,thr);pu.to_parquet(path/'utility_per_stay.parquet',index=False)
+    out={'normalized_utility':float(normalized_from(pu)),'utility_threshold':thr,'utility_trajectory_stays':int(len(pu)),
+         'utility_septic_stays_in_window':int(pu.septic_in_window.sum()),'utility_calibration_best':float(sweep.normalized_utility.max()),
+         **utility_ci(pu,cfg['bootstrap'],seed)}
+    atomic_json(path/'utility.json',{**out,'scorer':SCORER_CONTRACT,'alarm_rule':'risk>=threshold each hour (no cooldown)',
+        'scope':f"first {cfg['max_hours']} h of each test stay; step labels from onset-6h; onset after the window counts as non-septic; "
+                'post-onset hours are scored but never trained on'})
+    return out
 
 def fit_tabular(arm,store,cfg,seed,path):
     p=path/'estimator.pkl'
@@ -90,17 +107,19 @@ def run_fold(index,features,target,cfg,root):
             if done.is_file():results+=json.loads(done.read_text());print('Reuse',target,arm);continue
             tab=arm in ['logistic','boosted_tree']
             model=fit_tabular(arm,stores['train'],cfg,seed,path) if tab else train_arm(arm,stores['train'],stores['val'],bank,features,cfg,seed,path,device)
-            def pred(store,condition='normal'):
-                return (tabular_predict(model,store),{}) if tab else predict(model,bank,store,cfg['batch'],device,condition)
+            def pred(store,condition='normal',all_hours=False):
+                return (tabular_predict(model,store,all_hours),{}) if tab else predict(model,bank,store,cfg['batch'],device,condition,all_hours)
             cal,_=pred(stores['calib']);params=calibrate(cal);cal=apply_calibration(cal,params)
             chosen,sweep=select_threshold(cal,cfg)
+            # PhysioNet utility on full hourly trajectories (post-onset hours included), its own threshold.
+            utility=utility_block(pred(stores['calib'],all_hours=True)[0],pred(stores['test'],all_hours=True)[0],params,cfg,seed,path)
             atomic_json(path/'calibration_and_threshold.json',{'platt':params,'chosen':chosen})
             pd.DataFrame(sweep).to_csv(path/'threshold_sweep.csv',index=False)
             records=[]
             for condition in ['normal']+(cfg['stress_conditions'] if arm not in BASELINES else []):
                 d,gates=pred(stores['test'],condition);d=apply_calibration(d,params)
                 m,alarms,points=evaluate(d,chosen['threshold'],cfg)
-                if condition=='normal':m.update(clustered_ci(d,cfg['bootstrap'],seed));m.update(hospital_ci(d,cfg['bootstrap'],seed))
+                if condition=='normal':m.update(clustered_ci(d,cfg['bootstrap'],seed));m.update(hospital_ci(d,cfg['bootstrap'],seed));m.update(utility)
                 row={'target':target,'seed':seed,'arm':arm,'condition':condition,'scope':mf.evaluation_scope.iloc[0],
                   'feature_count':len(features),'main_training_stays':len(stores['train']),
                   'observer_fit_stays':len(stores['observer_fit']) if arm not in BASELINES else 0,**m}

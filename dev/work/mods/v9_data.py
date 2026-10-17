@@ -481,8 +481,10 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     known_future=(hours+horizon<=follow) if pd.isna(onset) else ((hours+horizon<=follow)|(hours+horizon>=onset))
     d['Eligible']=(at_risk&known_future).astype(int)
     d['SepsisLabel']=((onset>hours)&(onset<=hours+horizon)).astype(int) if pd.notna(onset) else 0
-    # No post-onset histories are needed for this incident-sepsis task.
-    return engineer_one(d[at_risk].reset_index(drop=True))
+    # Post-onset hours stay in the sequence (Eligible=0, so they never enter a loss or an incident-risk
+    # metric); the PhysioNet utility score needs predictions up to 3 h after onset. Features are causal
+    # (prefix checks), so pre-onset rows are unchanged by the extra rows.
+    return engineer_one(d.reset_index(drop=True))
 
 def build_shards(ds,stage,cohort_folder,out,max_hours=120,horizon=6,batch=32):
     stage=Path(stage);out=Path(out);out.mkdir(parents=True,exist_ok=True)
