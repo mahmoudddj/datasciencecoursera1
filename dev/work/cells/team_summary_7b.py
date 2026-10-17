@@ -17,6 +17,10 @@ if len(TEAM_PERF):
     TEAM_PERF=TEAM_PERF[[c for c in cols if c in TEAM_PERF]].sort_values(['target','feature_set','arm']).reset_index(drop=True)
     TEAM_PERF.to_csv(RESULTS_ROOT/'team_summary_performance.csv',index=False)
     display(TEAM_PERF.round(3))
+    if TEAM_PERF.seed.nunique()>1:   # several seeds: mean and SD across seeds per model (ensemble: analysis notebook)
+        m=['hourly_AUROC','hourly_AUPRC','event_sensitivity','false_alarms_per_patient_day']
+        SEED_SUMMARY=TEAM_PERF.groupby(['target','feature_set','arm'])[m].agg(['mean','std']).round(3)
+        SEED_SUMMARY.to_csv(RESULTS_ROOT/'team_summary_seed_mean_sd.csv');print('Mean and SD across seeds:');display(SEED_SUMMARY)
 else:print('No completed arms yet.')
 coh=[]
 for ds in DATASETS:

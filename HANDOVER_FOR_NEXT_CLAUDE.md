@@ -229,7 +229,18 @@ Disclose this in the paper as a deviation found from implausible interim results
 - AUROC: OSTA, gated and ungated 0.665 (gated − OSTA AUPRC 0.0000: the guidance had no effect in eICU); observer features 0.667; fusion 0.653; CNN 0.690; logistic 0.658; boosted trees 0.622. Raw control: OSTA 0.668, logistic 0.643, boosted trees 0.609. OSTA trained on the 80%: 0.661.
 - 10/12 arms used the calibration fallback.
 - **Remaining limitation:** for the 7 neural arms that used the fallback, the threshold chosen on the inverted calibration split produced NO alarms (event sensitivity 0, false alarms 0). eICU event-level metrics are therefore not interpretable in this interim run; report only the threshold-free metrics (AUROC, AUPRC, Brier) for eICU.
-- Paper-run fix to prespecify: a larger calibration/threshold set (full cohort) and/or cross-fitting. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
+- Paper-run fix to prespecify: a larger calibration/threshold set (full cohort) and/or cross-fitting.
+
+**17 Oct (Saturday), plan for Monday 19 Oct.** The user wanted a higher headline AUROC (citing Ashok et al., npj Digit Med 2026: pooled best-model AUC 0.88; all models 0.835; neural networks 0.85; by window 4 h 0.816, 6 h 0.857; comparator tools 0.73). I explained that this framing is not comparable (best-model optimism, 11% prevalence, fixed-time and t0 designs, high risk of bias) and refused post-hoc tuning on test results. Agreed, legitimate additions:
+- **`Sepsis_V11_Improved_MIMIC_eICU_8_three_seeds.ipynb`**: `_7` with `FULL_SEEDS=[42,7,123]` on the same 10k cohort (reuses labels and features; about 9 h of training). `STUDY_STAGE` and `PRIOR_TEST_EXPOSURE` disclose that this decision was made after viewing run `ed26e1692aa04d2c`. Team summary 7b now adds `team_summary_seed_mean_sd.csv`.
+- **`Sepsis_V11_Analysis_comparators.ipynb`** (built by `dev/work/analysis/build_analysis_nb.py`): CPU only; reads a finished run's test predictions and the feature shards. Definitions were fixed on 17 Oct 2026 BEFORE computing, and written to `runs/<key>/analysis_v1/analysis_protocol.json`:
+  - qSOFA, SIRS and SOFA-proxy comparators on the same hours (primary: criteria met among measured; secondary: complete score only);
+  - onset-anchored AUROC at 6, 4 and 2 h (positives: the hour with onset − hour in (k−1, k]; controls: one random eligible hour per never-septic stay, seed 42);
+  - patient-level AUROC (max pre-onset score; length-of-stay bias noted);
+  - seed ensemble (mean logit), when there are several seeds.
+
+  Cluster-bootstrap CIs (200) and paired differences vs OSTA. Outputs `hourly_models_vs_bedside_scores.csv`, `onset_anchored_auroc.csv`, `patient_level_auroc.csv`, `slide_summary_auroc.csv`. Both notebooks pass fixture runs.
+- The user will send the original PhysioNet 2019 OSTA test numbers (timestep AUROC, patient AUROC, normalized utility) for a side-by-side slide. Key difference to state: the PhysioNet label counts post-onset hours as positive; ours excludes them. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
 
 ## 5. Expected outcome of the next smoke run (Notebook A)
 
