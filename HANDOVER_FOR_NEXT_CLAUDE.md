@@ -240,6 +240,25 @@ Disclose this in the paper as a deviation found from implausible interim results
   - seed ensemble (mean logit), when there are several seeds.
 
   Cluster-bootstrap CIs (200) and paired differences vs OSTA. Outputs `hourly_models_vs_bedside_scores.csv`, `onset_anchored_auroc.csv`, `patient_level_auroc.csv`, `slide_summary_auroc.csv`. Both notebooks pass fixture runs.
+- **Analysis results on run `ed26e1692aa04d2c`** (`analysis_v1/`, 17 Oct). AUROC (95% CI):
+
+  | | MIMIC | eICU |
+  |---|---|---|
+  | Hourly OSTA | 0.819 (0.774–0.860) | 0.665 (0.575–0.750) |
+  | Hourly qSOFA | 0.536 | 0.534 |
+  | Hourly SIRS | 0.589 | 0.562 |
+  | Hourly SOFA-proxy | 0.431 (<0.5) | 0.434 |
+  | Onset-anchored OSTA, 6 / 4 / 2 h | 0.787 / 0.785 / 0.777 (61 sepsis vs 1,349 control stays) | 0.551 / 0.560 / 0.528 |
+  | Onset-anchored qSOFA, 6 h | 0.553 | 0.596 |
+  | Onset-anchored SIRS, 6 h | 0.615 | 0.619 |
+  | Patient-level OSTA | 0.749 | 0.605 |
+  | Patient-level qSOFA / SIRS | 0.430 / 0.529 | |
+
+  - Hourly OSTA − qSOFA: MIMIC +0.282 (0.212–0.353), eICU +0.131 (0.035–0.229). OSTA − SIRS: MIMIC +0.229 (0.156–0.292), eICU +0.103 (−0.000–0.200).
+  - In eICU, onset-anchored, the models are NOT better than qSOFA/SIRS (CIs overlap); the CNN and logistic regression are best (about 0.60–0.62).
+  - Onset-anchored came out LOWER than hourly. I had predicted higher; report as is.
+  - Complete-score availability is low: SIRS complete on 23.5% (MIMIC) and 2.1% (eICU) of test hours.
+  - Gated ≈ OSTA in every framing.
 - The user will send the original PhysioNet 2019 OSTA test numbers (timestep AUROC, patient AUROC, normalized utility) for a side-by-side slide. Key difference to state: the PhysioNet label counts post-onset hours as positive; ours excludes them. Advise: labels on a CPU High-RAM runtime, then switch to a GPU runtime and Run all for training (stages are reused). Results are INTERIM, on the development split only; the final holdout stays sealed and nothing is retuned.
 
 ## 5. Expected outcome of the next smoke run (Notebook A)
