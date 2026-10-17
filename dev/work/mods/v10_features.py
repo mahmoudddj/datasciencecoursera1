@@ -13,17 +13,24 @@ No claims of reproducing TREWScore or improving clinical performance are made.
 - Explicit time-since-FIRST and time-since-MOST-RECENT observed-event features for
   recorded vasopressor support and for a qSOFA >=2 state. Unknown hours neither
   create nor erase an event; before the first observed event the value is unknown.
+
+10.3 changes (user decisions, 18 Oct 2026):
+- qSOFA is reported twice: the strict total (all three criteria known, unchanged) and
+  qSOFA_MetAmongMeasured, the number of criteria met among those that can be decided now.
+  The GCS criterion uses GCS_Below15 when present: GCS < 15 is decidable from partial
+  components (an abnormal eye or motor score) without imputing an unknown intubated verbal
+  score. The qSOFA >= 2 event times use the same decidable criteria.
 """
 import numpy as np
 import pandas as pd
 
-VERSION = 'handcrafted-10.2'
+VERSION = 'handcrafted-10.3'
 FRESH_TOLERANCE_HOURS = 1e-3   # float32 shard round-trip safe (about 3.6 s)
 GROUPS = {
  'DerivedMAP':'cardiovascular','PulsePressure':'cardiovascular',
  'BUNCreatinineRatio':'renal','AgeSBP':'demographic',
  'qSOFA_Resp':'respiratory','qSOFA_SBP':'cardiovascular','qSOFA_GCS':'neurologic',
- 'qSOFA_Total':'systemic_composite','qSOFA_Available':'systemic_composite',
+ 'qSOFA_Total':'systemic_composite','qSOFA_Available':'systemic_composite','qSOFA_MetAmongMeasured':'systemic_composite',
  'SOFAproxy_Coag':'hematologic','SOFAproxy_Liver':'hepatic',
  'SOFAproxy_MAP':'cardiovascular','SOFAproxy_Creatinine':'renal',
  'SOFAproxy_CNS':'neurologic','SOFAproxy_Total':'systemic_composite',
@@ -115,6 +122,10 @@ def engineer_one(d):
     e['qSOFA_GCS']=crit('GCS',lambda x:x<15)
     q=pd.DataFrame({k:e[k] for k in ['qSOFA_Resp','qSOFA_SBP','qSOFA_GCS']})
     e['qSOFA_Total']=q.sum(axis=1,min_count=3);e['qSOFA_Available']=q.notna().sum(axis=1)
+    # Criteria decidable now; the GCS criterion also from partial components (GCS_Below15).
+    qm=q.copy()
+    if 'GCS_Below15' in d:qm['qSOFA_GCS']=qm.qSOFA_GCS.fillna(col('GCS_Below15'))
+    e['qSOFA_MetAmongMeasured']=qm.sum(axis=1,min_count=1)
     e['SOFAproxy_Coag']=score('Platelets',[150,100,50,20],True)
     e['SOFAproxy_Liver']=score('Bilirubin_total',[1.2,2,6,12])
     e['SOFAproxy_MAP']=crit('MAP',lambda x:x<70)   # measured MAP only; never DerivedMAP
@@ -131,8 +142,8 @@ def engineer_one(d):
     pressor=col('VasopressorRecorded').to_numpy()
     e['Vasopressor_HoursSinceFirst']=elapsed_since_event(pressor,h,'first')
     e['Vasopressor_HoursSinceLast']=elapsed_since_event(pressor,h,'last')
-    positives=q.eq(1).sum(axis=1)
-    q2=np.where(positives>=2,1.,np.where(q.notna().all(axis=1),0.,np.nan))  # unknown unless decidable
+    positives=qm.eq(1).sum(axis=1)
+    q2=np.where(positives>=2,1.,np.where(qm.notna().all(axis=1),0.,np.nan))  # unknown unless decidable
     e['qSOFA2_HoursSinceFirst']=elapsed_since_event(q2,h,'first')
     e['qSOFA2_HoursSinceLast']=elapsed_since_event(q2,h,'last')
     for f,_ in TREND_SOURCES:

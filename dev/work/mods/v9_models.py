@@ -7,15 +7,20 @@ import v9_osta_base as original_osta
 import v9_cnn_base as original_cnn
 
 ORGAN_FEATURES={
- 'respiratory':['O2Sat','Resp','FiO2','PaO2','PaCO2','pH','MetHb'],
- 'cardiovascular':['HR','MAP','SBP','DBP','Lactate','ShockIndex','TroponinT','CK','CKMB','VasopressorRecorded','InotropeRecorded'],
+ 'respiratory':['O2Sat','Resp','FiO2','PaO2','PaCO2','pH','MetHb','SaO2','EtCO2','Intubated','IntubatedHours'],
+ 'cardiovascular':['HR','MAP','SBP','DBP','Lactate','ShockIndex','TroponinT','TroponinI','CK','CKMB','VasopressorRecorded','InotropeRecorded'],
  'hepatic':['Bilirubin_total','Bilirubin_direct','AST','ALT','Alkalinephos','Albumin'],
- 'hematologic':['Platelets','INR','PTT','Fibrinogen','Hgb','MCH','MCHC','MCV'],
- 'renal':['Creatinine','BUN','UrineOutput','UrineOutput_6h','UrineOutput_24h','UrineCoverage_6h','UrineCoverage_24h','Urine_mlkg_h_6h','Oliguria6h'],
+ 'hematologic':['Platelets','INR','PTT','Fibrinogen','Hgb','Hct','MCH','MCHC','MCV'],
+ 'renal':['Creatinine','BUN','UrineOutput','UrineOutput_6h','UrineOutput_24h','UrineCoverage_6h','UrineCoverage_24h','Urine_mlkg_h_6h','Oliguria6h',
+          'UrineCoverageFraction_6h','Urine_HoursSinceLast'],
  'inflammatory':['Temp','WBC','CRP','Bands','Neutrophils','Lymphocytes','SIRS_Count','SIRS_ObservedComponents','SIRS_Temp','SIRS_HR','SIRS_Resp','SIRS_WBC'],
- 'neurologic':['GCS'],
+ 'neurologic':['GCS','GCS_Below15'],
  'metabolic':['BaseExcess','HCO3','Glucose','Sodium','Potassium','Chloride','Calcium','CalciumIonized','Magnesium','Phosphate'],
- 'demographic':['Age','Gender','Weight','PostoperativeAdmission']}
+ 'demographic':['Age','Gender','Weight','PostoperativeAdmission'],
+ # Chronic background (documented from its own time); a separate group for interpretability.
+ 'comorbidity':['Comorbidity_chronic_heart_failure','Comorbidity_chronic_liver_disease_cirrhosis','Comorbidity_diabetes',
+   'Comorbidity_metastatic_carcinoma','Comorbidity_hematological_malignancy','Comorbidity_immunocompromised',
+   'Comorbidity_chronic_organ_insufficiency']}
 LOOKUP={f:g for g,fs in ORGAN_FEATURES.items() for f in fs}
 from v10_features import GROUPS
 LOOKUP.update(GROUPS)

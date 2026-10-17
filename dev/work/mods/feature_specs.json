@@ -421,6 +421,21 @@
           "table": "vitalperiodic",
           "val_var": "systemicdiastolic",
           "class": "col_itm"
+        },
+        {
+          "table": "vitalaperiodic",
+          "val_var": "noninvasivediastolic",
+          "class": "col_itm"
+        },
+        {
+          "ids": "Non-Invasive BP Diastolic",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        },
+        {
+          "ids": "Invasive BP Diastolic",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
         }
       ]
     }
@@ -554,6 +569,11 @@
           "table": "vitalperiodic",
           "val_var": "heartrate",
           "class": "col_itm"
+        },
+        {
+          "ids": "Heart Rate",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
         }
       ]
     }
@@ -679,6 +699,16 @@
           "table": "vitalaperiodic",
           "val_var": "noninvasivemean",
           "class": "col_itm"
+        },
+        {
+          "ids": "Non-Invasive BP Mean",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        },
+        {
+          "ids": "Invasive BP Mean",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
         }
       ]
     }
@@ -853,9 +883,7 @@
       "miiv": [
         {
           "ids": [
-            220277,
-            226253,
-            50817
+            220277
           ],
           "table": "chartevents",
           "sub_var": "itemid"
@@ -869,9 +897,9 @@
           "class": "col_itm"
         },
         {
-          "ids": "O2 Sat (%)",
-          "table": "lab",
-          "sub_var": "labname"
+          "ids": "O2 Saturation",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
         }
       ]
     }
@@ -1043,6 +1071,11 @@
           "table": "vitalperiodic",
           "val_var": "respiration",
           "class": "col_itm"
+        },
+        {
+          "ids": "Respiratory Rate",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
         }
       ]
     }
@@ -1071,6 +1104,21 @@
           "table": "vitalperiodic",
           "val_var": "systemicsystolic",
           "class": "col_itm"
+        },
+        {
+          "table": "vitalaperiodic",
+          "val_var": "noninvasivesystolic",
+          "class": "col_itm"
+        },
+        {
+          "ids": "Non-Invasive BP Systolic",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        },
+        {
+          "ids": "Invasive BP Systolic",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
         }
       ]
     }
@@ -1079,7 +1127,7 @@
     "concept": "temp",
     "unit": [
       "C",
-      "\u00b0C"
+      "°C"
     ],
     "min": 32,
     "max": 42,
@@ -1105,6 +1153,17 @@
           "table": "vitalperiodic",
           "val_var": "temperature",
           "class": "col_itm"
+        },
+        {
+          "ids": "Temperature (C)",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        },
+        {
+          "ids": "Temperature (F)",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname",
+          "unit": "f"
         }
       ]
     }
@@ -1194,6 +1253,131 @@
       "eicu": [
         {
           "ids": "WBC x 1000",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Hct": {
+    "concept": "hct",
+    "unit": "%",
+    "min": 10,
+    "max": 75,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51221,
+            50810
+          ],
+          "table": "labevents",
+          "sub_var": "itemid"
+        },
+        {
+          "ids": [
+            220545
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "Hct",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "EtCO2": {
+    "concept": "etco2",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            228640
+          ],
+          "label_regex": "^(?:etco2|end tidal co2)",
+          "exclude_regex": "alarm|limit",
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "etco2",
+          "class": "col_itm"
+        },
+        {
+          "ids": "EtCO2",
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
+  },
+  "SaO2": {
+    "concept": "sao2",
+    "unit": [
+      "%",
+      "% Sat."
+    ],
+    "min": 50,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50817
+          ],
+          "table": "labevents",
+          "sub_var": "itemid"
+        },
+        {
+          "ids": [
+            220227
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "O2 Sat (%)",
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "TroponinI": {
+    "concept": "tni",
+    "unit": "ng/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51002
+          ],
+          "label_regex": "^troponin i\\b",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": "troponin - I",
           "table": "lab",
           "sub_var": "labname"
         }

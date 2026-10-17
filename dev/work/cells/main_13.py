@@ -4,6 +4,8 @@ def feature_kind(f):
     if f.endswith('_observed'):return 'observed-value mask'
     if f.endswith('_age'):return 'hours since latest known measurement'
     if f in ENGINEERED:return 'handcrafted (v10_features '+FEATURE_VERSION+')'
+    if f in COMORBID:return 'chronic comorbidity flag (from its documentation time)'
+    if f in AIRWAY:return 'invasive airway (ETT/tracheostomy) state'
     if f in RENAL:return 'renal window (availability-aware)'
     if f in DERIVED:return 'derived criterion/ratio'
     return 'raw measurement'
