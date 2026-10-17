@@ -1383,5 +1383,321 @@
         }
       ]
     }
+  },
+  "Procalcitonin": {
+    "concept": "pct",
+    "unit": "ng/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [],
+          "label_regex": "^procalcitonin",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "procalcitonin"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "LDH": {
+    "concept": "ldh",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50954
+          ],
+          "label_regex": "^lactate dehydrogenase",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "LDH"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "DDimer": {
+    "concept": "ddimer",
+    "unit": "ng/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50915
+          ],
+          "label_regex": "^d-dimer",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "D-dimer",
+            "d-dimer"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Ferritin": {
+    "concept": "ferritin",
+    "unit": "ng/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50924
+          ],
+          "label_regex": "^ferritin$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "ferritin"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Lipase": {
+    "concept": "lipase",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50956
+          ],
+          "label_regex": "^lipase$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "lipase"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "BNP": {
+    "concept": "bnp",
+    "unit": "pg/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [],
+          "label_regex": "^bnp$|^b-type natriuretic",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "BNP"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "NTproBNP": {
+    "concept": "ntprobnp",
+    "unit": "pg/mL",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50963
+          ],
+          "label_regex": "ntprobnp|nt-probnp",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "proBNP",
+            "NT-proBNP"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "AnionGap": {
+    "concept": "ag",
+    "unit": [
+      "mEq/L",
+      "mmol/l"
+    ],
+    "min": 0,
+    "max": 60,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50868
+          ],
+          "label_regex": "^anion gap$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "anion gap"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "RDW": {
+    "concept": "rdw",
+    "unit": "%",
+    "min": 5,
+    "max": 40,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51277
+          ],
+          "label_regex": "^rdw$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "RDW"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "CVP": {
+    "concept": "cvp",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": -10,
+    "max": 50,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220074
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "cvp",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "PEEP": {
+    "concept": "peep",
+    "unit": [
+      "cmH2O",
+      "cm H2O"
+    ],
+    "min": 0,
+    "max": 40,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220339,
+            224700
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "PEEP"
+          ],
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
   }
 }

@@ -9,7 +9,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-VERSION='v10.3'
+VERSION='v10.4'
 from v10_features import engineer_one, ENGINEERED
 SPEC=json.loads((Path(__file__).parent/'feature_specs.json').read_text())
 # PostoperativeAdmission is not comparably available in either release; it is kept
@@ -22,7 +22,41 @@ AIRWAY=['Intubated','IntubatedHours']
 RENAL=['UrineOutput','UrineOutput_6h','UrineOutput_24h','UrineCoverage_6h','UrineCoverage_24h','Urine_mlkg_h_6h','Oliguria6h',
        'UrineCoverageFraction_6h','Urine_HoursSinceLast']
 DERIVED=['SIRS_Temp','SIRS_HR','SIRS_Resp','SIRS_WBC','SIRS_ObservedComponents','SIRS_Count','ShockIndex','GCS_Below15']
-PRIMARY=BASE+SUPPORT+AIRWAY+RENAL+DERIVED
+DERIVED+=['PF_Ratio','SF_Ratio']
+# v10.4 (user: include every feature that could predict sepsis). Admission context is known at
+# ICU admission; the admitting diagnosis (eICU admissionDx) from its entry time (MIMIC-IV has none).
+ADMISSION=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
+           'ICUType_Medical','ICUType_Surgical','ICUType_Cardiac','ICUType_Neuro','AdmitDx_Infection','AdmitDx_Operative']
+PRIMARY=BASE+SUPPORT+AIRWAY+RENAL+DERIVED+ADMISSION
+# Documented exposures (0 = not documented by that hour; no masks), each from its own timestamp.
+DEVICE_PATTERNS={
+ 'CentralLine':r'multi lumen|picc|cordis|introducer|central (?:venous )?(?:line|catheter)|indwelling port|portacath|trauma line|swan|pulmonary artery catheter|pa catheter|tunneled|midline',
+ 'ArterialLine':r'arterial line|art line|arterial catheter',
+ 'DialysisCatheter':r'dialysis catheter|hemodialysis catheter|trialysis|quinton',
+ 'UrinaryCatheter':r'foley|urinary catheter|indwelling catheter|suprapubic|nephrostomy|urethral catheter',
+ 'Drain':r'chest tube|thoracostomy|pigtail|\bdrain\b|drainage catheter|jackson|\bjp\b|percutaneous drain'}
+DEVICE_EXCLUDE=r'remov|discontinu|\bdc\b|pulled|non-invasive|noninvasive'
+# Medications that change risk or mask the host response. Antibiotics are NOT predictors: antibiotic
+# timing defines the Sepsis-3 suspicion of infection (the label). Hydrocortisone kept separate because
+# stress-dose steroids often follow shock (sensitivity analysis can drop it).
+MED_FEATURES={
+ 'Immunosuppressant':r'tacrolimus|cyclosporin|mycophenol|sirolimus|everolimus|azathioprine|rituximab|infliximab|tocilizumab|basiliximab|thymoglobulin|antithymocyte|belatacept|alemtuzumab',
+ 'Chemotherapy':r'cyclophosphamide|doxorubicin|cisplatin|carboplatin|oxaliplatin|paclitaxel|docetaxel|gemcitabine|fluorouracil|capecitabine|cytarabine|etoposide|vincristine|methotrexate|ifosfamide|bendamustine|azacitidine|decitabine|daunorubicin|idarubicin|irinotecan|pemetrexed',
+ 'Corticosteroid':r'prednis|methylpred|dexamethasone|fludrocortisone',
+ 'Hydrocortisone':r'hydrocortisone',
+ 'BetaBlocker':r'metoprolol|atenolol|carvedilol|labetalol|esmolol|propranolol|bisoprolol|nadolol|sotalol',
+ 'Antipyretic':r'acetaminophen|paracetamol|ibuprofen|ketorolac',
+ 'Sedative':r'propofol|midazolam|lorazepam|dexmedetomidine|ketamine|diazepam',
+ 'Opioid':r'fentanyl|morphine|hydromorphone|oxycodone|remifentanil|methadone',
+ 'Diuretic':r'furosemide|bumetanide|torsemide|chlorothiazide|metolazone|acetazolamide'}
+MED_EXCLUDE=r'cream|ointment|topical|ophth|otic|eye drop|lotion|enema|suppository|rectal foam|nasal spray|inhal'
+IMAGING_RE=r'radiolog|x-ray|xray|\bct\b|ct scan|computed tomograph|\bmri\b|ultrasound|echocardiog|imaging'
+FLUID_IN_EXCLUDE=r'enteral|tube feed|feeding|oral|\bpo\b|nutrition|tpn|flush'
+TRANSFUSION_RE=r'blood|prbc|packed (?:red|cell)|platelet|\bffp\b|plasma|cryo'
+INFECTION_DX_RE=r'sepsis|septic|pneumonia|infect|cellulitis|urinary tract|\buti\b|meningitis|encephalitis|endocarditis|abscess|peritonitis|cholangitis|cholecystitis|pyelonephritis|fasciitis|empyema|osteomyelitis|bacteremia'
+DEVICES=['Device_'+k for k in DEVICE_PATTERNS]
+EXPOSURES=(DEVICES+[d+'_Hours' for d in DEVICES]+['Med_'+k+'_24h' for k in MED_FEATURES]
+           +['Imaging_24h','FluidIn_6h','FluidIn_24h','Transfusion_24h'])
 # Carry-forward windows (hours) for latest_known (v10.3, user decision): vitals and labs 24 h;
 # GCS and its components until the next measurement; weight never expires.
 NO_EXPIRY=['GCS','GCS_Eyes','GCS_Verbal','GCS_Motor','Weight']
@@ -237,7 +271,8 @@ class RawExtractor:
 
     def extract(self):
         self.standard();self.urine();self.support();self.airway();self.admission_weight();self.comorbidity()
-        self.microbiology();self.context();self.treatment_context()
+        self.exposures();self.admission_diagnosis()
+        self.microbiology();self.context();self.admission_context();self.treatment_context()
         self.meta.to_parquet(self.out/'metadata.parquet',index=False)
         pd.DataFrame(self.audit).to_csv(self.out/'extraction_counts.csv',index=False)
         self.con.close();return self.files
@@ -245,9 +280,10 @@ class RawExtractor:
     def miiv_dictionary(self,source):
         """MIMIC-IV item dictionary (itemid, label) for one event table; empty if absent."""
         d=self.csv('hosp/d_labitems' if source=='labevents' else 'icu/d_items')
-        if d is None:return pd.DataFrame(columns=['itemid','label'])
+        if d is None:return pd.DataFrame(columns=['itemid','label','fluid'])
         where=f"WHERE lower(coalesce({self.col(d,'linksto')},''))={q(source)}" if source!='labevents' and 'linksto' in self.cols(d) else ''
-        return self.con.execute(f'SELECT CAST(x.itemid AS VARCHAR) AS "itemid",CAST(x."label" AS VARCHAR) AS "label" FROM {d} x {where}').df()
+        fluid=f'CAST({self.col(d,"fluid")} AS VARCHAR)' if source=='labevents' else "''"
+        return self.con.execute(f'SELECT CAST(x.itemid AS VARCHAR) AS "itemid",CAST(x."label" AS VARCHAR) AS "label",{fluid} AS "fluid" FROM {d} x {where}').df()
 
     def standard(self):
         # Build exact dictionary-based mappings from the pinned ricu version, plus the v10.3
@@ -270,6 +306,7 @@ class RawExtractor:
                             lab=labels.label.fillna('').str.lower()
                             hit=lab.str.contains(item['label_regex'],regex=True)
                             if 'exclude_regex' in item:hit&=~lab.str.contains(item['exclude_regex'],regex=True)
+                            if 'fluid_regex' in item:hit&=labels.fluid.fillna('').str.lower().str.contains(item['fluid_regex'],regex=True)
                             ids+=labels.itemid[hit].tolist()
                         for itemid in ids:mappings.append((itemid,feat,unit,''))
                     elif 'ids' in item:
@@ -480,6 +517,140 @@ class RawExtractor:
         self.files.append(self.out/'comorbidity.parquet')
         if len(d):self.audit.extend([{'dataset':self.ds,'table':'comorbidity','feature':f,'n':int(n)} for f,n in d.feature.value_counts().items()])
 
+    def classify_export(self,name,base,classes,exclude):
+        """Export exposure events from `base` (stay_id,event_hour,available_hour,text,value) whose
+        text matches a class pattern (one row per matching class) and not the exclusion pattern."""
+        self.con.register('classes',pd.DataFrame(list(classes.items()),columns=['feature','pattern']))
+        self.export(name,f'''SELECT b.stay_id,b.event_hour,b.available_hour,c.feature,CAST(b.value AS DOUBLE) AS "value",
+          '' unit,'exposure' kind,CAST(NULL AS DOUBLE) end_hour FROM ({base}) b
+          JOIN classes c ON regexp_matches(lower(coalesce(b."text",'')),c.pattern)
+          WHERE NOT regexp_matches(lower(coalesce(b."text",'')),{q(exclude)})''')
+
+    def exposures(self):
+        """v10.4: invasive devices, medications, imaging orders, IV fluids and transfusions, each from
+        the time it was recorded (MIMIC: storetime-bounded; eICU: entry/order offsets)."""
+        dev={'Device_'+k:p for k,p in DEVICE_PATTERNS.items()};med={'Med_'+k:p for k,p in MED_FEATURES.items()}
+        if self.ds=='miiv':
+            pe=self.csv('icu/procedureevents');di=self.csv('icu/d_items')
+            if pe and di:
+                eh=self.hour('x.starttime');ah=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({eh},{self.hour("x.storetime")}) END'
+                self.classify_export('devices',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",1.0 AS "value"
+                  FROM {pe} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid''',dev,DEVICE_EXCLUDE)
+            rx=self.csv('hosp/prescriptions')
+            if rx:
+                # Prescription start time (orders are entered at or before their start).
+                eh=self.hour('x.starttime')
+                self.classify_export('medications',f'''SELECT s.stay_id,{eh} event_hour,{eh} available_hour,x.drug AS "text",1.0 AS "value"
+                  FROM {rx} x JOIN stays s ON TRY_CAST(x.hadm_id AS BIGINT)=s.hadm_id''',med,MED_EXCLUDE)
+            ie=self.csv('icu/inputevents')
+            if ie and di:
+                eh=self.hour('x.starttime');ah=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({eh},{self.hour("x.storetime")}) END'
+                base=f'''FROM {ie} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid
+                  WHERE lower(coalesce(x.statusdescription,''))<>'rewritten' '''
+                self.classify_export('infusion_medications',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",1.0 AS "value" {base}''',med,MED_EXCLUDE)
+                # A volume is known once the administration ends: event at the end time.
+                end=self.hour('x.endtime');aend=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({end},{self.hour("x.storetime")}) END'
+                cat="lower(coalesce(x.ordercategoryname,''))"
+                self.export('fluids',f'''SELECT s.stay_id,{end} event_hour,{aend} available_hour,
+                  CASE WHEN {cat} LIKE '%blood product%' THEN 'Transfusion' ELSE 'FluidIn' END feature,
+                  TRY_CAST(x.amount AS DOUBLE) AS "value",'mL' unit,'volume' kind,CAST(NULL AS DOUBLE) end_hour {base}
+                  AND regexp_matches({cat},'crystalloid|colloid|fluid bolus|blood product')
+                  AND lower(coalesce(x.amountuom,''))='ml' AND TRY_CAST(x.amount AS DOUBLE)>0''')
+            poe=self.csv('hosp/poe')
+            if poe and 'ordertime' in self.cols(poe):
+                eh=self.hour('x.ordertime')
+                self.export('imaging',f'''SELECT s.stay_id,{eh} event_hour,{eh} available_hour,'Imaging' feature,1.0 AS "value",
+                  '' unit,'exposure' kind,CAST(NULL AS DOUBLE) end_hour FROM {poe} x JOIN stays s ON TRY_CAST(x.hadm_id AS BIGINT)=s.hadm_id
+                  WHERE lower(coalesce(x.order_type,''))='radiology' ''')
+            return
+        tr=self.csv('treatment')
+        if tr and {'treatmentstring','treatmentoffset'}<=self.cols(tr):
+            base=f'''SELECT s.stay_id,TRY_CAST(x.treatmentoffset AS DOUBLE)/60 event_hour,TRY_CAST(x.treatmentoffset AS DOUBLE)/60 available_hour,
+              x.treatmentstring AS "text",1.0 AS "value" FROM {tr} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id'''
+            self.classify_export('devices',base,dev,DEVICE_EXCLUDE)
+            self.classify_export('imaging',base,{'Imaging':IMAGING_RE},'$^')
+        md=self.csv('medication')
+        if md:
+            order=f"TRY_CAST({self.col(md,'drugorderoffset')} AS DOUBLE)/60";start='TRY_CAST(x.drugstartoffset AS DOUBLE)/60'
+            self.classify_export('medications',f'''SELECT s.stay_id,{start} event_hour,greatest({start},coalesce({order},{start})) available_hour,
+              x.drugname AS "text",1.0 AS "value" FROM {md} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
+              WHERE lower(coalesce({self.col(md,'drugordercancelled')},''))<>'yes' ''',med,MED_EXCLUDE)
+        inf=self.csv('infusionDrug')
+        if inf:
+            self.classify_export('infusion_medications',f'''SELECT s.stay_id,TRY_CAST(x.infusionoffset AS DOUBLE)/60 event_hour,
+              TRY_CAST(x.infusionoffset AS DOUBLE)/60 available_hour,x.drugname AS "text",1.0 AS "value"
+              FROM {inf} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''',med,MED_EXCLUDE)
+        io=self.csv('intakeOutput')
+        if io:
+            eh='TRY_CAST(x.intakeoutputoffset AS DOUBLE)/60'
+            ah=f'CASE WHEN x.intakeoutputentryoffset IS NOT NULL THEN greatest({eh},TRY_CAST(x.intakeoutputentryoffset AS DOUBLE)/60) END'
+            text="lower(coalesce(x.cellpath,'')||' '||coalesce(x.celllabel,''))"
+            # Charted intake volumes (never the cumulative intaketotal/nettotal columns).
+            self.export('fluids',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,
+              CASE WHEN regexp_matches({text},{q(TRANSFUSION_RE)}) THEN 'Transfusion' ELSE 'FluidIn' END feature,
+              TRY_CAST(x.cellvaluenumeric AS DOUBLE) AS "value",'mL' unit,'volume' kind,CAST(NULL AS DOUBLE) end_hour
+              FROM {io} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
+              WHERE lower(coalesce(x.cellpath,'')) LIKE '%intake (ml)%' AND NOT regexp_matches({text},{q(FLUID_IN_EXCLUDE+'|total|cumul')})
+              AND TRY_CAST(x.cellvaluenumeric AS DOUBLE)>0''')
+
+    def admission_diagnosis(self):
+        # eICU admitting diagnosis from its entry offset; MIMIC-IV has no timestamped equivalent.
+        if self.ds!='eicu':return
+        ad=self.csv('admissionDx')
+        if not ad or not {'admitdxpath','admitdxenteredoffset'}<=self.cols(ad):return
+        path="lower(coalesce(x.admitdxpath,''))";t='TRY_CAST(x.admitdxenteredoffset AS DOUBLE)/60'
+        self.export('admission_diagnosis',f'''SELECT s.stay_id,{t} event_hour,{t} available_hour,f.feature,f.value AS "value",
+          '' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour FROM {ad} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id,
+          LATERAL (VALUES
+            ('AdmitDx_Infection',CASE WHEN {path} LIKE '%|diagnosis|%' THEN CASE WHEN regexp_matches({path},{q(INFECTION_DX_RE)}) THEN 1.0 ELSE 0.0 END END),
+            ('AdmitDx_Operative',CASE WHEN {path} LIKE '%|non-operative|%' THEN 0.0 WHEN {path} LIKE '%|operative|%' THEN 1.0
+               WHEN {path} LIKE '%o.r.%' AND {path} LIKE '%|yes' THEN 1.0 WHEN {path} LIKE '%o.r.%' AND {path} LIKE '%|no' THEN 0.0 END)) f(feature,value)''')
+
+    def admission_context(self):
+        """Known at ICU admission: hours in hospital before the ICU, where the patient came from,
+        and the ICU type. MIMIC: transfers (unit before the ICU) and admissions; eICU: patient."""
+        m=self.meta;out=pd.DataFrame({'stay_id':m.stay_id})
+        def text(series):return series.astype('string').fillna('')
+        def has(series,pattern):return text(series).str.lower().str.contains(pattern,regex=True)
+        if self.ds=='miiv':
+            icu=self.csv('icu/icustays',True);adm=self.csv('hosp/admissions');tf=self.csv('hosp/transfers')
+            unit=self.con.execute(f'SELECT CAST(x.stay_id AS BIGINT) stay_id,{self.col(icu,"first_careunit")} AS "unit" FROM {icu} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id').df()
+            out=out.merge(unit,on='stay_id',how='left')
+            if adm and {'admittime','admission_location'}<=self.cols(adm):
+                a=self.con.execute(f'''SELECT s.stay_id,epoch(s.intime-TRY_CAST(x.admittime AS TIMESTAMP))/3600.0 AS "before",x.admission_location AS "loc"
+                  FROM {adm} x JOIN stays s ON TRY_CAST(x.hadm_id AS BIGINT)=s.hadm_id''').df()
+                out=out.merge(a,on='stay_id',how='left')
+            else:out['before']=np.nan;out['loc']=None
+            prev=pd.DataFrame(columns=['stay_id','prev'])
+            if tf and {'careunit','intime','hadm_id'}<=self.cols(tf):
+                prev=self.con.execute(f'''SELECT stay_id,"prev" FROM (SELECT s.stay_id,x.careunit AS "prev",row_number() OVER (PARTITION BY s.stay_id
+                  ORDER BY TRY_CAST(x.intime AS TIMESTAMP) DESC) AS "r" FROM {tf} x JOIN stays s ON TRY_CAST(x.hadm_id AS BIGINT)=s.hadm_id
+                  WHERE TRY_CAST(x.intime AS TIMESTAMP)<s.intime AND x.careunit IS NOT NULL) WHERE "r"=1''').df()
+            out=out.merge(prev,on='stay_id',how='left')
+            src=text(out.prev).where(text(out.prev).ne('')&~has(out.prev,'unknown'),text(out['loc']))
+            known=src.ne('')
+            out['AdmitSource_ED']=has(src,'emergency');out['AdmitSource_OR']=has(src,'pacu|operating|procedure|surgery transfer')
+            out['AdmitSource_OtherHospital']=has(src,'transfer from hospital|other hospital')
+            out['AdmitSource_Ward']=known&~(out.AdmitSource_ED|out.AdmitSource_OR|out.AdmitSource_OtherHospital|has(src,'intensive|icu|unknown|information not'))
+        else:
+            raw=self.csv('patient',True)
+            p=self.con.execute(f'''SELECT s.stay_id,{self.col(raw,'unittype')} AS "unit",{self.col(raw,'unitadmitsource')} AS "src",
+              -TRY_CAST({self.col(raw,'hospitaladmitoffset')} AS DOUBLE)/60 AS "before"
+              FROM {raw} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''').df()
+            out=out.merge(p,on='stay_id',how='left');src=out.src;known=text(src)!=''
+            out['AdmitSource_ED']=has(src,'emergency|chest pain');out['AdmitSource_OR']=has(src,'operating|recovery|pacu')
+            out['AdmitSource_OtherHospital']=has(src,'other hospital');out['AdmitSource_Ward']=has(src,'floor|step-down|sdu|acute care|observation')
+        for c in ['AdmitSource_ED','AdmitSource_OR','AdmitSource_OtherHospital','AdmitSource_Ward']:
+            out[c]=out[c].astype(float).where(known)
+        u=out.unit;ku=text(u)!=''
+        out['ICUType_Neuro']=has(u,'neuro');out['ICUType_Cardiac']=has(u,'cardiac|coronary|ccu|cticu|csicu|cvicu')
+        out['ICUType_Surgical']=has(u,'surg|sicu')&~has(u,'cardiac')
+        out['ICUType_Medical']=has(u,'medical|micu|med-surg')
+        for c in ['ICUType_Neuro','ICUType_Cardiac','ICUType_Surgical','ICUType_Medical']:out[c]=out[c].astype(float).where(ku)
+        out['HospitalHoursBeforeICU']=out.before.clip(lower=0)
+        keep=['stay_id','HospitalHoursBeforeICU']+[c for c in ADMISSION if c.startswith(('AdmitSource_','ICUType_'))]
+        self.meta=self.meta.drop(columns=[c for c in keep if c!='stay_id' and c in self.meta]).merge(out[keep],on='stay_id',how='left',validate='one_to_one')
+
     def microbiology(self):
         # Retrospective specimen-site context, never a confirmed infection-source label.
         stem='hosp/microbiologyevents' if self.ds=='miiv' else 'microLab';raw=self.csv(stem)
@@ -649,13 +820,32 @@ def support_features(z,hours):
         if m.any():values[i]=v[m].max();age[i]=t-e[m].max()
     return values,age
 
+def first_known(events,hours):
+    """Per cutoff: event time of the earliest record already available by then (NaN if none)."""
+    out=np.full(len(hours),np.nan)
+    if events.empty:return out
+    z=events.sort_values('available_hour');a=z.available_hour.to_numpy(float)
+    first=np.minimum.accumulate(z.event_hour.to_numpy(float))
+    idx=np.searchsorted(a,hours,side='right')-1;ok=idx>=0;out[ok]=first[idx[ok]];return out
+
+def window_total(events,hours,window,count=False):
+    """Sum (or count) of records available by each cutoff with event time in (t-window, t]; 0 if none."""
+    e=events.event_hour.to_numpy(float);a=events.available_hour.to_numpy(float);v=events.value.to_numpy(float)
+    out=np.zeros(len(hours))
+    for i,t in enumerate(hours):
+        m=(a<=t)&(e>t-window)&(e<=t)
+        if m.any():out[i]=m.sum() if count else v[m].sum()
+    return out
+
 def build_sequence(events,meta,max_hours=120,horizon=6):
     end=min(max_hours,int(np.floor(meta['followup_end'])))
     hours=np.arange(1,end+1,dtype=float)
     d=pd.DataFrame({'Hour':hours});ages={}
+    by={f:g for f,g in events.groupby('feature',sort=False)} if len(events) else {}
+    def ev(f):return by.get(f,events.iloc[:0])
     for feat in BASE+SUPPORT+['GCS_Eyes','GCS_Verbal','GCS_Motor','Intubated']:
         if feat in ['Age','Gender','PostoperativeAdmission']:continue
-        z=events[events.feature.eq(feat)]
+        z=ev(feat)
         if feat in SUPPORT:
             d[feat],ages[feat]=support_features(z,hours);continue
         if feat=='Intubated' and len(z):
@@ -685,10 +875,10 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     d['IntubatedHours']=np.where(np.cumsum(np.isfinite(tube))>0,np.cumsum(tube==1).astype(float),np.nan)
     for feat in COMORBID:
         # 1 from the hour its documentation is available, else 0 (not documented).
-        known=events.available_hour[events.feature.eq(feat)]
+        known=ev(feat).available_hour
         d[feat]=(hours>=known.min()).astype(float) if len(known) else 0.
-    d['Age']=meta.get('Age',np.nan);d['Gender']=meta.get('Gender',np.nan)
-    for feat,v in urine_features(events[events.feature.eq('UrineOutput')],hours,d.Weight.to_numpy()).items():d[feat]=v
+    d['Age']=meta.get('Age',np.nan);d['Gender']=meta.get('Gender',np.nan);d=d.copy()
+    for feat,v in urine_features(ev('UrineOutput'),hours,d.Weight.to_numpy()).items():d[feat]=v
     def criterion(cols,predicate):
         obs=d[cols].notna().any(axis=1);return predicate().astype(float).where(obs)
     d['SIRS_Temp']=criterion(['Temp'],lambda:(d.Temp<36)|(d.Temp>38))
@@ -702,6 +892,25 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     d['SIRS_ObservedComponents']=comps.notna().sum(axis=1)
     d['SIRS_Count']=comps.sum(axis=1,min_count=4) # incomplete count is unknown; individual observed criteria remain usable
     d['ShockIndex']=(d.HR/d.SBP).where(d.SBP>0)
+    new={};fio2=d.FiO2.where(d.FiO2>=21)/100
+    new['PF_Ratio']=d.PaO2/fio2;new['SF_Ratio']=d.O2Sat/fio2
+    # Admission context known at ICU admission; eICU admitting diagnosis from its entry time.
+    for f in ADMISSION:
+        if f.startswith('AdmitDx_'):
+            z=ev(f)
+            if len(z):z=z.groupby('event_hour',as_index=False).agg(value=('value','max'),available_hour=('available_hour','max'))
+            new[f],_=latest_known(z,hours,float(max_hours+168))
+        else:
+            v=meta.get(f,np.nan);new[f]=np.repeat(float(v) if v is not None and pd.notna(v) else np.nan,len(hours))
+    # Documented exposures, each from the hour its record is available (0 = not documented).
+    for dev in DEVICES:
+        first=first_known(ev(dev),hours)
+        new[dev]=np.isfinite(first).astype(float);new[dev+'_Hours']=hours-first
+    for k in MED_FEATURES:new['Med_'+k+'_24h']=(window_total(ev('Med_'+k),hours,24,True)>0).astype(float)
+    new['Imaging_24h']=window_total(ev('Imaging'),hours,24,True)
+    new['FluidIn_6h']=window_total(ev('FluidIn'),hours,6);new['FluidIn_24h']=window_total(ev('FluidIn'),hours,24)
+    new['Transfusion_24h']=window_total(ev('Transfusion'),hours,24)
+    d=pd.concat([d,pd.DataFrame(new,index=d.index)],axis=1)
     extras={feat+'_age':age for feat,age in ages.items() if feat in BASE+SUPPORT+['Intubated']}
     # Explicit masks survive imputation and reach every model and observer.
     extras.update({feat+'_observed':d[feat].notna().astype(float) for feat in PRIMARY})
@@ -786,8 +995,8 @@ def build_shards(ds,stage,cohort_folder,out,max_hours=120,horizon=6,batch=32):
             offset+=len(seq)
             for f in PRIMARY:
                 a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].notna().sum()),b+len(seq))
-            for f in COMORBID:  # flagged hours (a flag is never missing; 0 means not documented)
-                a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].eq(1).sum()),b+len(seq))
+            for f in COMORBID+EXPOSURES:  # flagged/nonzero hours (never missing; 0 means not documented)
+                a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].gt(0).sum()),b+len(seq))
         if parts:
             tmp=dest.with_suffix('.partial.parquet');pd.concat(parts,ignore_index=True).to_parquet(tmp,index=False,compression='zstd');os.replace(tmp,dest)
         rec={'contract':contract,'index':json.loads(pd.DataFrame(batch_index).to_json(orient='records',date_format='iso')) if batch_index else [],

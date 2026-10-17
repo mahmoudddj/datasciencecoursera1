@@ -154,6 +154,55 @@ def run_selftests():
         check('airway_procedures_causal_and_noninvasive_excluded',mv.Intubated.iloc[:7].tolist()[2:]==[1.,1,1,1,0] and np.isnan(mv.Intubated.iloc[1])
               and mv.IntubatedHours.iloc[7]==4)
 
+    # v10.4 exposures, admission context and admitting diagnosis on schema-shaped fixtures (both databases).
+    with tempfile.TemporaryDirectory() as td:
+        td=Path(td);sel=pd.DataFrame({'stay_id':[1],'first_hour':[0.],'followup_end':[24.],'first_positive':[np.nan],'OnsetHour':[np.nan],'Outcome':[0]})
+        root=td/'miiv';(root/'icu').mkdir(parents=True);(root/'hosp').mkdir()
+        T=lambda h:str(pd.Timestamp('2100-01-01')+pd.Timedelta(hours=h))
+        pd.DataFrame({'stay_id':[1],'hadm_id':[10],'subject_id':[100],'intime':[T(0)],'outtime':[T(30)],'first_careunit':['Medical Intensive Care Unit (MICU)']}).to_csv(root/'icu/icustays.csv',index=False)
+        pd.DataFrame({'subject_id':[100],'hadm_id':[10],'admittime':[T(-30)],'dischtime':[T(60)],'admission_location':['EMERGENCY ROOM']}).to_csv(root/'hosp/admissions.csv',index=False)
+        pd.DataFrame({'subject_id':[100,100],'hadm_id':[10,10],'careunit':['Emergency Department','Medicine'],'intime':[T(-30),T(-20)]}).to_csv(root/'hosp/transfers.csv',index=False)
+        pd.DataFrame({'itemid':[225752,224263,225202,227194,225158,226361],'label':['Arterial Line','Multi Lumen','Foley Catheter Removed','Extubation','NaCl 0.9%','Pre-Admission Intake'],
+            'linksto':['procedureevents']*4+['inputevents']*2}).to_csv(root/'icu/d_items.csv',index=False)
+        pd.DataFrame({'stay_id':[1]*3,'itemid':[225752,224263,225202],'starttime':[T(2),T(5),T(3)],'storetime':[T(3),T(5),T(3)]}).to_csv(root/'icu/procedureevents.csv',index=False)
+        pd.DataFrame({'hadm_id':[10]*4,'drug':['Tacrolimus','Metoprolol Tartrate','Hydrocortisone Cream 1%','Vancomycin'],'starttime':[T(1),T(4),T(2),T(1)]}).to_csv(root/'hosp/prescriptions.csv',index=False)
+        pd.DataFrame({'stay_id':[1,1],'itemid':[225158,225158],'starttime':[T(1),T(6)],'endtime':[T(2),T(9)],'storetime':[T(2),T(9)],'amount':[500.,1000.],
+            'amountuom':['ml','ml'],'ordercategoryname':['03-IV Fluid Bolus','02-Fluids (Crystalloids)'],'statusdescription':['FinishedRunning']*2,'rate':[0.,0.]}).to_csv(root/'icu/inputevents.csv',index=False)
+        pd.DataFrame({'hadm_id':[10,10],'ordertime':[T(3),T(4)],'order_type':['Radiology','Medications']}).to_csv(root/'hosp/poe.csv',index=False)
+        pd.DataFrame({'stay_id':[1],'itemid':[226559],'charttime':[T(1)],'storetime':[T(1)],'value':[50.],'valueuom':['mL']}).to_csv(root/'icu/outputevents.csv',index=False)
+        pd.DataFrame({'stay_id':[1],'itemid':[220045],'charttime':[T(1)],'storetime':[T(1)],'valuenum':[90.],'value':['90'],'valueuom':['bpm']}).to_csv(root/'icu/chartevents.csv',index=False)
+        paths=RawExtractor('miiv',root,sel,td/'ms',12).extract()
+        meta=pd.read_parquet(td/'ms/metadata.parquet').iloc[0].to_dict()
+        mv=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
+        check('mimic_admission_context',mv.HospitalHoursBeforeICU.eq(30).all() and mv.AdmitSource_Ward.eq(1).all() and mv.AdmitSource_ED.eq(0).all()
+              and mv.ICUType_Medical.eq(1).all() and mv.ICUType_Surgical.eq(0).all() and mv.AdmitDx_Infection.isna().all())
+        check('mimic_devices_from_store_time_removals_ignored',mv.Device_ArterialLine.tolist()[:4]==[0,0,1,1] and mv.Device_ArterialLine_Hours.iloc[3]==2
+              and mv.Device_CentralLine.iloc[4]==1 and mv.Device_UrinaryCatheter.eq(0).all())
+        check('mimic_medications_24h_no_topical_no_antibiotic_feature',mv.Med_Immunosuppressant_24h.tolist()==[1.]*12 and mv.Med_BetaBlocker_24h.tolist()[2:4]==[0.,1.]
+              and mv.Med_Hydrocortisone_24h.eq(0).all() and not any('ntibiot' in c for c in mv.columns))
+        check('mimic_fluids_known_at_end_and_imaging',mv.FluidIn_6h.tolist()[:3]==[0.,500.,500.] and mv.FluidIn_24h.iloc[8]==1500 and mv.FluidIn_6h.iloc[8]==1000
+              and mv.Imaging_24h.iloc[2]==1 and mv.Imaging_24h.iloc[1]==0)
+        root=td/'eicu';root.mkdir()
+        pd.DataFrame({'patientunitstayid':[1],'uniquepid':['p1'],'hospitalid':[1],'unitadmitsource':['Operating Room'],'unittype':['CTICU'],
+            'hospitaladmitoffset':[-600],'apacheadmissiondx':['x']}).to_csv(root/'patient.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*3,'treatmentoffset':[60,120,180],'treatmentstring':['cardiovascular|vascular access|central venous catheter',
+            'renal|urinary catheter|foley catheter','pulmonary|radiologic procedures|chest x-ray']}).to_csv(root/'treatment.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1,1],'drugname':['PROPOFOL 10 MG/ML','ACETAMINOPHEN 325 MG'],'drugstartoffset':[60,60],'drugorderoffset':[30,240],
+            'drugordercancelled':['No','No']}).to_csv(root/'medication.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*4,'intakeoutputoffset':[60,60,120,120],'intakeoutputentryoffset':[60,60,180,120],
+            'cellpath':['flowsheet|I&O|Intake (ml)|Crystalloids|NS','flowsheet|I&O|Intake (ml)|Enteral|Tube feeding','flowsheet|I&O|Intake (ml)|Blood Products|PRBC','flowsheet|I&O|Output (ml)|Urine'],
+            'celllabel':['NS','tube feeding','PRBC','Urine'],'cellvaluenumeric':[250,100,300,40]}).to_csv(root/'intakeOutput.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1,1],'admitdxenteredoffset':[90,90],'admitdxpath':['admission diagnosis|Operative|Diagnosis|Cardiovascular|Valve replacement',
+            'admission diagnosis|Was the patient admitted from the O.R. or went to the O.R. within 4 hours of admission?|Yes']}).to_csv(root/'admissionDx.csv',index=False)
+        paths=RawExtractor('eicu',root,sel,td/'es',12).extract()
+        meta=pd.read_parquet(td/'es/metadata.parquet').iloc[0].to_dict()
+        es=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
+        check('eicu_admission_context',es.HospitalHoursBeforeICU.eq(10).all() and es.AdmitSource_OR.eq(1).all() and es.ICUType_Cardiac.eq(1).all())
+        check('eicu_admitting_diagnosis_from_entry_time',np.isnan(es.AdmitDx_Operative.iloc[0]) and es.AdmitDx_Operative.iloc[1]==1 and es.AdmitDx_Infection.iloc[1]==0)
+        check('eicu_devices_imaging_from_treatments',es.Device_CentralLine.iloc[0]==1 and es.Device_UrinaryCatheter.tolist()[:2]==[0.,1.] and es.Imaging_24h.iloc[2]==1)
+        check('eicu_medication_available_at_order_entry',es.Med_Sedative_24h.iloc[0]==1 and es.Med_Antipyretic_24h.tolist()[2:4]==[0.,1.])
+        check('eicu_fluids_exclude_enteral_and_split_transfusion',es.FluidIn_6h.iloc[0]==250 and es.Transfusion_24h.tolist()[1:3]==[0.,300.])
+
     meta={'followup_end':24.,'OnsetHour':10.,'Age':60.,'Gender':1.}
     seq=build_sequence(all_ev,meta,12,6)
     # Post-onset hours are kept for trajectory (utility) scoring but can never be trained on or scored as incident risk;

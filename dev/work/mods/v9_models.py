@@ -21,6 +21,16 @@ ORGAN_FEATURES={
  'comorbidity':['Comorbidity_chronic_heart_failure','Comorbidity_chronic_liver_disease_cirrhosis','Comorbidity_diabetes',
    'Comorbidity_metastatic_carcinoma','Comorbidity_hematological_malignancy','Comorbidity_immunocompromised',
    'Comorbidity_chronic_organ_insufficiency']}
+# v10.4 additions.
+for g,fs in {'inflammatory':['Procalcitonin','Ferritin'],'hematologic':['DDimer','RDW'],'hepatic':['Lipase'],
+             'metabolic':['LDH','AnionGap'],'cardiovascular':['BNP','NTproBNP','CVP','FluidIn_6h','FluidIn_24h','Transfusion_24h'],
+             'respiratory':['PEEP','PF_Ratio','SF_Ratio']}.items():ORGAN_FEATURES[g]+=fs
+ORGAN_FEATURES['admission']=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
+  'ICUType_Medical','ICUType_Surgical','ICUType_Cardiac','ICUType_Neuro','AdmitDx_Infection','AdmitDx_Operative']
+_dev=['Device_'+k for k in ['CentralLine','ArterialLine','DialysisCatheter','UrinaryCatheter','Drain']]
+ORGAN_FEATURES['infection_risk']=_dev+[d+'_Hours' for d in _dev]
+ORGAN_FEATURES['treatment']=['Med_'+k+'_24h' for k in ['Immunosuppressant','Chemotherapy','Corticosteroid','Hydrocortisone',
+  'BetaBlocker','Antipyretic','Sedative','Opioid','Diuretic']]+['Imaging_24h']
 LOOKUP={f:g for g,fs in ORGAN_FEATURES.items() for f in fs}
 from v10_features import GROUPS
 LOOKUP.update(GROUPS)
