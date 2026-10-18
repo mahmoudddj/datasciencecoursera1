@@ -1699,5 +1699,535 @@
         }
       ]
     }
+  },
+  "RASS": {
+    "concept": "rass",
+    "unit": "",
+    "min": -5,
+    "max": 4,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            228096
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Sedation Score"
+          ],
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        }
+      ]
+    }
+  },
+  "O2Flow": {
+    "concept": "o2flow",
+    "unit": "L/min",
+    "min": 0,
+    "max": 80,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            223834
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "LPM O2",
+            "O2 Flow",
+            "O2 L/min"
+          ],
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
+  },
+  "TidalVolume": {
+    "concept": "vt",
+    "unit": "mL",
+    "min": 0,
+    "max": 2000,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            224685
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Tidal Volume Observed (VT)",
+            "Exhaled TV (patient)",
+            "Exhaled TV (machine)"
+          ],
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
+  },
+  "MinuteVentilation": {
+    "concept": "mv",
+    "unit": "L/min",
+    "min": 0,
+    "max": 40,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            224687
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Exhaled MV",
+            "Minute Volume",
+            "Total Minute Ventilation"
+          ],
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
+  },
+  "PeakPressure": {
+    "concept": "ppeak",
+    "unit": "cmH2O",
+    "min": 0,
+    "max": 80,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            224695
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Peak Insp. Pressure"
+          ],
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
+  },
+  "PlateauPressure": {
+    "concept": "pplat",
+    "unit": "cmH2O",
+    "min": 0,
+    "max": 80,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            224696
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Plateau Pressure"
+          ],
+          "table": "respiratorycharting",
+          "sub_var": "respchartvaluelabel"
+        }
+      ]
+    }
+  },
+  "Height": {
+    "concept": "height",
+    "unit": "cm",
+    "min": 100,
+    "max": 250,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            226730
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": []
+    }
+  },
+  "UrineWBC": {
+    "concept": "urine_wbc",
+    "unit": "#/hpf",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51516
+          ],
+          "label_regex": "^wbc$",
+          "fluid_regex": "urine",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": []
+    }
+  },
+  "Monocytes": {
+    "concept": "mono",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51254
+          ],
+          "label_regex": "^monocytes$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "-monos"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Eosinophils": {
+    "concept": "eos",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51200
+          ],
+          "label_regex": "^eosinophils$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "-eos"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Ammonia": {
+    "concept": "nh3",
+    "unit": "umol/L",
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50866
+          ],
+          "label_regex": "^ammonia$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "ammonia"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "Amylase": {
+    "concept": "amylase",
+    "unit": [
+      "IU/L",
+      "U/l"
+    ],
+    "min": 0,
+    "max": null,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            50867
+          ],
+          "label_regex": "^amylase$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "amylase"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "ESR": {
+    "concept": "esr",
+    "unit": "mm/hr",
+    "min": 0,
+    "max": 200,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51288
+          ],
+          "label_regex": "sedimentation rate",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "ESR"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "PainScore": {
+    "concept": "pain",
+    "unit": "",
+    "min": 0,
+    "max": 10,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            223791
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid",
+          "label_regex": "^pain level$"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "Pain Score"
+          ],
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        }
+      ]
+    }
+  },
+  "PAmean": {
+    "concept": "pam",
+    "unit": [
+      "mmHg",
+      "mm Hg"
+    ],
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220061
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid",
+          "label_regex": "^pulmonary artery pressure mean"
+        }
+      ],
+      "eicu": [
+        {
+          "table": "vitalperiodic",
+          "val_var": "pamean",
+          "class": "col_itm"
+        }
+      ]
+    }
+  },
+  "CardiacOutput": {
+    "concept": "co",
+    "unit": "L/min",
+    "min": 0,
+    "max": 20,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            220088
+          ],
+          "table": "chartevents",
+          "sub_var": "itemid",
+          "label_regex": "^cardiac output"
+        }
+      ],
+      "eicu": []
+    }
+  },
+  "ScvO2": {
+    "concept": "scvo2",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [],
+          "table": "chartevents",
+          "sub_var": "itemid",
+          "label_regex": "scvo2|svo2|mixed venous"
+        }
+      ],
+      "eicu": []
+    }
+  },
+  "UrineNitrite": {
+    "concept": "u_nitrite",
+    "unit": "",
+    "min": 0,
+    "max": 1,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51487
+          ],
+          "label_regex": "^nitrite$",
+          "fluid_regex": "urine",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": []
+    }
+  },
+  "UrineLeukEsterase": {
+    "concept": "u_le",
+    "unit": "",
+    "min": 0,
+    "max": 1,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51486
+          ],
+          "label_regex": "^leukocytes$",
+          "fluid_regex": "urine",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": []
+    }
+  },
+  "Basophils": {
+    "concept": "baso",
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51146
+          ],
+          "label_regex": "^basophils$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "-basos"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
+  },
+  "RBC": {
+    "concept": "rbc",
+    "unit": "m/uL",
+    "min": 0,
+    "max": 10,
+    "sources": {
+      "miiv": [
+        {
+          "ids": [
+            51279
+          ],
+          "label_regex": "^red blood cells$",
+          "fluid_regex": "blood",
+          "table": "labevents",
+          "sub_var": "itemid"
+        }
+      ],
+      "eicu": [
+        {
+          "ids": [
+            "RBC"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
+    }
   }
 }

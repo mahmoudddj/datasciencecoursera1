@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 import duckdb
-from v9_data import latest_known,urine_features,text_flags,specimen_site,RawExtractor,normalize_events,build_sequence,PRIMARY,csv_scan,comorbidity_flags
+from v9_data import aki_stage,latest_known,urine_features,text_flags,specimen_site,RawExtractor,normalize_events,build_sequence,PRIMARY,csv_scan,comorbidity_flags
 from v9_models import organ_mapping,ObserverBank,ExperimentModel,perturb_guidance
 
 def run_selftests():
@@ -46,6 +46,8 @@ def run_selftests():
           and comorbidity_flags('C787',10)=={'metastatic_carcinoma'} and comorbidity_flags('C9100',10)=={'hematological_malignancy'})
     check('comorbidity_text_and_negation',comorbidity_flags(text='renal failure - hemodialysis')=={'chronic_organ_insufficiency'}
           and not comorbidity_flags(text='endocrine|pituitary|diabetes insipidus') and not comorbidity_flags(text='No Health Problems'))
+    check('broader_comorbidities',comorbidity_flags('J449',10)=={'chronic_pulmonary_disease'} and comorbidity_flags('A419',10)=={'prior_sepsis'}
+          and comorbidity_flags(text='dementia')=={'dementia'} and comorbidity_flags('C349',10)=={'solid_tumor'})
     check('acute_codes_not_comorbidity',not comorbidity_flags('I10',10) and not comorbidity_flags('N179',10) and not comorbidity_flags('K720',10))
     mapping,_=organ_mapping(['GCS','UrineOutput','VasopressorRecorded','Phosphate','pH'])
     check('organ_mapping',mapping=={'GCS':'neurologic','UrineOutput':'renal','VasopressorRecorded':'cardiovascular','Phosphate':'metabolic','pH':'respiratory'})
@@ -179,7 +181,7 @@ def run_selftests():
         check('mimic_devices_from_store_time_removals_ignored',mv.Device_ArterialLine.tolist()[:4]==[0,0,1,1] and mv.Device_ArterialLine_Hours.iloc[3]==2
               and mv.Device_CentralLine.iloc[4]==1 and mv.Device_UrinaryCatheter.eq(0).all())
         check('mimic_medications_24h_no_topical_no_antibiotic_feature',mv.Med_Immunosuppressant_24h.tolist()==[1.]*12 and mv.Med_BetaBlocker_24h.tolist()[2:4]==[0.,1.]
-              and mv.Med_Hydrocortisone_24h.eq(0).all() and not any('ntibiot' in c for c in mv.columns))
+              and mv.Med_Hydrocortisone_24h.eq(0).all() and not any('ntibiot' in c and c!='PriorAntibiotics_90d' and not c.startswith('PriorAntibiotics_90d') for c in mv.columns))
         check('mimic_fluids_known_at_end_and_imaging',mv.FluidIn_6h.tolist()[:3]==[0.,500.,500.] and mv.FluidIn_24h.iloc[8]==1500 and mv.FluidIn_6h.iloc[8]==1000
               and mv.Imaging_24h.iloc[2]==1 and mv.Imaging_24h.iloc[1]==0)
         root=td/'eicu';root.mkdir()
@@ -202,6 +204,70 @@ def run_selftests():
         check('eicu_devices_imaging_from_treatments',es.Device_CentralLine.iloc[0]==1 and es.Device_UrinaryCatheter.tolist()[:2]==[0.,1.] and es.Imaging_24h.iloc[2]==1)
         check('eicu_medication_available_at_order_entry',es.Med_Sedative_24h.iloc[0]==1 and es.Med_Antipyretic_24h.tolist()[2:4]==[0.,1.])
         check('eicu_fluids_exclude_enteral_and_split_transfusion',es.FluidIn_6h.iloc[0]==250 and es.Transfusion_24h.tolist()[1:3]==[0.,300.])
+
+    # v10.5: text states, vasopressor dose, procedures, nutrition, stool, prior contact, lab changes, AKI (both databases).
+    with tempfile.TemporaryDirectory() as td:
+        td=Path(td);sel=pd.DataFrame({'stay_id':[1],'first_hour':[0.],'followup_end':[24.],'first_positive':[np.nan],'OnsetHour':[np.nan],'Outcome':[0]})
+        root=td/'miiv';(root/'icu').mkdir(parents=True);(root/'hosp').mkdir()
+        T=lambda h:str(pd.Timestamp('2100-01-01')+pd.Timedelta(hours=h))
+        pd.DataFrame({'stay_id':[1,2],'hadm_id':[10,10],'subject_id':[100,100],'intime':[T(0),T(-40)],'outtime':[T(30),T(-30)]}).to_csv(root/'icu/icustays.csv',index=False)
+        pd.DataFrame({'subject_id':[100]*3,'hadm_id':[8,9,10],'admittime':[T(-24*400),T(-24*30),T(-48)],'dischtime':[T(-24*390),T(-24*20),T(60)],
+            'admission_location':['EMERGENCY ROOM','EMERGENCY ROOM','TRANSFER FROM SKILLED NURSING FACILITY']}).to_csv(root/'hosp/admissions.csv',index=False)
+        pd.DataFrame({'subject_id':[100,100,100],'hadm_id':[9,None,10],'charttime':[T(-24*25),T(-60),T(-10)],'org_name':['E. COLI','STAPH AUREUS','KLEBSIELLA'],'spec_type_desc':['URINE','BLOOD CULTURE','SPUTUM']}).to_csv(root/'hosp/microbiologyevents.csv',index=False)
+        pd.DataFrame({'itemid':[221906,222315,225802,225194,226579,228332,220048,226588,223951,224056],'label':['Norepinephrine','Vasopressin','Dialysis - CRRT','Peptamen 1.5 (Full)','Stool','Delirium assessment','Heart Rhythm','Chest Tube #1','Capillary Refill R','Skin Color'],
+            'linksto':['inputevents','inputevents','procedureevents','inputevents','outputevents','chartevents','chartevents','outputevents','chartevents','chartevents']}).to_csv(root/'icu/d_items.csv',index=False)
+        pd.DataFrame({'subject_id':[100,100],'hadm_id':[9,10],'starttime':[T(-24*25),T(1)],'drug':['Vancomycin','Ceftriaxone']}).to_csv(root/'hosp/prescriptions.csv',index=False)
+        ce=[(226732,1,1,np.nan,'High flow nasal cannula'),(226732,4,4,np.nan,'Bipap mask '),(226732,6,6,np.nan,'Nasal cannula'),(228332,2,2,np.nan,'Positive'),
+            (220048,1,1,np.nan,'SR (Sinus Rhythm)'),(220048,3,3,np.nan,'AF (Atrial Fibrillation)'),(228096,2,2,np.nan,'-2 Light sedation'),(226730,0,0,170.,'170'),(226512,0,0,80.,'80'),(223791,2,2,np.nan,'7 Severe'),(223951,1,1,np.nan,'Abnormal >3 sec'),(223951,4,4,np.nan,'Normal <3 secs'),(224056,2,2,np.nan,'Mottled')]
+        pd.DataFrame([{'stay_id':1,'itemid':i,'charttime':T(c),'storetime':T(st),'valuenum':v,'value':t,'valueuom':'kg' if i==226512 else ''} for i,c,st,v,t in ce]).to_csv(root/'icu/chartevents.csv',index=False)
+        pd.DataFrame({'stay_id':[1]*4,'itemid':[221906,221906,222315,225194],'starttime':[T(2),T(5),T(3),T(1)],'endtime':[T(5),T(9),T(9),T(3)],'storetime':[T(2),T(5),T(3),T(1)],
+            'rate':[.2,0.,2.4,30.],'rateuom':['mcg/kg/min','mcg/kg/min','units/hour','mL/hour'],'amount':[1,1,1,60.],'amountuom':['mg','mg','units','ml'],
+            'ordercategoryname':['01-Drips','01-Drips','01-Drips','10-Enteral Nutrition'],'statusdescription':['Changed','FinishedRunning','FinishedRunning','FinishedRunning']}).to_csv(root/'icu/inputevents.csv',index=False)
+        pd.DataFrame({'stay_id':[1],'itemid':[225802],'starttime':[T(4)],'storetime':[T(4)]}).to_csv(root/'icu/procedureevents.csv',index=False)
+        pd.DataFrame({'stay_id':[1,1,1],'itemid':[226559,226579,226588],'charttime':[T(1),T(2),T(3)],'storetime':[T(1),T(2),T(3)],'value':[50.,200.,120.],'valueuom':['mL']*3}).to_csv(root/'icu/outputevents.csv',index=False)
+        pd.DataFrame({'hadm_id':[10]*6,'itemid':[50912]*4+[51487,51486],'charttime':[T(-20),T(1),T(4),T(7),T(2),T(2)],'storetime':[T(-19),T(2),T(5),T(8),T(3),T(3)],
+            'valuenum':[1.,1.2,1.6,2.1,np.nan,np.nan],'value':['1.0','1.2','1.6','2.1','POS','NEG'],'valueuom':['mg/dL']*4+['','']}).to_csv(root/'hosp/labevents.csv',index=False)
+        paths=RawExtractor('miiv',root,sel,td/'ms',12).extract()
+        meta=pd.read_parquet(td/'ms/metadata.parquet').iloc[0].to_dict()
+        mv=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
+        check('mimic_o2_support_states',mv.O2_HighFlow.tolist()[:6]==[1.,1,1,0,0,0] and mv.O2_NIV.tolist()[3:6]==[1.,1,0.] and mv.SupplementalO2.iloc[0]==1)
+        check('mimic_delirium_af_rass',mv.Delirium.iloc[1]==1 and np.isnan(mv.Delirium.iloc[0]) and mv.Rhythm_AF.tolist()[:3]==[0.,0.,1.] and mv.RASS.iloc[1]==-2)
+        check('mimic_vasopressor_ne_equivalent',np.isclose(mv.VasopressorDose_NEeq.iloc[1],.2) and np.isclose(mv.VasopressorDose_NEeq.iloc[2],.2+2.4/60*2.5)
+              and np.isclose(mv.VasopressorDose_NEeq.iloc[4],2.4/60*2.5) and mv.VasopressorDose_NEeq.iloc[0]==0)
+        check('mimic_rrt_enteral_stool',mv.Procedure_RRT_24h.tolist()[2:5]==[0.,1.,1.] and mv.Nutrition_Enteral_24h.iloc[0]==1 and mv.StoolRecords_24h.iloc[1]==1)
+        check('mimic_prior_contact',mv.PriorAdmissions_1y.eq(1).all() and np.isclose(mv.DaysSinceLastDischarge.iloc[0],20) and mv.PriorICUStays_SameAdmission.eq(1).all()
+              and mv.AdmitFrom_NursingFacility.eq(1).all() and mv.PriorPositiveCulture_1y.eq(1).all())
+        check('mimic_pain_dipstick_drains',mv.PainScore.iloc[1]==7 and mv.UrineNitrite.iloc[2]==1 and mv.UrineLeukEsterase.iloc[2]==0
+              and np.isnan(mv.UrineNitrite.iloc[1]) and mv.DrainOutput_24h.iloc[2]==120 and mv.StoolRecords_24h.iloc[2]==1)
+        check('mimic_perfusion_signs_prior_antibiotics',mv.CapRefill_Abnormal.tolist()[:4]==[1.,1,1,0] and mv.Skin_Abnormal.iloc[1]==1
+              and mv.PriorAntibiotics_90d.eq(1).all())
+        check('mimic_height_bmi_iculos',mv.Height.eq(170).all() and np.isclose(mv.BMI.iloc[0],80/1.7**2) and mv.ICULOS.tolist()==list(range(1,13)))
+        check('lab_changes_and_aki',np.isnan(mv.Creatinine_DeltaPrev.iloc[0]) and np.isclose(mv.Creatinine_DeltaPrev.iloc[1],.2) and np.isclose(mv.Creatinine_DeltaBaseline.iloc[4],.6)
+              and mv.AKI_Stage.tolist()[:8]==[0.,0.,0.,3.,3.,3.,3.,3.] and mv.LabResults_24h.iloc[7]==5)
+        cr=pd.DataFrame({'event_hour':[0.,10.,20.],'available_hour':[1.,11.,21.],'value':[1.,1.6,3.1]})
+        st=aki_stage(cr,np.array([2.,12.,22.]),np.array([np.nan,.3,np.nan]),np.zeros(3))
+        check('aki_creatinine_and_urine_criteria',st.tolist()==[0.,1.,3.])
+        root=td/'eicu';root.mkdir()
+        pd.DataFrame({'patientunitstayid':[1],'uniquepid':['p1'],'hospitalid':[1],'unitadmitsource':['Floor'],'unittype':['MICU'],'hospitaladmitoffset':[-60],
+            'apacheadmissiondx':['x'],'admissionweight':['100'],'admissionheight':['180'],'unitvisitnumber':['2']}).to_csv(root/'patient.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*3,'infusionoffset':[60,120,300],'drugname':['Norepinephrine (mcg/min)','Vasopressin (units/min)','Norepinephrine (mcg/min)'],
+            'drugrate':['10','0.04','0'],'infusionrate':['10','0.04','0']}).to_csv(root/'infusionDrug.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*3,'treatmentoffset':[60,120,180],'treatmentstring':['pulmonary|ventilation and oxygenation|non-invasive ventilation',
+            'renal|dialysis|C V V H','pulmonary|bronchoscopy']}).to_csv(root/'treatment.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*2,'nursingchartoffset':[60,60],'nursingchartentryoffset':[60,60],'nursingchartcelltypevallabel':['Delirium Scale/Score','Sedation Scale/Score/Goal'],
+            'nursingchartcelltypevalname':['Delirium Score','Sedation Score'],'nursingchartvalue':['Yes','-1']}).to_csv(root/'nurseCharting.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*3,'intakeoutputoffset':[60,60,120],'intakeoutputentryoffset':[60,60,120],
+            'cellpath':['flowsheet|I&O|Intake (ml)|Enteral|Jevity','flowsheet|I&O|Output (ml)|Urine','flowsheet|I&O|Output (ml)|Stool'],'celllabel':['Jevity','Urine','Stool'],
+            'cellvaluenumeric':[50,40,100]}).to_csv(root/'intakeOutput.csv',index=False)
+        paths=RawExtractor('eicu',root,sel,td/'es',12).extract()
+        meta=pd.read_parquet(td/'es/metadata.parquet').iloc[0].to_dict()
+        es=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
+        check('eicu_delirium_rass_niv_rrt_bronch',es.Delirium.iloc[0]==1 and es.RASS.iloc[0]==-1 and es.O2_NIV.iloc[0]==1 and es.Procedure_RRT_24h.tolist()[:2]==[0.,1.]
+              and es.Procedure_Bronchoscopy_24h.iloc[2]==1)
+        check('eicu_vasopressor_dose_per_kg',np.isclose(es.VasopressorDose_NEeq.iloc[0],.1) and np.isclose(es.VasopressorDose_NEeq.iloc[1],.1+.04*2.5)
+              and np.isclose(es.VasopressorDose_NEeq.iloc[4],.04*2.5))
+        check('eicu_nutrition_stool_height_prior_icu',es.Nutrition_Enteral_24h.iloc[0]==1 and es.StoolRecords_24h.iloc[1]==1 and es.Height.eq(180).all()
+              and es.PriorICUStays_SameAdmission.eq(1).all() and es.PriorAdmissions_1y.isna().all())
 
     meta={'followup_end':24.,'OnsetHour':10.,'Age':60.,'Gender':1.}
     seq=build_sequence(all_ev,meta,12,6)

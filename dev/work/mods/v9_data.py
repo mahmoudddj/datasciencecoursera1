@@ -9,7 +9,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-VERSION='v10.4'
+VERSION='v10.5'
 from v10_features import engineer_one, ENGINEERED
 SPEC=json.loads((Path(__file__).parent/'feature_specs.json').read_text())
 # PostoperativeAdmission is not comparably available in either release; it is kept
@@ -23,11 +23,19 @@ RENAL=['UrineOutput','UrineOutput_6h','UrineOutput_24h','UrineCoverage_6h','Urin
        'UrineCoverageFraction_6h','Urine_HoursSinceLast']
 DERIVED=['SIRS_Temp','SIRS_HR','SIRS_Resp','SIRS_WBC','SIRS_ObservedComponents','SIRS_Count','ShockIndex','GCS_Below15']
 DERIVED+=['PF_Ratio','SF_Ratio']
+# v10.5: charted text states (MIMIC chartevents text; eICU where available), each a 0/1 state with a 24 h TTL.
+STATES=['O2_HighFlow','O2_NIV','Delirium','Rhythm_AF','CapRefill_Abnormal','Skin_Abnormal']
+# Lab change features (latest minus previous result; latest minus first result of the stay).
+DELTA_LABS=['Lactate','Creatinine','Platelets','WBC','Bilirubin_total','BUN','CRP','Procalcitonin','pH','HCO3','Hgb','Albumin']
+DERIVED+=['NLR','BMI','SupplementalO2','NetBalance_24h','ICULOS','AKI_Stage']+[f'{l}_DeltaPrev' for l in DELTA_LABS]+[f'{l}_DeltaBaseline' for l in DELTA_LABS]
 # v10.4 (user: include every feature that could predict sepsis). Admission context is known at
 # ICU admission; the admitting diagnosis (eICU admissionDx) from its entry time (MIMIC-IV has none).
 ADMISSION=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
-           'ICUType_Medical','ICUType_Surgical','ICUType_Cardiac','ICUType_Neuro','AdmitDx_Infection','AdmitDx_Operative']
-PRIMARY=BASE+SUPPORT+AIRWAY+RENAL+DERIVED+ADMISSION
+           'ICUType_Medical','ICUType_Surgical','ICUType_Cardiac','ICUType_Neuro','AdmitDx_Infection','AdmitDx_Operative',
+           # v10.5 prior healthcare contact (MIMIC: earlier admissions/ICU stays; eICU: earlier unit visit only).
+           'PriorAdmissions_1y','DaysSinceLastDischarge','PriorICUStays_SameAdmission','AdmitFrom_NursingFacility','PriorPositiveCulture_1y',
+           'PriorAntibiotics_90d']
+PRIMARY=BASE+SUPPORT+AIRWAY+STATES+RENAL+DERIVED+ADMISSION
 # Documented exposures (0 = not documented by that hour; no masks), each from its own timestamp.
 DEVICE_PATTERNS={
  'CentralLine':r'multi lumen|picc|cordis|introducer|central (?:venous )?(?:line|catheter)|indwelling port|portacath|trauma line|swan|pulmonary artery catheter|pa catheter|tunneled|midline',
@@ -48,18 +56,31 @@ MED_FEATURES={
  'Antipyretic':r'acetaminophen|paracetamol|ibuprofen|ketorolac',
  'Sedative':r'propofol|midazolam|lorazepam|dexmedetomidine|ketamine|diazepam',
  'Opioid':r'fentanyl|morphine|hydromorphone|oxycodone|remifentanil|methadone',
- 'Diuretic':r'furosemide|bumetanide|torsemide|chlorothiazide|metolazone|acetazolamide'}
-MED_EXCLUDE=r'cream|ointment|topical|ophth|otic|eye drop|lotion|enema|suppository|rectal foam|nasal spray|inhal'
+ 'Diuretic':r'furosemide|bumetanide|torsemide|chlorothiazide|metolazone|acetazolamide',
+ 'PPI':r'pantoprazole|omeprazole|esomeprazole|lansoprazole|rabeprazole',
+ 'Insulin':r'insulin',
+ 'Anticoagulant':r'warfarin|apixaban|rivaroxaban|dabigatran|edoxaban|enoxaparin|fondaparinux|argatroban|bivalirudin|heparin'}
+MED_EXCLUDE=r'cream|ointment|topical|ophth|otic|eye drop|lotion|enema|suppository|rectal foam|nasal spray|inhal|flush|lock'
+PROCEDURE_PATTERNS={'Procedure_RRT':r'crrt|cvvh|c v v h|hemodialysis|dialysis -|\|dialysis\||peritoneal dialysis|ultrafiltration|renal replacement|\bsled\b',
+                    'Procedure_Bronchoscopy':r'bronchoscop'}
+PROCEDURE_EXCLUDE=r'catheter|remov|discontinu'
+NUTRITION_PATTERNS={'Nutrition_TPN':r'parenteral|\btpn\b|clinimix|intralipid|lipid emulsion',
+                    'Nutrition_Enteral':r'\benteral|tube feed|peptamen|jevity|nutren|osmolite|glucerna|replete|isosource|fibersource|vivonex|promote'}
+STOOL_RE=r'stool|fecal|bowel movement|rectal tube|flexiseal'
+DRAIN_RE=r'drain|chest tube|\bjp\b|jackson|pigtail|nasogastric|\bng\b|gastric|pleural|biliary|hemovac|wound vac'
+# Norepinephrine-equivalent dose factors (per mcg/kg/min; vasopressin per unit/min), Goradia et al. 2021.
+PRESSOR_FACTORS={'norepinephrine':1.,'epinephrine':1.,'phenylephrine':.1,'dopamine':.01,'vasopressin':2.5}
 IMAGING_RE=r'radiolog|x-ray|xray|\bct\b|ct scan|computed tomograph|\bmri\b|ultrasound|echocardiog|imaging'
 FLUID_IN_EXCLUDE=r'enteral|tube feed|feeding|oral|\bpo\b|nutrition|tpn|flush'
 TRANSFUSION_RE=r'blood|prbc|packed (?:red|cell)|platelet|\bffp\b|plasma|cryo'
 INFECTION_DX_RE=r'sepsis|septic|pneumonia|infect|cellulitis|urinary tract|\buti\b|meningitis|encephalitis|endocarditis|abscess|peritonitis|cholangitis|cholecystitis|pyelonephritis|fasciitis|empyema|osteomyelitis|bacteremia'
 DEVICES=['Device_'+k for k in DEVICE_PATTERNS]
 EXPOSURES=(DEVICES+[d+'_Hours' for d in DEVICES]+['Med_'+k+'_24h' for k in MED_FEATURES]
-           +['Imaging_24h','FluidIn_6h','FluidIn_24h','Transfusion_24h'])
+           +['Imaging_24h','FluidIn_6h','FluidIn_24h','Transfusion_24h','VasopressorDose_NEeq','StoolRecords_24h','LabResults_24h','DrainOutput_24h']
+           +[k+'_24h' for k in PROCEDURE_PATTERNS]+[k+'_24h' for k in NUTRITION_PATTERNS])
 # Carry-forward windows (hours) for latest_known (v10.3, user decision): vitals and labs 24 h;
 # GCS and its components until the next measurement; weight never expires.
-NO_EXPIRY=['GCS','GCS_Eyes','GCS_Verbal','GCS_Motor','Weight']
+NO_EXPIRY=['GCS','GCS_Eyes','GCS_Verbal','GCS_Motor','Weight','Height']
 # An ETT verbal entry is exported as this marker: it RESETS the verbal component to unknown.
 VERBAL_ETT=-1.
 # Each record documents urine since the previous record; longer gaps are not distributed.
@@ -80,7 +101,18 @@ COMORBIDITY_ICD={
     r'^(042|279|2880|V42[0-46-9]|99680|9968[1-9]|V5865|V5811|V8741)'),
  # Chronic dialysis/ESRD and chronic respiratory failure or home oxygen/respirator dependence.
  'chronic_organ_insufficiency':(r'^(N185|N186|Z992|Z49|Z9115|J961|J962|Z9981|Z991)',
-    r'^(5855|5856|V4511|V56|51883|51884|V461|V462)')}
+    r'^(5855|5856|V4511|V56|51883|51884|V461|V462)'),
+ # v10.5 broader Elixhauser-style set (user: every possible predictor).
+ 'chronic_pulmonary_disease':(r'^(J4[0-7]|J6[0-7]|J684|J701|J703|I27[89]|J9[68]1)',r'^(49[0-6]|50[0-5]|5064|5081|5088|416[89])'),
+ 'chronic_kidney_disease':(r'^(N18|N19|I12|I13[12]|Z992|Z49|Z940)',r'^(585|586|403|404[019][23]|V420|V451|V56)'),
+ 'dementia':(r'^(F0[0-3]|G30|G311)',r'^(290|2941|3312)'),
+ 'alcohol_use_disorder':(r'^(F10|E52|G621|I426|K292|K70[039]|Z502|Z714|Z721)',r'^(2652|291|303|3050|3575|4255|5353|571[0-3]|9800|V113)'),
+ 'malnutrition':(r'^(E4[0-6]|R634|R64)',r'^(26[0-3]|7832|7994)'),
+ 'obesity':(r'^(E66)',r'^(2780)'),
+ 'prior_sepsis':(r'^(A40|A41|R652|T8144)',r'^(038|99591|99592|78552)'),
+ 'stroke_hemiplegia':(r'^(I6[0-4]|I69|G81|G82|G041|G114|G83[0-4])',r'^(43[0-4]|436|438|342|343|3441|3449)'),
+ 'pressure_ulcer':(r'^(L89)',r'^(7070)'),
+ 'solid_tumor':(r'^(C[0-6][0-9]|C7[0-6]|C97)',r'^(1[4-9][0-9])')}
 COMORBIDITY_TEXT={
  'chronic_heart_failure':r'congestive heart failure|\bchf\b|heart failure|cardiomyopathy',
  'chronic_liver_disease_cirrhosis':r'cirrhosis|chronic liver|chronic hepatitis|portal hypertension|varices',
@@ -88,7 +120,17 @@ COMORBIDITY_TEXT={
  'metastatic_carcinoma':r'metasta',
  'hematological_malignancy':r'leukemia|lymphoma|myeloma|myelodysplas|hematologic malignancy|hodgkin',
  'immunocompromised':r'immunosupp|immunocompromis|immunodeficien|neutropeni|\bhiv\b|\baids\b|transplant|chemotherapy|chronic steroid|steroid use',
- 'chronic_organ_insufficiency':r'hemodialysis|peritoneal dialysis|end[- ]stage renal|\besrd\b|chronic respiratory failure|home oxygen|home o2|copd - severe|severe copd'}
+ 'chronic_organ_insufficiency':r'hemodialysis|peritoneal dialysis|end[- ]stage renal|\besrd\b|chronic respiratory failure|home oxygen|home o2|copd - severe|severe copd',
+ 'chronic_pulmonary_disease':r'copd|emphysema|chronic bronchitis|asthma|pulmonary fibrosis|interstitial lung|bronchiectasis|pulmonary hypertension',
+ 'chronic_kidney_disease':r'chronic kidney|chronic renal|\bckd\b|renal insufficiency|esrd|end[- ]stage renal',
+ 'dementia':r'dementia|alzheimer',
+ 'alcohol_use_disorder':r'alcohol abuse|etoh abuse|alcoholism|alcohol dependence|alcohol withdrawal',
+ 'malnutrition':r'malnutrition|cachexia|failure to thrive',
+ 'obesity':r'obesity|morbid obes',
+ 'prior_sepsis':r'sepsis|septic shock|bacteremia',
+ 'stroke_hemiplegia':r'stroke|\bcva\b|cerebrovascular accident|hemipleg|parapleg|quadripleg',
+ 'pressure_ulcer':r'pressure ulcer|decubitus|pressure injury',
+ 'solid_tumor':r'cancer|carcinoma|malignan|tumor|neoplasm'}
 COMORBID=['Comorbidity_'+k for k in COMORBIDITY_ICD]
 # MIMIC-IV O2 delivery device (itemid 226732): invasive airway vs documented other/no device.
 AIRWAY_YES=r'endotracheal|tracheostomy|trach mask|t-piece'
@@ -262,7 +304,9 @@ class RawExtractor:
     def export(self,name,sql):
         path=self.out/(name+'.parquet');tmp=path.with_suffix('.partial.parquet')
         # Unknown entry time is excluded, not silently backdated to measurement time.
-        bounded=f'''SELECT * FROM ({sql}) e WHERE available_hour IS NOT NULL AND event_hour IS NOT NULL
+        # Uniform types: literals such as 0.0 would otherwise be DECIMAL in DuckDB.
+        bounded=f'''SELECT stay_id,CAST(event_hour AS DOUBLE) event_hour,CAST(available_hour AS DOUBLE) available_hour,feature,
+           CAST("value" AS DOUBLE) AS "value",CAST(unit AS VARCHAR) unit,kind,CAST(end_hour AS DOUBLE) end_hour FROM ({sql}) e WHERE available_hour IS NOT NULL AND event_hour IS NOT NULL
            AND available_hour>=event_hour AND available_hour BETWEEN -168 AND {self.max_hours}
            AND event_hour BETWEEN -168 AND {self.max_hours} AND value IS NOT NULL'''
         self.con.execute(f'COPY ({bounded}) TO {q(tmp)} (FORMAT PARQUET,COMPRESSION ZSTD)');os.replace(tmp,path)
@@ -271,7 +315,7 @@ class RawExtractor:
 
     def extract(self):
         self.standard();self.urine();self.support();self.airway();self.admission_weight();self.comorbidity()
-        self.exposures();self.admission_diagnosis()
+        self.exposures();self.admission_diagnosis();self.pressor_dose()
         self.microbiology();self.context();self.admission_context();self.treatment_context()
         self.meta.to_parquet(self.out/'metadata.parquet',index=False)
         pd.DataFrame(self.audit).to_csv(self.out/'extraction_counts.csv',index=False)
@@ -316,10 +360,15 @@ class RawExtractor:
                 # 224639 daily weight; 226531 admission weight charted in pounds.
                 mappings.extend([('223900','GCS_Verbal','',''),('223901','GCS_Motor','',''),('220739','GCS_Eyes','',''),
                     ('226512','Weight','',''),('224639','Weight','',''),('226531','Weight','lbs',''),
-                    ('223900','Intubated','',''),('226732','Intubated','','')])
+                    ('223900','Intubated','',''),('226732','Intubated','',''),('226732','O2_HighFlow','',''),('226732','O2_NIV','','')])
+                # v10.5 charted text states, resolved by label as well as the known item IDs.
+                lab=labels.label.fillna('').str.lower()
+                for feat,(regex,ids) in {'Delirium':(r'^delirium assessment',['228332']),'Rhythm_AF':(r'^heart rhythm$',['220048']),
+                                         'CapRefill_Abnormal':(r'^capillary refill',[]),'Skin_Abnormal':(r'^skin color$',[])}.items():
+                    for i in set(ids)|set(labels.itemid[lab.str.contains(regex,regex=True)]):mappings.append((str(i),feat,'',''))
             if self.ds=='eicu' and source=='nursecharting':
                 g='glasgow coma score'
-                mappings.extend([('gcs total','GCS','',''),('eyes','GCS_Eyes','',g),('motor','GCS_Motor','',g),('verbal','GCS_Verbal','',g),
+                mappings.extend([('gcs total','GCS','',''),('eyes','GCS_Eyes','',g),('motor','GCS_Motor','',g),('verbal','GCS_Verbal','',g),('delirium score','Delirium','',''),
                     ('admission weight','Weight','',''),('weight','Weight','','')])
             if not mappings:continue
             mapping=pd.DataFrame(sorted(set(mappings)),columns=['key','feature','unit','label'])
@@ -333,6 +382,11 @@ class RawExtractor:
                 join='TRY_CAST(x.stay_id AS BIGINT)=s.stay_id' if source=='chartevents' else 'TRY_CAST(x.hadm_id AS BIGINT)=s.hadm_id'
                 unit=f"CASE WHEN m.unit<>'' THEN m.unit ELSE coalesce({self.col(raw,'valueuom')},'') END"
                 value='TRY_CAST(x.valuenum AS DOUBLE)'
+                if source=='labevents':
+                    # Urine dipstick results are text: negative = 0; trace/small/moderate/large/positive = 1.
+                    t=f"lower(trim(coalesce(CAST({self.col(raw,'value')} AS VARCHAR),'')))"
+                    value=f'''CASE WHEN m.feature IN ('UrineNitrite','UrineLeukEsterase') THEN CASE WHEN {t} LIKE 'neg%' THEN 0.0
+                      WHEN regexp_matches({t},'^(pos|tr|sm|mod|lg|large|small|moderate|trace)|\\+') THEN 1.0 END ELSE {value} END'''
                 if source=='chartevents':
                     text="lower(coalesce(x.value,''))"
                     # Intubated verbal GCS is not imputed: an ETT entry is exported as a reset marker
@@ -343,6 +397,18 @@ class RawExtractor:
                            WHEN TRY_CAST(x.valuenum AS DOUBLE) IS NOT NULL THEN 0.0 END
                       WHEN m.feature='Intubated' THEN CASE WHEN regexp_matches({text},{q(AIRWAY_YES)}) THEN 1.0
                            WHEN regexp_matches({text},{q(AIRWAY_NO)}) THEN 0.0 END
+                      WHEN m.feature='O2_HighFlow' THEN CASE WHEN regexp_matches({text},'high flow nasal|hfnc|high flow cannula|hi flow|vapotherm|optiflow') THEN 1.0
+                           WHEN {text}<>'' THEN 0.0 END
+                      WHEN m.feature='O2_NIV' THEN CASE WHEN regexp_matches({text},'bipap|cpap|non-invasive|noninvasive|\\bniv\\b') THEN 1.0
+                           WHEN {text}<>'' THEN 0.0 END
+                      WHEN m.feature='Delirium' THEN CASE WHEN {text} LIKE '%positive%' THEN 1.0 WHEN {text} LIKE '%negative%' THEN 0.0 END
+                      WHEN m.feature='Rhythm_AF' THEN CASE WHEN regexp_matches({text},'atrial fib|a fib|a-fib|\\baf\\b') THEN 1.0
+                           WHEN {text}<>'' THEN 0.0 END
+                      WHEN m.feature='CapRefill_Abnormal' THEN CASE WHEN regexp_matches({text},'abnormal|>|delayed|sluggish|greater') THEN 1.0
+                           WHEN regexp_matches({text},'normal|<|brisk|less') THEN 0.0 END
+                      WHEN m.feature='Skin_Abnormal' THEN CASE WHEN regexp_matches({text},'mottl|cyano|dusky|pale|gray|grey|ashen') THEN 1.0
+                           WHEN {text}<>'' THEN 0.0 END
+                      WHEN m.feature IN ('RASS','PainScore') THEN coalesce({value},TRY_CAST(regexp_extract({text},'^\\s*([-+]?[0-9]+)',1) AS DOUBLE))
                       ELSE {value} END'''
                 sql=f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,m.feature,{value} AS "value",
                   {unit} unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
@@ -367,6 +433,9 @@ class RawExtractor:
                 unit=f"CASE WHEN m.unit<>'' THEN m.unit ELSE coalesce({unit},'') END"
                 eh=f'TRY_CAST(x.{t} AS DOUBLE)/60'; ah=f'CASE WHEN TRY_CAST(x.{entry} AS DOUBLE) IS NOT NULL THEN greatest({eh},TRY_CAST(x.{entry} AS DOUBLE)/60) END'
                 value=f"TRY_CAST(replace(x.{val},'%','') AS DOUBLE)"
+                if source=='nursecharting':
+                    t=f"lower(coalesce(x.{val},''))"
+                    value=f"CASE WHEN m.feature='Delirium' THEN CASE WHEN {t} IN ('yes','positive') THEN 1.0 WHEN {t} IN ('no','negative') THEN 0.0 END ELSE {value} END"
                 # 'Eyes'/'Motor'/'Verbal' are GCS components only under the Glasgow coma score label.
                 label=(f"AND (m.label='' OR lower(coalesce({self.col(raw,'nursingchartcelltypevallabel')},''))=m.label)"
                        if source=='nursecharting' else '')
@@ -467,6 +536,13 @@ class RawExtractor:
               '' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
               FROM {tr} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
               WHERE regexp_matches({text},{q(EICU_TREATMENT_YES+'|'+EICU_TREATMENT_NO)})''')
+        if tr and {'treatmentstring','treatmentoffset'}<=self.cols(tr):
+            for feat,pattern in [('O2_NIV','non-invasive ventilation|bipap|cpap'),('O2_HighFlow','high flow')]:
+                parts.append(f'''SELECT s.stay_id,TRY_CAST(x.treatmentoffset AS DOUBLE)/60 event_hour,
+                  TRY_CAST(x.treatmentoffset AS DOUBLE)/60 available_hour,{q(feat)} feature,1.0 AS "value",
+                  '' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
+                  FROM {tr} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
+                  WHERE regexp_matches(lower(coalesce(x.treatmentstring,'')),{q(pattern)})''')
         if parts:self.export('airway',' UNION ALL '.join(parts))
 
     def admission_weight(self):
@@ -477,6 +553,10 @@ class RawExtractor:
         self.export('admission_weight',f'''SELECT s.stay_id,0.0 event_hour,0.0 available_hour,'Weight' feature,
           TRY_CAST(x.admissionweight AS DOUBLE) AS "value",'kg' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
           FROM {raw} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''')
+        if 'admissionheight' in self.cols(raw):
+            self.export('admission_height',f'''SELECT s.stay_id,0.0 event_hour,0.0 available_hour,'Height' feature,
+              TRY_CAST(x.admissionheight AS DOUBLE) AS "value",'cm' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
+              FROM {raw} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''')
 
     def comorbidity(self):
         """Causal chronic-comorbidity flags, each from the hour its documentation is available.
@@ -487,7 +567,7 @@ class RawExtractor:
         if self.ds=='miiv':
             dx=self.csv('hosp/diagnoses_icd');adm=self.csv('hosp/admissions')
             if dx and adm and {'subject_id','hadm_id','dischtime'}<=self.cols(adm):
-                queries.append(f'''SELECT s.stay_id,-1.0 available_hour,x.icd_code AS "code",x.icd_version AS "version",NULL AS "text"
+                queries.append(f'''SELECT s.stay_id,-1.0 available_hour,x.icd_code AS "code",x.icd_version AS "version",NULL AS "text",'prior' AS "src"
                   FROM {dx} x JOIN {adm} a ON x.hadm_id=a.hadm_id JOIN stays s ON CAST(a.subject_id AS VARCHAR)=s.person
                   WHERE TRY_CAST(a.hadm_id AS BIGINT)<>s.hadm_id AND TRY_CAST(a.dischtime AS TIMESTAMP)<=s.intime''')
         else:
@@ -495,18 +575,20 @@ class RawExtractor:
             if ph:
                 entry='coalesce(TRY_CAST(x.pasthistoryenteredoffset AS DOUBLE),TRY_CAST(x.pasthistoryoffset AS DOUBLE))' if 'pasthistoryenteredoffset' in self.cols(ph) else 'TRY_CAST(x.pasthistoryoffset AS DOUBLE)'
                 queries.append(f'''SELECT s.stay_id,{entry}/60 available_hour,NULL AS "code",NULL AS "version",
-                  concat_ws(' ',x.pasthistorypath,x.pasthistoryvaluetext) AS "text"
+                  concat_ws(' ',x.pasthistorypath,x.pasthistoryvaluetext) AS "text",'history' AS "src"
                   FROM {ph} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''')
             dg=self.csv('diagnosis')
             if dg:
                 queries.append(f'''SELECT s.stay_id,TRY_CAST(x.diagnosisoffset AS DOUBLE)/60 available_hour,{self.col(dg,'icd9code')} AS "code",NULL AS "version",
-                  x.diagnosisstring AS "text" FROM {dg} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''')
+                  x.diagnosisstring AS "text",'current_dx' AS "src" FROM {dg} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''')
         first={}
         for sql in queries:
             for rb in self.con.execute(f'SELECT * FROM ({sql}) z WHERE available_hour<={self.max_hours}').fetch_record_batch(50000):
                 for r in rb.to_pandas().itertuples(index=False):
                     if pd.isna(r.available_hour):continue
                     for k in comorbidity_flags(r.code,r.version,r.text):
+                        # A sepsis diagnosis entered during THIS stay is the outcome, not history.
+                        if k=='prior_sepsis' and r.src=='current_dx':continue
                         key=(int(r.stay_id),k);first[key]=min(first.get(key,np.inf),max(float(r.available_hour),-168.))
         rows=[{'stay_id':sid,'event_hour':h,'available_hour':h,'feature':'Comorbidity_'+k,'value':1.,'unit':'','kind':'state','end_hour':np.nan}
               for (sid,k),h in first.items()]
@@ -534,8 +616,10 @@ class RawExtractor:
             pe=self.csv('icu/procedureevents');di=self.csv('icu/d_items')
             if pe and di:
                 eh=self.hour('x.starttime');ah=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({eh},{self.hour("x.storetime")}) END'
-                self.classify_export('devices',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",1.0 AS "value"
-                  FROM {pe} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid''',dev,DEVICE_EXCLUDE)
+                pbase=f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",1.0 AS "value"
+                  FROM {pe} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid'''
+                self.classify_export('devices',pbase,dev,DEVICE_EXCLUDE)
+                self.classify_export('procedures',pbase,PROCEDURE_PATTERNS,PROCEDURE_EXCLUDE)
             rx=self.csv('hosp/prescriptions')
             if rx:
                 # Prescription start time (orders are entered at or before their start).
@@ -548,6 +632,8 @@ class RawExtractor:
                 base=f'''FROM {ie} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid
                   WHERE lower(coalesce(x.statusdescription,''))<>'rewritten' '''
                 self.classify_export('infusion_medications',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",1.0 AS "value" {base}''',med,MED_EXCLUDE)
+                self.classify_export('nutrition',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,
+                  coalesce(d."label",'')||' '||coalesce(x.ordercategoryname,'') AS "text",1.0 AS "value" {base}''',NUTRITION_PATTERNS,'$^')
                 # A volume is known once the administration ends: event at the end time.
                 end=self.hour('x.endtime');aend=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({end},{self.hour("x.storetime")}) END'
                 cat="lower(coalesce(x.ordercategoryname,''))"
@@ -556,6 +642,14 @@ class RawExtractor:
                   TRY_CAST(x.amount AS DOUBLE) AS "value",'mL' unit,'volume' kind,CAST(NULL AS DOUBLE) end_hour {base}
                   AND regexp_matches({cat},'crystalloid|colloid|fluid bolus|blood product')
                   AND lower(coalesce(x.amountuom,''))='ml' AND TRY_CAST(x.amount AS DOUBLE)>0''')
+            oe=self.csv('icu/outputevents')
+            if oe and di:
+                eh=self.hour('x.charttime');ah=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({eh},{self.hour("x.storetime")}) END'
+                self.classify_export('stool',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",1.0 AS "value"
+                  FROM {oe} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid''',{'Stool':STOOL_RE},'$^')
+                self.classify_export('drains',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" AS "text",TRY_CAST(x.value AS DOUBLE) AS "value"
+                  FROM {oe} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid
+                  WHERE TRY_CAST(x.value AS DOUBLE)>0''',{'DrainOutput':DRAIN_RE},'urine|foley|void|stool')
             poe=self.csv('hosp/poe')
             if poe and 'ordertime' in self.cols(poe):
                 eh=self.hour('x.ordertime')
@@ -569,6 +663,7 @@ class RawExtractor:
               x.treatmentstring AS "text",1.0 AS "value" FROM {tr} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id'''
             self.classify_export('devices',base,dev,DEVICE_EXCLUDE)
             self.classify_export('imaging',base,{'Imaging':IMAGING_RE},'$^')
+            self.classify_export('procedures',base,PROCEDURE_PATTERNS,PROCEDURE_EXCLUDE)
         md=self.csv('medication')
         if md:
             order=f"TRY_CAST({self.col(md,'drugorderoffset')} AS DOUBLE)/60";start='TRY_CAST(x.drugstartoffset AS DOUBLE)/60'
@@ -592,6 +687,39 @@ class RawExtractor:
               FROM {io} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
               WHERE lower(coalesce(x.cellpath,'')) LIKE '%intake (ml)%' AND NOT regexp_matches({text},{q(FLUID_IN_EXCLUDE+'|total|cumul')})
               AND TRY_CAST(x.cellvaluenumeric AS DOUBLE)>0''')
+            iobase=f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,{text} AS "text",1.0 AS "value"
+              FROM {io} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id'''
+            self.classify_export('nutrition',iobase+" WHERE lower(coalesce(x.cellpath,'')) LIKE '%intake (ml)%'",NUTRITION_PATTERNS,'$^')
+            self.classify_export('stool',iobase+" WHERE lower(coalesce(x.cellpath,'')) LIKE '%output%'",{'Stool':STOOL_RE},'$^')
+            self.classify_export('drains',f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,{text} AS "text",TRY_CAST(x.cellvaluenumeric AS DOUBLE) AS "value"
+              FROM {io} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
+              WHERE lower(coalesce(x.cellpath,'')) LIKE '%output (ml)%' AND TRY_CAST(x.cellvaluenumeric AS DOUBLE)>0''',{'DrainOutput':DRAIN_RE},'urine|foley|void|stool|total')
+
+    def pressor_dose(self):
+        """Vasopressor rates as norepinephrine equivalents. unit 'perkg' = mcg/kg/min equivalent;
+        'permin' = mcg/min equivalent (divided by the latest known weight when features are built).
+        A zero rate documents a stop. MIMIC rates are known from the row's store time."""
+        drug="CASE "+" ".join(f"WHEN lower(coalesce(d,'')) LIKE '%{k}%' THEN '{k}'" for k in PRESSOR_FACTORS)+" END"
+        factor="CASE "+" ".join(f"WHEN dr='{k}' THEN {v}" for k,v in PRESSOR_FACTORS.items())+" END"
+        if self.ds=='miiv':
+            ie=self.csv('icu/inputevents');di=self.csv('icu/d_items')
+            if not ie or not di:return
+            eh=self.hour('x.starttime');ah=f'CASE WHEN x.storetime IS NOT NULL THEN greatest({eh},{self.hour("x.storetime")}) END'
+            base=f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,d."label" d,TRY_CAST({self.col(ie,'rate')} AS DOUBLE) r,lower(coalesce(CAST({self.col(ie,'rateuom')} AS VARCHAR),'')) u
+              FROM {ie} x JOIN stays s ON TRY_CAST(x.stay_id AS BIGINT)=s.stay_id JOIN {di} d ON x.itemid=d.itemid
+              WHERE lower(coalesce(x.statusdescription,''))<>'rewritten' AND regexp_matches(lower(d."label"),{q('|'.join(PRESSOR_FACTORS))})'''
+        else:
+            inf=self.csv('infusionDrug')
+            if not inf:return
+            base=f'''SELECT s.stay_id,TRY_CAST(x.infusionoffset AS DOUBLE)/60 event_hour,TRY_CAST(x.infusionoffset AS DOUBLE)/60 available_hour,
+              x.drugname d,TRY_CAST({self.col(inf,'drugrate')} AS DOUBLE) r,lower(coalesce(regexp_extract(x.drugname,'\\(([^)]*)\\)',1),'')) u
+              FROM {inf} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
+              WHERE regexp_matches(lower(coalesce(x.drugname,'')),{q('|'.join(PRESSOR_FACTORS))})'''
+        unit="CASE WHEN dr='vasopressin' THEN 'perkg' WHEN u LIKE '%kg%' THEN 'perkg' WHEN u LIKE 'mcg/min%' OR u LIKE 'mcg/hr%' THEN 'permin' END"
+        rate="CASE WHEN dr='vasopressin' THEN CASE WHEN u LIKE '%/h%' THEN r/60 WHEN u LIKE '%/min%' THEN r END WHEN u LIKE '%/hr%' OR u LIKE '%/hour%' THEN r/60 ELSE r END"
+        self.export('pressor_dose',f'''SELECT stay_id,event_hour,available_hour,'Pressor_'||dr feature,{rate}*{factor} AS "value",
+          {unit} unit,'support' kind,CAST(NULL AS DOUBLE) end_hour
+          FROM (SELECT *,{drug} dr FROM ({base})) z WHERE dr IS NOT NULL AND r>=0 AND {unit} IS NOT NULL''')
 
     def admission_diagnosis(self):
         # eICU admitting diagnosis from its entry offset; MIMIC-IV has no timestamped equivalent.
@@ -648,7 +776,43 @@ class RawExtractor:
         out['ICUType_Medical']=has(u,'medical|micu|med-surg')
         for c in ['ICUType_Neuro','ICUType_Cardiac','ICUType_Surgical','ICUType_Medical']:out[c]=out[c].astype(float).where(ku)
         out['HospitalHoursBeforeICU']=out.before.clip(lower=0)
-        keep=['stay_id','HospitalHoursBeforeICU']+[c for c in ADMISSION if c.startswith(('AdmitSource_','ICUType_'))]
+        # Prior healthcare contact, all known at ICU admission.
+        for c in ['PriorAdmissions_1y','DaysSinceLastDischarge','PriorICUStays_SameAdmission','AdmitFrom_NursingFacility','PriorPositiveCulture_1y','PriorAntibiotics_90d']:out[c]=np.nan
+        if self.ds=='miiv':
+            if adm and {'subject_id','dischtime','hadm_id'}<=self.cols(adm):
+                pa=self.con.execute(f'''SELECT s.stay_id,count(*) FILTER (WHERE TRY_CAST(x.dischtime AS TIMESTAMP)>=s.intime-INTERVAL 365 DAY) AS "n",
+                  max(TRY_CAST(x.dischtime AS TIMESTAMP)) AS "last",min(s.intime) AS "intime" FROM {adm} x JOIN stays s ON CAST(x.subject_id AS VARCHAR)=s.person
+                  WHERE TRY_CAST(x.hadm_id AS BIGINT)<>s.hadm_id AND TRY_CAST(x.dischtime AS TIMESTAMP)<=s.intime GROUP BY s.stay_id''').df()
+                out=out.drop(columns=['PriorAdmissions_1y','DaysSinceLastDischarge']).merge(pa.assign(PriorAdmissions_1y=pa.n.astype(float),
+                  DaysSinceLastDischarge=(pa.intime-pa['last']).dt.total_seconds()/86400)[['stay_id','PriorAdmissions_1y','DaysSinceLastDischarge']],on='stay_id',how='left')
+                out['PriorAdmissions_1y']=out.PriorAdmissions_1y.fillna(0.)
+            iq=self.con.execute(f'''SELECT s.stay_id,count(x.stay_id) AS "n" FROM stays s LEFT JOIN {icu} x ON TRY_CAST(x.hadm_id AS BIGINT)=s.hadm_id
+              AND TRY_CAST(x.stay_id AS BIGINT)<>s.stay_id AND TRY_CAST(x.outtime AS TIMESTAMP)<=s.intime GROUP BY s.stay_id''').df()
+            out=out.drop(columns='PriorICUStays_SameAdmission').merge(iq.rename(columns={'n':'PriorICUStays_SameAdmission'}).astype({'PriorICUStays_SameAdmission':float}),on='stay_id',how='left')
+            out['AdmitFrom_NursingFacility']=has(out['loc'],'nursing|skilled').astype(float).where(text(out['loc'])!='')
+            mb=self.csv('hosp/microbiologyevents')
+            if mb and adm and {'subject_id','org_name','charttime'}<=self.cols(mb):
+                # Cultures from before THIS hospital admission only (culture timing of the current episode defines the label).
+                pc=self.con.execute(f'''SELECT DISTINCT s.stay_id FROM {mb} x JOIN stays s ON CAST(x.subject_id AS VARCHAR)=s.person
+                  JOIN {adm} a ON TRY_CAST(a.hadm_id AS BIGINT)=s.hadm_id
+                  WHERE coalesce(TRY_CAST(x.hadm_id AS BIGINT),-1)<>s.hadm_id AND TRY_CAST(x.charttime AS TIMESTAMP)<TRY_CAST(a.admittime AS TIMESTAMP)
+                  AND TRY_CAST(x.charttime AS TIMESTAMP)>=s.intime-INTERVAL 365 DAY AND coalesce(x.org_name,'')<>''
+                  AND NOT regexp_matches(lower(x.org_name),'cancel|no growth')''').df()
+                out['PriorPositiveCulture_1y']=out.stay_id.isin(pc.stay_id).astype(float)
+            rx=self.csv('hosp/prescriptions')
+            if rx and adm and {'subject_id','starttime','drug'}<=self.cols(rx):
+                # Antibiotics of EARLIER admissions only (this admission's antibiotics define the label).
+                pab=self.con.execute(f'''SELECT DISTINCT s.stay_id FROM {rx} x JOIN stays s ON CAST(x.subject_id AS VARCHAR)=s.person
+                  JOIN {adm} a ON TRY_CAST(a.hadm_id AS BIGINT)=s.hadm_id
+                  WHERE coalesce(TRY_CAST(x.hadm_id AS BIGINT),-1)<>s.hadm_id AND TRY_CAST(x.starttime AS TIMESTAMP)<TRY_CAST(a.admittime AS TIMESTAMP)
+                  AND TRY_CAST(x.starttime AS TIMESTAMP)>=TRY_CAST(a.admittime AS TIMESTAMP)-INTERVAL 90 DAY
+                  AND regexp_matches(lower(coalesce(x.drug,'')),{q(MED_CONTEXT['antimicrobial'])})''').df()
+                out['PriorAntibiotics_90d']=out.stay_id.isin(pab.stay_id).astype(float)
+        else:
+            vn=self.con.execute(f'''SELECT s.stay_id,TRY_CAST({self.col(raw,'unitvisitnumber')} AS DOUBLE)-1 AS "v" FROM {raw} x
+              JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id''').df()
+            out=out.drop(columns='PriorICUStays_SameAdmission').merge(vn.rename(columns={'v':'PriorICUStays_SameAdmission'}),on='stay_id',how='left')
+        keep=['stay_id']+[c for c in ADMISSION if not c.startswith('AdmitDx_')]
         self.meta=self.meta.drop(columns=[c for c in keep if c!='stay_id' and c in self.meta]).merge(out[keep],on='stay_id',how='left',validate='one_to_one')
 
     def microbiology(self):
@@ -837,24 +1001,60 @@ def window_total(events,hours,window,count=False):
         if m.any():out[i]=m.sum() if count else v[m].sum()
     return out
 
+LAB_FEATURES=[f for f,sp in SPEC.items() if any(i.get('table','').lower() in ('labevents','lab') for d in sp['sources'].values() for i in d)]
+
+def lab_changes(events,hours,ttl=48.):
+    """Latest minus previous result, and latest minus the first result of the stay, using only
+    results available by each cutoff; unknown when fewer than two results or the latest is older than ttl."""
+    prev=np.full(len(hours),np.nan);base=np.full(len(hours),np.nan)
+    if len(events)<2:return prev,base
+    z=events.sort_values(['event_hour','available_hour']);e=z.event_hour.to_numpy(float);a=z.available_hour.to_numpy(float);v=z.value.to_numpy(float)
+    for i,t in enumerate(hours):
+        m=a<=t
+        if m.sum()<2:continue
+        ve=v[m];ee=e[m]
+        if t-ee[-1]>ttl:continue
+        prev[i]=ve[-1]-ve[-2];base[i]=ve[-1]-ve[0]
+    return prev,base
+
+def aki_stage(creat,hours,urine_rate,rrt):
+    """KDIGO stage (0-3) from data known at each cutoff: creatinine vs the lowest value in the prior
+    7 days (x1.5/x2/x3 or >=4 mg/dL) or a 0.3 mg/dL rise within 48 h; urine < 0.5 mL/kg/h over 6 h
+    (stage 1; longer urine criteria not computed); documented RRT = stage 3. Unknown without data."""
+    out=np.full(len(hours),np.nan)
+    e=creat.event_hour.to_numpy(float);a=creat.available_hour.to_numpy(float);v=creat.value.to_numpy(float)
+    for i,t in enumerate(hours):
+        stage=np.nan
+        m=(a<=t)&(e>t-168)
+        if m.any():
+            order=np.argsort(e[m]);ve=v[m][order];ee=e[m][order];latest=ve[-1]
+            if t-ee[-1]<=48:
+                ratio=latest/ve.min() if ve.min()>0 else np.nan;rise=latest-ve[ee>t-48].min()
+                stage=3. if (ratio>=3 or latest>=4) else 2. if ratio>=2 else 1. if (ratio>=1.5 or rise>=.3) else 0.
+        if np.isfinite(urine_rate[i]):stage=np.nanmax([stage,1. if urine_rate[i]<.5 else 0.])
+        if rrt[i]==1:stage=3.
+        out[i]=stage
+    return out
+
 def build_sequence(events,meta,max_hours=120,horizon=6):
     end=min(max_hours,int(np.floor(meta['followup_end'])))
     hours=np.arange(1,end+1,dtype=float)
-    d=pd.DataFrame({'Hour':hours});ages={}
+    base={'Hour':hours};ages={}
     by={f:g for f,g in events.groupby('feature',sort=False)} if len(events) else {}
     def ev(f):return by.get(f,events.iloc[:0])
-    for feat in BASE+SUPPORT+['GCS_Eyes','GCS_Verbal','GCS_Motor','Intubated']:
+    for feat in BASE+SUPPORT+['GCS_Eyes','GCS_Verbal','GCS_Motor','Intubated']+STATES:
         if feat in ['Age','Gender','PostoperativeAdmission']:continue
         z=ev(feat)
         if feat in SUPPORT:
-            d[feat],ages[feat]=support_features(z,hours);continue
-        if feat=='Intubated' and len(z):
+            base[feat],ages[feat]=support_features(z,hours);continue
+        if feat in ['Intubated']+STATES and len(z):
             # Several devices can be charted at one time: any invasive airway at that time counts.
             z=z.groupby('event_hour',as_index=False).agg(value=('value','max'),available_hour=('available_hour','max'))
         # v10.3: vitals and labs carried 24 h; GCS (and components) until the next measurement;
         # weight never expires (charted once; otherwise weight-normalised urine vanished after day 1).
         ttl=float(max_hours+168) if feat in NO_EXPIRY else 24.
-        d[feat],ages[feat]=latest_known(z,hours,ttl)
+        base[feat],ages[feat]=latest_known(z,hours,ttl)
+    d=pd.DataFrame(base)  # built at once (hundreds of columns)
     # Intubated verbal scores are not imputed: an ETT entry resets the verbal component to unknown.
     ett=d.GCS_Verbal.eq(VERBAL_ETT).to_numpy()
     d.loc[ett,'GCS_Verbal']=np.nan;ages['GCS_Verbal']=np.where(ett,np.nan,ages['GCS_Verbal'])
@@ -873,10 +1073,12 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     # Cumulative documented airway hours (unknown hours are not counted); unknown before any airway record.
     tube=d.Intubated.to_numpy()
     d['IntubatedHours']=np.where(np.cumsum(np.isfinite(tube))>0,np.cumsum(tube==1).astype(float),np.nan)
+    flags={}
     for feat in COMORBID:
         # 1 from the hour its documentation is available, else 0 (not documented).
         known=ev(feat).available_hour
-        d[feat]=(hours>=known.min()).astype(float) if len(known) else 0.
+        flags[feat]=(hours>=known.min()).astype(float) if len(known) else np.zeros(len(hours))
+    d=pd.concat([d,pd.DataFrame(flags,index=d.index)],axis=1)
     d['Age']=meta.get('Age',np.nan);d['Gender']=meta.get('Gender',np.nan);d=d.copy()
     for feat,v in urine_features(ev('UrineOutput'),hours,d.Weight.to_numpy()).items():d[feat]=v
     def criterion(cols,predicate):
@@ -910,8 +1112,36 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     new['Imaging_24h']=window_total(ev('Imaging'),hours,24,True)
     new['FluidIn_6h']=window_total(ev('FluidIn'),hours,6);new['FluidIn_24h']=window_total(ev('FluidIn'),hours,24)
     new['Transfusion_24h']=window_total(ev('Transfusion'),hours,24)
+    # v10.5 exposures.
+    for k in list(PROCEDURE_PATTERNS)+list(NUTRITION_PATTERNS):new[k+'_24h']=(window_total(ev(k),hours,24,True)>0).astype(float)
+    new['StoolRecords_24h']=window_total(ev('Stool'),hours,24,True)
+    new['DrainOutput_24h']=window_total(ev('DrainOutput'),hours,24)
+    labs=events[events.feature.isin(LAB_FEATURES)] if len(events) else events
+    new['LabResults_24h']=window_total(labs,hours,24,True)
+    dose=np.zeros(len(hours));wev=ev('Weight')
+    for drug in PRESSOR_FACTORS:
+        z=ev('Pressor_'+drug)
+        if not len(z):continue
+        z=z.copy();per=z.unit.fillna('').str.lower().eq('permin').to_numpy()
+        if per.any():
+            w,_=latest_known(wev,z.event_hour.to_numpy(float),float(max_hours+168))
+            z.loc[per,'value']=z.value.to_numpy(float)[per]/np.where(w[per]>0,w[per],np.nan)
+        z=z.dropna(subset=['value'])
+        v,_=latest_known(z,hours,6.)  # a running infusion is re-charted; older than 6 h is not assumed running
+        dose+=np.nan_to_num(v)
+    new['VasopressorDose_NEeq']=dose
+    # v10.5 derived values.
+    new['NLR']=(d.Neutrophils/d.Lymphocytes.where(d.Lymphocytes>0)).to_numpy()
+    new['BMI']=(d.Weight/(d.Height/100)**2).where(d.Height>0).to_numpy()
+    o2=np.where((d.FiO2>21)|(d.O2Flow>0)|d.Intubated.eq(1)|d.O2_NIV.eq(1)|d.O2_HighFlow.eq(1),1.,
+                np.where(d.FiO2.eq(21)|d.O2Flow.eq(0),0.,np.nan))
+    new['SupplementalO2']=o2
+    new['NetBalance_24h']=new['FluidIn_24h']-d.UrineOutput_24h.to_numpy()
+    new['ICULOS']=hours.copy()
+    for l in DELTA_LABS:new[l+'_DeltaPrev'],new[l+'_DeltaBaseline']=lab_changes(ev(l),hours)
+    new['AKI_Stage']=aki_stage(ev('Creatinine'),hours,d.Urine_mlkg_h_6h.to_numpy(),new['Procedure_RRT_24h'])
     d=pd.concat([d,pd.DataFrame(new,index=d.index)],axis=1)
-    extras={feat+'_age':age for feat,age in ages.items() if feat in BASE+SUPPORT+['Intubated']}
+    extras={feat+'_age':age for feat,age in ages.items() if feat in BASE+SUPPORT+['Intubated']+STATES}
     # Explicit masks survive imputation and reach every model and observer.
     extras.update({feat+'_observed':d[feat].notna().astype(float) for feat in PRIMARY})
     d=pd.concat([d,pd.DataFrame(extras,index=d.index)],axis=1)

@@ -31,6 +31,20 @@ _dev=['Device_'+k for k in ['CentralLine','ArterialLine','DialysisCatheter','Uri
 ORGAN_FEATURES['infection_risk']=_dev+[d+'_Hours' for d in _dev]
 ORGAN_FEATURES['treatment']=['Med_'+k+'_24h' for k in ['Immunosuppressant','Chemotherapy','Corticosteroid','Hydrocortisone',
   'BetaBlocker','Antipyretic','Sedative','Opioid','Diuretic']]+['Imaging_24h']
+# v10.5 additions.
+for g,fs in {'respiratory':['O2_HighFlow','O2_NIV','O2Flow','TidalVolume','MinuteVentilation','PeakPressure','PlateauPressure','SupplementalO2','Procedure_Bronchoscopy_24h'],
+             'neurologic':['RASS','Delirium'],'cardiovascular':['Rhythm_AF','NetBalance_24h','VasopressorDose_NEeq'],
+             'demographic':['Height','BMI'],'inflammatory':['UrineWBC','Monocytes','Eosinophils','ESR','NLR'],'hepatic':['Ammonia','Amylase'],
+             'renal':['AKI_Stage','Procedure_RRT_24h'],'admission':['ICULOS','PriorAdmissions_1y','DaysSinceLastDischarge','PriorICUStays_SameAdmission',
+             'AdmitFrom_NursingFacility','PriorPositiveCulture_1y'],'infection_risk':['StoolRecords_24h','Nutrition_TPN_24h','Nutrition_Enteral_24h'],
+             'treatment':['Med_PPI_24h','Med_Insulin_24h','Med_Anticoagulant_24h','LabResults_24h']}.items():ORGAN_FEATURES[g]+=fs
+for g,fs in {'hematologic':['RBC'],'inflammatory':['Basophils'],'cardiovascular':['CapRefill_Abnormal','Skin_Abnormal'],'admission':['PriorAntibiotics_90d']}.items():ORGAN_FEATURES[g]+=fs
+for g,fs in {'neurologic':['PainScore'],'cardiovascular':['PAmean','CardiacOutput','ScvO2'],'inflammatory':['UrineNitrite','UrineLeukEsterase'],
+             'infection_risk':['DrainOutput_24h'],'comorbidity':['Comorbidity_'+k for k in ['chronic_pulmonary_disease','chronic_kidney_disease',
+             'dementia','alcohol_use_disorder','malnutrition','obesity','prior_sepsis','stroke_hemiplegia','pressure_ulcer','solid_tumor']]}.items():ORGAN_FEATURES[g]+=fs
+_base={f:g for g,fs in ORGAN_FEATURES.items() for f in fs}
+for _l in ['Lactate','Creatinine','Platelets','WBC','Bilirubin_total','BUN','CRP','Procalcitonin','pH','HCO3','Hgb','Albumin']:
+    for _s in ['_DeltaPrev','_DeltaBaseline']:ORGAN_FEATURES[_base[_l]].append(_l+_s)
 LOOKUP={f:g for g,fs in ORGAN_FEATURES.items() for f in fs}
 from v10_features import GROUPS
 LOOKUP.update(GROUPS)

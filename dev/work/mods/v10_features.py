@@ -20,11 +20,19 @@ No claims of reproducing TREWScore or improving clinical performance are made.
   The GCS criterion uses GCS_Below15 when present: GCS < 15 is decidable from partial
   components (an abnormal eye or motor score) without imputing an unknown intubated verbal
   score. The qSOFA >= 2 event times use the same decidable criteria.
+
+10.5 changes (user: include every possible predictor):
+- SOFA with all six organ systems (Vincent 1996 thresholds): respiratory from P/F (3-4 only with
+  an invasive airway), cardiovascular from MAP, norepinephrine-equivalent dose and inotropes, renal
+  from creatinine and 24 h urine volume (when >= 18 of 24 h documented), plus coagulation, liver
+  and CNS. Strict total (all six known), total among measured, and SOFA_Delta = sum over known
+  components of (current minus best value so far in the stay): the Sepsis-3 'acute change'.
+- NEWS2 (Royal College of Physicians 2017) among measured components, consciousness from GCS < 15.
 """
 import numpy as np
 import pandas as pd
 
-VERSION = 'handcrafted-10.3'
+VERSION = 'handcrafted-10.5'
 FRESH_TOLERANCE_HOURS = 1e-3   # float32 shard round-trip safe (about 3.6 s)
 GROUPS = {
  'DerivedMAP':'cardiovascular','PulsePressure':'cardiovascular',
@@ -38,12 +46,20 @@ GROUPS = {
  'HRxResp':'systemic_composite','HRoverResp':'systemic_composite',
  'TempxHR':'systemic_composite','SBPoverResp':'systemic_composite','O2SatoverHR':'systemic_composite',
  'Vasopressor_HoursSinceFirst':'cardiovascular','Vasopressor_HoursSinceLast':'cardiovascular',
- 'qSOFA2_HoursSinceFirst':'systemic_composite','qSOFA2_HoursSinceLast':'systemic_composite'}
-TREND_SOURCES=[('HR','cardiovascular'),('MAP','cardiovascular'),('Resp','respiratory'),('Temp','inflammatory')]
+ 'qSOFA2_HoursSinceFirst':'systemic_composite','qSOFA2_HoursSinceLast':'systemic_composite',
+ 'SOFA_Resp':'respiratory','SOFA_CV':'cardiovascular','SOFA_Renal':'renal','SOFA_Total':'systemic_composite',
+ 'SOFA_MetAmongMeasured':'systemic_composite','SOFA_Available':'systemic_composite','SOFA_Delta':'systemic_composite',
+ 'SOFA_Delta2':'systemic_composite','NEWS2_MetAmongMeasured':'systemic_composite','NEWS2_Available':'systemic_composite'}
+TREND_SOURCES=[('HR','cardiovascular'),('MAP','cardiovascular'),('Resp','respiratory'),('Temp','inflammatory'),
+               ('SBP','cardiovascular'),('O2Sat','respiratory')]
+# 24 h extremes of fresh measurements (intermittent fever spikes, lowest blood pressure, desaturation).
+EXTREMES=[('Temp','max','inflammatory'),('Temp','min','inflammatory'),('HR','max','cardiovascular'),('Resp','max','respiratory'),
+          ('SBP','min','cardiovascular'),('MAP','min','cardiovascular'),('O2Sat','min','respiratory')]
 for _f,_g in TREND_SOURCES:
     for _w in (3,6):
         for _stat in ('Slope','Variance','Skew','Count'):
             GROUPS[f'{_f}_{_stat}{_w}h']=_g
+for _f,_k,_g in EXTREMES:GROUPS[f'{_f}_{_k.capitalize()}24h']=_g
 ENGINEERED=list(GROUPS)
 
 def _check_hours(h):
@@ -134,6 +150,38 @@ def engineer_one(d):
     s=pd.DataFrame({k:e[k] for k in ['SOFAproxy_Coag','SOFAproxy_Liver','SOFAproxy_MAP','SOFAproxy_Creatinine','SOFAproxy_CNS']})
     e['SOFAproxy_Total']=s.sum(axis=1,min_count=5);e['SOFAproxy_Available']=s.notna().sum(axis=1)
     e['SOFAproxy_MaxSoFar']=e['SOFAproxy_Total'].cummax().ffill()
+    # Full SOFA (six organ systems).
+    pf=col('PF_Ratio');tube=col('Intubated').eq(1)
+    resp=pd.Series(np.select([pf<100,pf<200,pf<300,pf<400],[4.,3.,2.,1.],0.),index=d.index)
+    resp=resp.where(tube|(resp<=2),2.).where(pf.notna())
+    ne=col('VasopressorDose_NEeq');ino=col('InotropeRecorded').eq(1);mp=col('MAP')
+    cv=pd.Series(np.select([ne>.1,ne>0,ino,mp<70],[4.,3.,2.,1.],0.),index=d.index)
+    cv=cv.where(mp.notna()|(ne>0)|ino)
+    cr=score('Creatinine',[1.2,2,3.5,5])
+    uo=col('UrineOutput_24h').where(col('UrineCoverage_24h')>=18)
+    ur=pd.Series(np.select([uo<200,uo<500],[4.,3.],0.),index=d.index).where(uo.notna())
+    renal=pd.concat([cr,ur],axis=1).max(axis=1,skipna=True)
+    e['SOFA_Resp']=resp;e['SOFA_CV']=cv;e['SOFA_Renal']=renal
+    comp=pd.DataFrame({'r':resp,'c':cv,'k':renal,'coag':e['SOFAproxy_Coag'],'liv':e['SOFAproxy_Liver'],'cns':e['SOFAproxy_CNS']})
+    e['SOFA_Total']=comp.sum(axis=1,min_count=6);e['SOFA_MetAmongMeasured']=comp.sum(axis=1,min_count=1)
+    e['SOFA_Available']=comp.notna().sum(axis=1)
+    best=comp.cummin()  # best (lowest) value of each component so far; NaN-skipping running minimum
+    e['SOFA_Delta']=(comp-best).sum(axis=1,min_count=1)
+    e['SOFA_Delta2']=(e['SOFA_Delta']>=2).astype(float).where(e['SOFA_Delta'].notna())
+    # NEWS2 among measured components.
+    def band(x,edges,points):
+        return pd.Series(np.select([c(x) for c in edges],points,0.),index=d.index).where(x.notna())
+    rr=col('Resp');sp=col('O2Sat');sb=col('SBP');hr=col('HR');tp=col('Temp')
+    news=pd.DataFrame({
+     'rr':band(rr,[lambda x:x<=8,lambda x:x<=11,lambda x:x<=20,lambda x:x<=24],[3.,1.,0.,2.]).where(rr.notna()).fillna(np.nan),
+     'sp':band(sp,[lambda x:x<=91,lambda x:x<=93,lambda x:x<=95],[3.,2.,1.]),
+     'o2':(col('SupplementalO2')*2),
+     'sb':band(sb,[lambda x:x<=90,lambda x:x<=100,lambda x:x<=110,lambda x:x>=220],[3.,2.,1.,3.]),
+     'hr':band(hr,[lambda x:x<=40,lambda x:x<=50,lambda x:x<=90,lambda x:x<=110,lambda x:x<=130],[3.,1.,0.,1.,2.]),
+     'cns':(col('GCS_Below15')*3),
+     'tp':band(tp,[lambda x:x<=35,lambda x:x<=36,lambda x:x<=38,lambda x:x<=39],[3.,1.,0.,1.])})
+    news.loc[rr>24,'rr']=3.;news.loc[hr>130,'hr']=3.;news.loc[tp>39,'tp']=2.
+    e['NEWS2_MetAmongMeasured']=news.sum(axis=1,min_count=1);e['NEWS2_Available']=news.notna().sum(axis=1)
     e['HRxResp']=col('HR')*col('Resp');e['TempxHR']=col('Temp')*col('HR')
     e['HRoverResp']=col('HR')/col('Resp').where(col('Resp')>0)
     e['SBPoverResp']=col('SBP')/col('Resp').where(col('Resp')>0)
@@ -152,6 +200,14 @@ def engineer_one(d):
         for w in (3,6):
             a=trailing_stats(col(f),h,w,times)
             for j,stat in enumerate(['Slope','Variance','Skew','Count']):e[f'{f}_{stat}{w}h']=a[:,j]
+    for f,kind,_ in EXTREMES:
+        ages=d[f+'_age'].to_numpy(float) if f+'_age' in d else None
+        times=fresh_measurement_times(col(f).to_numpy(),h,ages);v=col(f).to_numpy()
+        ok=np.isfinite(times)&np.isfinite(v);out=np.full(len(h),np.nan)
+        for i,t in enumerate(h):
+            sel=ok[:i+1]&(times[:i+1]>t-24)
+            if sel.any():out[i]=(v[:i+1][sel].max() if kind=='max' else v[:i+1][sel].min())
+        e[f'{f}_{kind.capitalize()}24h']=out
     e=pd.DataFrame(e,index=d.index)[ENGINEERED].replace([np.inf,-np.inf],np.nan)
     masks=e.notna().astype(float).add_suffix('_observed')
     # No overwriting of measured MAP, original SIRS criteria, or ShockIndex.

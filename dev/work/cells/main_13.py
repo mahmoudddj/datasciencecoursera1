@@ -6,6 +6,7 @@ def feature_kind(f):
     if f in ENGINEERED:return 'handcrafted (v10_features '+FEATURE_VERSION+')'
     if f in COMORBID:return 'chronic comorbidity flag (from its documentation time)'
     if f in AIRWAY:return 'invasive airway (ETT/tracheostomy) state'
+    if f in STATES:return 'charted clinical state (text documentation, 24 h)'
     if f in EXPOSURES:return 'documented exposure (device, medication, imaging, fluids) from its own time'
     if f in ADMISSION:return 'admission context (known at ICU admission / admitting diagnosis entry)'
     if f in RENAL:return 'renal window (availability-aware)'
