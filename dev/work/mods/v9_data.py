@@ -9,7 +9,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-VERSION='v11.0'
+VERSION='v11.1'
 from v10_features import engineer_one, ENGINEERED
 SPEC=json.loads((Path(__file__).parent/'feature_specs.json').read_text())
 # PostoperativeAdmission is not comparably available in either release; it is kept
@@ -794,22 +794,30 @@ class RawExtractor:
               AND TRY_CAST(x.stay_id AS BIGINT)<>s.stay_id AND TRY_CAST(x.outtime AS TIMESTAMP)<=s.intime GROUP BY s.stay_id''').df()
             out=out.drop(columns='PriorICUStays_SameAdmission').merge(iq.rename(columns={'n':'PriorICUStays_SameAdmission'}).astype({'PriorICUStays_SameAdmission':float}),on='stay_id',how='left')
             out['AdmitFrom_NursingFacility']=has(out['loc'],'nursing|skilled').astype(float).where(text(out['loc'])!='')
+            # The current admission's admit time is attached to the (small) stays table FIRST, so every
+            # history lookup below is a single equality join on the person. A three-table form (events JOIN
+            # stays JOIN admissions, with the time comparison between events and admissions) made DuckDB
+            # merge-join the whole events table against all admissions on the date before restricting to
+            # the cohort, which never finished on MIMIC-IV (v10.6 fix; raw-stage key changes).
+            if adm and {'hadm_id','admittime'}<=self.cols(adm):
+                sa=self.con.execute(f'''SELECT s.stay_id,s.person,s.hadm_id,s.intime,TRY_CAST(a.admittime AS TIMESTAMP) admittime
+                  FROM stays s JOIN {adm} a ON TRY_CAST(a.hadm_id AS BIGINT)=s.hadm_id''').df()
+                self.con.register('stays_adm',sa)
+            else:sa=None
             mb=self.csv('hosp/microbiologyevents')
-            if mb and adm and {'subject_id','org_name','charttime'}<=self.cols(mb):
+            if mb and sa is not None and {'subject_id','org_name','charttime'}<=self.cols(mb):
                 # Cultures from before THIS hospital admission only (culture timing of the current episode defines the label).
-                pc=self.con.execute(f'''SELECT DISTINCT s.stay_id FROM {mb} x JOIN stays s ON CAST(x.subject_id AS VARCHAR)=s.person
-                  JOIN {adm} a ON TRY_CAST(a.hadm_id AS BIGINT)=s.hadm_id
-                  WHERE coalesce(TRY_CAST(x.hadm_id AS BIGINT),-1)<>s.hadm_id AND TRY_CAST(x.charttime AS TIMESTAMP)<TRY_CAST(a.admittime AS TIMESTAMP)
-                  AND TRY_CAST(x.charttime AS TIMESTAMP)>=s.intime-INTERVAL 365 DAY AND coalesce(x.org_name,'')<>''
+                pc=self.con.execute(f'''SELECT DISTINCT sa.stay_id FROM {mb} x JOIN stays_adm sa ON CAST(x.subject_id AS VARCHAR)=sa.person
+                  WHERE coalesce(TRY_CAST(x.hadm_id AS BIGINT),-1)<>sa.hadm_id AND TRY_CAST(x.charttime AS TIMESTAMP)<sa.admittime
+                  AND TRY_CAST(x.charttime AS TIMESTAMP)>=sa.intime-INTERVAL 365 DAY AND coalesce(x.org_name,'')<>''
                   AND NOT regexp_matches(lower(x.org_name),'cancel|no growth')''').df()
                 out['PriorPositiveCulture_1y']=out.stay_id.isin(pc.stay_id).astype(float)
             rx=self.csv('hosp/prescriptions')
-            if rx and adm and {'subject_id','starttime','drug'}<=self.cols(rx):
+            if rx and sa is not None and {'subject_id','starttime','drug'}<=self.cols(rx):
                 # Antibiotics of EARLIER admissions only (this admission's antibiotics define the label).
-                pab=self.con.execute(f'''SELECT DISTINCT s.stay_id FROM {rx} x JOIN stays s ON CAST(x.subject_id AS VARCHAR)=s.person
-                  JOIN {adm} a ON TRY_CAST(a.hadm_id AS BIGINT)=s.hadm_id
-                  WHERE coalesce(TRY_CAST(x.hadm_id AS BIGINT),-1)<>s.hadm_id AND TRY_CAST(x.starttime AS TIMESTAMP)<TRY_CAST(a.admittime AS TIMESTAMP)
-                  AND TRY_CAST(x.starttime AS TIMESTAMP)>=TRY_CAST(a.admittime AS TIMESTAMP)-INTERVAL 90 DAY
+                pab=self.con.execute(f'''SELECT DISTINCT sa.stay_id FROM {rx} x JOIN stays_adm sa ON CAST(x.subject_id AS VARCHAR)=sa.person
+                  WHERE coalesce(TRY_CAST(x.hadm_id AS BIGINT),-1)<>sa.hadm_id AND TRY_CAST(x.starttime AS TIMESTAMP)<sa.admittime
+                  AND TRY_CAST(x.starttime AS TIMESTAMP)>=sa.admittime-INTERVAL 90 DAY
                   AND regexp_matches(lower(coalesce(x.drug,'')),{q(MED_CONTEXT['antimicrobial'])})''').df()
                 out['PriorAntibiotics_90d']=out.stay_id.isin(pab.stay_id).astype(float)
         else:

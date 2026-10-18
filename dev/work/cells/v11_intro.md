@@ -14,6 +14,7 @@
 - Hourly warning that **Sepsis-3 onset (YAIB/ricu `sep3_alt`) occurs within the next 6 h**. Antibiotics + cultures define suspicion in MIMIC-IV; antibiotics only in eICU.
 - The **same 10,000-stay samples and splits** as `_8`, `_9` and `_10`, so every difference is due to the methods.
 - **Strict causality:** each value is used only from the hour it was recorded. Each feature carries a "measured?" mask and a "how old?" age (now in days).
+- **Fixed in `_11` (v10.6):** the `_10` run stalled for 8 h in the prior-culture / prior-antibiotic lookups (DuckDB merge-joined the whole microbiology and prescription tables against all admissions on a date comparison before restricting to the cohort). The lookups are now single equality joins on the person; the raw-table stage is rescanned once (new key).
 - **New in `_11`:** prophylactic antibiotics as predictors (surgical and medical prophylaxis by guideline rule; MIMIC only, because eICU's label is antibiotic-only), lead time versus the **first antibiotic order**, and an **unlabelled corpus** of up to 75,000 stays per database for self-supervised pretraining (no sepsis labels; protected patients excluded).
 
 ## 3. Models compared on identical hours
@@ -44,7 +45,7 @@ Not the final result. With about 175 septic training stays, all models overfit w
 ## 7. How to run
 1. Colab, A100 and high RAM. **Runtime → Run all.** Do not change settings.
 2. Check the first output: `Mode: full | data: clinical | full holdout released: False`.
-3. Stages and rough times: supplementary stage (minutes) → features for the labelled sample (~45 min, parallel) → **unlabelled corpus** (raw scan + features, ~3–4 h) → pretraining (~1 h) → arms (~6–8 h). Total about **11–14 h**. Every stage resumes after a disconnect: reopen and Run all.
+3. Stages and rough times: raw-table scan of each database (~20–30 min each; `_10`'s scan is not reused because the history-lookup fix below changed the extraction code) → supplementary stage (minutes) → features for the labelled sample (~45 min, parallel) → **unlabelled corpus** (raw scan + features, ~3–4 h) → pretraining (~1 h) → arms (~6–8 h). Total about **12–15 h**. Every stage resumes after a disconnect: reopen and Run all.
 4. Progress lines: `miiv hourly features …`, `SSL site epoch …`, `Completed <database> <feature set> hh:mm`. At the end: `COMPLETE: …`.
 5. Then download this notebook and collect the audit zip (team summary, coverage, prophylaxis counts, training histories).
 
