@@ -38,7 +38,8 @@ for g,fs in {'respiratory':['O2_HighFlow','O2_NIV','O2Flow','TidalVolume','Minut
              'renal':['AKI_Stage','Procedure_RRT_24h'],'admission':['ICULOS','PriorAdmissions_1y','DaysSinceLastDischarge','PriorICUStays_SameAdmission',
              'AdmitFrom_NursingFacility','PriorPositiveCulture_1y'],'infection_risk':['StoolRecords_24h','Nutrition_TPN_24h','Nutrition_Enteral_24h'],
              'treatment':['Med_PPI_24h','Med_Insulin_24h','Med_Anticoagulant_24h','LabResults_24h']}.items():ORGAN_FEATURES[g]+=fs
-for g,fs in {'hematologic':['RBC'],'inflammatory':['Basophils'],'cardiovascular':['CapRefill_Abnormal','Skin_Abnormal'],'admission':['PriorAntibiotics_90d']}.items():ORGAN_FEATURES[g]+=fs
+for g,fs in {'hematologic':['RBC'],'inflammatory':['Basophils'],'cardiovascular':['CapRefill_Abnormal','Skin_Abnormal'],'admission':['PriorAntibiotics_90d'],
+             'treatment':['Prophylaxis_Surgical_24h','Prophylaxis_Medical']}.items():ORGAN_FEATURES[g]+=fs
 for g,fs in {'neurologic':['PainScore'],'cardiovascular':['PAmean','CardiacOutput','ScvO2'],'inflammatory':['UrineNitrite','UrineLeukEsterase'],
              'infection_risk':['DrainOutput_24h'],'comorbidity':['Comorbidity_'+k for k in ['chronic_pulmonary_disease','chronic_kidney_disease',
              'dementia','alcohol_use_disorder','malnutrition','obesity','prior_sepsis','stroke_hemiplegia','pressure_ulcer','solid_tumor']]}.items():ORGAN_FEATURES[g]+=fs

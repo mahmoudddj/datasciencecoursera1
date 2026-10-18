@@ -9,7 +9,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-VERSION='v10.5'
+VERSION='v11.0'
 from v10_features import engineer_one, ENGINEERED
 SPEC=json.loads((Path(__file__).parent/'feature_specs.json').read_text())
 # PostoperativeAdmission is not comparably available in either release; it is kept
@@ -35,7 +35,11 @@ ADMISSION=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSour
            # v10.5 prior healthcare contact (MIMIC: earlier admissions/ICU stays; eICU: earlier unit visit only).
            'PriorAdmissions_1y','DaysSinceLastDischarge','PriorICUStays_SameAdmission','AdmitFrom_NursingFacility','PriorPositiveCulture_1y',
            'PriorAntibiotics_90d']
-PRIMARY=BASE+SUPPORT+AIRWAY+STATES+RENAL+DERIVED+ADMISSION
+# v11: prophylactic antibiotics (user rule, 19 Oct 2026). MIMIC only; unknown in eICU, whose sepsis label is
+# antibiotic-only, so any current-stay antibiotic there is label-defining. Empirical and culture-directed
+# antibiotics are never predictors. Computed from a SUPPLEMENTARY stage (the main raw stage is reused).
+PROPHYLAXIS=['Prophylaxis_Surgical_24h','Prophylaxis_Medical']
+PRIMARY=BASE+SUPPORT+AIRWAY+STATES+RENAL+DERIVED+ADMISSION+PROPHYLAXIS
 # Documented exposures (0 = not documented by that hour; no masks), each from its own timestamp.
 DEVICE_PATTERNS={
  'CentralLine':r'multi lumen|picc|cordis|introducer|central (?:venous )?(?:line|catheter)|indwelling port|portacath|trauma line|swan|pulmonary artery catheter|pa catheter|tunneled|midline',
@@ -1140,6 +1144,13 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     new['ICULOS']=hours.copy()
     for l in DELTA_LABS:new[l+'_DeltaPrev'],new[l+'_DeltaBaseline']=lab_changes(ev(l),hours)
     new['AKI_Stage']=aki_stage(ev('Creatinine'),hours,d.Urine_mlkg_h_6h.to_numpy(),new['Procedure_RRT_24h'])
+    if meta.get('ProphylaxisAvailable',False):
+        new['Prophylaxis_Surgical_24h']=(window_total(ev('Prophylaxis_Surgical'),hours,24,True)>0).astype(float)
+        z=ev('Prophylaxis_Medical')
+        v,_=latest_known(z,hours,24.) if len(z) else (np.full(len(hours),np.nan),None)
+        new['Prophylaxis_Medical']=np.where(np.isfinite(v),1.,0.)
+    else:
+        new['Prophylaxis_Surgical_24h']=np.full(len(hours),np.nan);new['Prophylaxis_Medical']=np.full(len(hours),np.nan)
     d=pd.concat([d,pd.DataFrame(new,index=d.index)],axis=1)
     extras={feat+'_age':age for feat,age in ages.items() if feat in BASE+SUPPORT+['Intubated']+STATES}
     # Explicit masks survive imputation and reach every model and observer.
@@ -1155,15 +1166,61 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     # (prefix checks), so pre-onset rows are unchanged by the extra rows.
     return engineer_one(d.reset_index(drop=True))
 
-def build_shards(ds,stage,cohort_folder,out,max_hours=120,horizon=6,batch=32):
+STAGE_NON_EVENT={'metadata','phenotypes','phenotype_evidence','specimen_context','clinician_source_context','treatment_context'}
+
+def _feature_batch(args):
+    """One resumable feature batch (also the unit of parallel work). Returns the batch record."""
+    ds,records,eventpaths,dest,done,max_hours,horizon,contract=args
+    dest=Path(dest);done=Path(done);chunk=pd.DataFrame(records)
+    con=duckdb.connect();con.execute("SET memory_limit='1GB'");con.execute('SET threads=1')
+    try:
+        con.register('batchids',chunk[['stay_id']])
+        if eventpaths:
+            rel='read_parquet(['+','.join(q(p) for p in eventpaths)+'],union_by_name=true)'
+            events=con.execute(f'SELECT e.* FROM {rel} e JOIN batchids b USING(stay_id)').df()
+        else:events=pd.DataFrame(columns=['stay_id','event_hour','available_hour','feature','value','unit','kind','end_hour'])
+    finally:con.close()
+    uq=None
+    if len(events):uq=events.groupby(['feature','unit'],dropna=False).size().reset_index(name='n')
+    events=normalize_events(events);groups={sid:g for sid,g in events.groupby('stay_id')};parts=[];offset=0
+    batch_index=[];batch_counts={};batch_schema=None
+    for row in records:
+        e=groups.get(row['stay_id'],events.iloc[:0]);seq=build_sequence(e,row,max_hours,horizon)
+        if seq.empty or not seq.Eligible.any():continue
+        feats=[c for c in seq if c not in ['Hour','Eligible','SepsisLabel']]
+        if batch_schema is None:batch_schema=feats
+        assert feats==batch_schema
+        seq=seq.astype({c:'float32' for c in feats}).copy()
+        seq.insert(0,'Patient_ID',row['Patient_ID']);parts.append(seq)
+        batch_index.append({**row,'file':str(dest),'offset':offset,'length':len(seq),'eligible_positive':int(seq.SepsisLabel[seq.Eligible.eq(1)].max())})
+        offset+=len(seq)
+        for f in PRIMARY:
+            a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].notna().sum()),b+len(seq))
+        for f in COMORBID+EXPOSURES:  # flagged/nonzero hours (never missing; 0 means not documented)
+            a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].gt(0).sum()),b+len(seq))
+    if parts:
+        tmp=dest.with_suffix('.partial.parquet');pd.concat(parts,ignore_index=True).to_parquet(tmp,index=False,compression='zstd');os.replace(tmp,dest)
+    rec={'contract':contract,'index':json.loads(pd.DataFrame(batch_index).to_json(orient='records',date_format='iso')) if batch_index else [],
+         'schema':batch_schema,'counts':batch_counts,'units':json.loads(uq.to_json(orient='records')) if uq is not None else []}
+    tmp=done.with_suffix('.partial');tmp.write_text(json.dumps(rec));os.replace(tmp,done)
+    del events,groups,parts;gc.collect()
+    return rec
+
+def build_shards(ds,stage,cohort_folder,out,max_hours=120,horizon=6,batch=32,static=None,supplement=None,workers=1):
+    """Hourly feature shards. `static`: a frame (stay_id, Age, Gender) replacing the cohort's sta.parquet
+    (unlabelled corpus). `supplement`: folder of a supplementary raw stage (v11: prophylaxis events and
+    antibiotic start times). `workers`>1 builds pending batches in parallel processes; the per-batch
+    records are identical to the sequential build."""
     stage=Path(stage);out=Path(out);out.mkdir(parents=True,exist_ok=True)
-    meta=pd.read_parquet(stage/'metadata.parquet');static=pd.read_parquet(Path(cohort_folder)/'sta.parquet')
-    cols=['stay_id']+[c for c in ['age','sex'] if c in static]
-    static=static[cols].rename(columns={'age':'Age'}).drop_duplicates('stay_id')
-    if 'sex' in static:
-        s=static.sex.astype(str).str.lower();static['Gender']=s.map({'male':1.,'m':1.,'1':1.,'1.0':1.,'true':1.,'female':0.,'f':0.,'0':0.,'0.0':0.,'false':0.})
-        static=static.drop(columns='sex')
-    meta=meta.merge(static,on='stay_id',how='left',validate='one_to_one')
+    meta=pd.read_parquet(stage/'metadata.parquet')
+    if static is None:
+        static=pd.read_parquet(Path(cohort_folder)/'sta.parquet')
+        cols=['stay_id']+[c for c in ['age','sex'] if c in static]
+        static=static[cols].rename(columns={'age':'Age'}).drop_duplicates('stay_id')
+        if 'sex' in static:
+            s=static.sex.astype(str).str.lower();static['Gender']=s.map({'male':1.,'m':1.,'1':1.,'1.0':1.,'true':1.,'female':0.,'f':0.,'0':0.,'0.0':0.,'false':0.})
+            static=static.drop(columns='sex')
+    meta=meta.merge(static.drop_duplicates('stay_id'),on='stay_id',how='left',validate='one_to_one')
     meta['Dataset']=ds;meta['Patient_ID']=ds+'|'+meta.stay_id.astype(str);meta['Group_ID']=ds+'|'+meta.person.astype(str);meta['Hospital_ID']=meta.hospital.astype(str)
     ph=pd.read_parquet(stage/'phenotypes.parquet')
     if len(ph):meta=meta.merge(ph,on='stay_id',how='left',validate='one_to_one')
@@ -1184,60 +1241,53 @@ def build_shards(ds,stage,cohort_folder,out,max_hours=120,horizon=6,batch=32):
     for c in ['Phenotype_'+k for k in PHENO]+['SpecimenSite_'+s for s in SITES]:
         if c not in meta:meta[c]=0
         meta[c]=meta[c].fillna(0).astype(int) # means no matching documentation, not clinical absence
-    eventpaths=[p for p in stage.glob('*.parquet') if p.stem not in ['metadata','phenotypes','phenotype_evidence','specimen_context','clinician_source_context','treatment_context']]
-    con=duckdb.connect();con.execute("SET memory_limit='1GB'");con.execute('SET threads=1')
+    eventpaths=[p for p in stage.glob('*.parquet') if p.stem not in STAGE_NON_EVENT]
+    # v11 supplementary stage: prophylaxis events become features (MIMIC); antibiotic start times are
+    # evaluation metadata (lead time versus the first antibiotic around onset), never predictors.
+    meta['ProphylaxisAvailable']=False;meta['FirstAntibioticAroundOnset']=np.nan
+    if supplement is not None and (Path(supplement)/'supplement_complete.json').is_file():
+        supplement=Path(supplement)
+        if (supplement/'prophylaxis.parquet').is_file():
+            eventpaths.append(supplement/'prophylaxis.parquet');meta['ProphylaxisAvailable']=True
+        ab=supplement/'antibiotic_starts.parquet'
+        if ab.is_file():
+            a=pd.read_parquet(ab).merge(meta[['stay_id','OnsetHour']],on='stay_id')
+            a=a[a.OnsetHour.notna()&(a.event_hour>=a.OnsetHour-24)&(a.event_hour<=a.OnsetHour+24)]
+            first=a.groupby('stay_id').event_hour.min()
+            meta['FirstAntibioticAroundOnset']=meta.stay_id.map(first).astype(float)
     index=[];schema=None;counts={};unit_counts=[];parts_dir=out/'parts';parts_dir.mkdir(exist_ok=True)
-    reused=0
+    reused=0;pending=[];order=[]
     for start in range(0,len(meta),batch):
         chunk=meta.iloc[start:start+batch];name=f'{ds}_{start//batch:05d}.parquet';dest=out/name
         # Per-batch resume: a batch is reused only when its exact stay list matches.
         contract={'version':VERSION,'stays':[int(x) for x in chunk.stay_id],'max_hours':max_hours,'horizon':horizon}
-        done=parts_dir/(name+'.done.json')
+        done=parts_dir/(name+'.done.json');rec=None
         if done.is_file():
             rec=json.loads(done.read_text())
-            if rec.get('contract')==contract and (not rec['index'] or dest.is_file()):
-                index.extend(rec['index']);reused+=1
-                if rec['schema'] is not None:
-                    if schema is None:schema=rec['schema']
-                    assert rec['schema']==schema
-                for f,(x,y) in rec['counts'].items():a,b=counts.get(f,(0,0));counts[f]=(a+x,b+y)
-                if rec['units']:unit_counts.append(pd.DataFrame(rec['units']))
-                continue
-        con.register('batchids',chunk[['stay_id']])
-        if eventpaths:
-            rel='read_parquet(['+','.join(q(p) for p in eventpaths)+'],union_by_name=true)'
-            events=con.execute(f'SELECT e.* FROM {rel} e JOIN batchids b USING(stay_id)').df()
-        else:events=pd.DataFrame(columns=['stay_id','event_hour','available_hour','feature','value','unit','kind','end_hour'])
-        uq=None
-        if len(events):
-            uq=events.groupby(['feature','unit'],dropna=False).size().reset_index(name='n');unit_counts.append(uq)
-        events=normalize_events(events);groups={sid:g for sid,g in events.groupby('stay_id')};parts=[];offset=0
-        batch_index=[];batch_counts={};batch_schema=None
-        for row in chunk.to_dict('records'):
-            e=groups.get(row['stay_id'],events.iloc[:0]);seq=build_sequence(e,row,max_hours,horizon)
-            if seq.empty or not seq.Eligible.any():continue
-            feats=[c for c in seq if c not in ['Hour','Eligible','SepsisLabel']]
-            if schema is None:schema=feats
-            assert feats==schema;batch_schema=feats
-            seq=seq.astype({c:'float32' for c in feats}).copy()
-            seq.insert(0,'Patient_ID',row['Patient_ID']);parts.append(seq)
-            batch_index.append({**row,'file':str(dest),'offset':offset,'length':len(seq),'eligible_positive':int(seq.SepsisLabel[seq.Eligible.eq(1)].max())})
-            offset+=len(seq)
-            for f in PRIMARY:
-                a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].notna().sum()),b+len(seq))
-            for f in COMORBID+EXPOSURES:  # flagged/nonzero hours (never missing; 0 means not documented)
-                a,b=batch_counts.get(f,(0,0));batch_counts[f]=(a+int(seq[f].gt(0).sum()),b+len(seq))
-        if parts:
-            tmp=dest.with_suffix('.partial.parquet');pd.concat(parts,ignore_index=True).to_parquet(tmp,index=False,compression='zstd');os.replace(tmp,dest)
-        rec={'contract':contract,'index':json.loads(pd.DataFrame(batch_index).to_json(orient='records',date_format='iso')) if batch_index else [],
-             'schema':batch_schema,'counts':batch_counts,'units':json.loads(uq.to_json(orient='records')) if uq is not None else []}
-        tmp=done.with_suffix('.partial');tmp.write_text(json.dumps(rec));os.replace(tmp,done)
+            if rec.get('contract')==contract and (not rec['index'] or dest.is_file()):reused+=1
+            else:rec=None
+        if rec is None:pending.append((ds,chunk.to_dict('records'),[str(p) for p in eventpaths],str(dest),str(done),max_hours,horizon,contract))
+        order.append((start,done,rec))
+    if pending:
+        print(ds,'hourly features: building',len(pending),'batches of',batch,'stays with',workers,'worker(s)',flush=True)
+        if workers>1:
+            from concurrent.futures import ProcessPoolExecutor
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                for i,_ in enumerate(pool.map(_feature_batch,pending,chunksize=1)):
+                    if i%32==0:print(ds,'hourly features:',min((i+1)*batch,len(meta)),'/',len(meta),flush=True)
+        else:
+            for i,job in enumerate(pending):
+                _feature_batch(job)
+                if i%32==0:print(ds,'hourly features:',min((i+1)*batch,len(meta)),'/',len(meta),flush=True)
+    for start,done,rec in order:
+        if rec is None:rec=json.loads(Path(done).read_text())
         index.extend(rec['index'])
-        for f,(x,y) in batch_counts.items():a,b=counts.get(f,(0,0));counts[f]=(a+x,b+y)
-        if start%1024==0:print(ds,'hourly features:',min(start+batch,len(meta)),'/',len(meta),flush=True)
-        del events,groups,parts;gc.collect()
+        if rec['schema'] is not None:
+            if schema is None:schema=rec['schema']
+            assert rec['schema']==schema,'Feature schema differs between batches'
+        for f,(x,y) in rec['counts'].items():a,b=counts.get(f,(0,0));counts[f]=(a+x,b+y)
+        if rec['units']:unit_counts.append(pd.DataFrame(rec['units']))
     if reused:print(ds,'reused completed feature batches:',reused,flush=True)
-    con.close()
     ix=pd.DataFrame(index);ix.to_parquet(out/'index.parquet',index=False)
     (out/'schema.json').write_text(json.dumps(schema,indent=2))
     pd.DataFrame([{'dataset':ds,'feature':f,'observed_rows':a,'rows':b,'missing_fraction':1-a/b if b else np.nan} for f,(a,b) in counts.items()]).to_csv(out/'coverage.csv',index=False)

@@ -177,5 +177,7 @@ def run_checks():
         server.shutdown()
         check('physionet_repair_resumes_and_verifies',first and len(acts)==1 and hashlib.sha256((root/'icu/icustays.csv.gz').read_bytes()).hexdigest()==sums['icu/icustays']
               and all(r['status']=='ok' for r in table_sizes('miiv',root)) and (root/'_quarantined_demo_files/icu/icustays.csv.gz').is_file())
+    from v11_tests import run_v11_checks
+    checks+=[{'check':'v11_'+k,'passed':v} for k,v in run_v11_checks().items()]
     print('V10 engineering checks:',len(checks),'PASS')
     return checks

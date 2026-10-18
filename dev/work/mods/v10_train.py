@@ -34,7 +34,8 @@ def tabular_predict(model,store,all_hours=False):
         p=np.clip(model.predict_proba(b['x'][ok])[:,1],1e-7,1-1e-7)
         parts.append(pd.DataFrame({'Patient_ID':row.Patient_ID,'Group_ID':row.Group_ID,
           'Hospital_ID':row.Hospital_ID,'OnsetHour':row.OnsetHour,'Hour':b['hours'][ok],
-          'y':b['y'][ok],'logit':np.log(p/(1-p)),'Eligible':elig[ok].astype(np.int8)}))
+          'y':b['y'][ok],'logit':np.log(p/(1-p)),'Eligible':elig[ok].astype(np.int8),
+          **({'FirstAntibioticAroundOnset':row.FirstAntibioticAroundOnset} if 'FirstAntibioticAroundOnset' in store.index else {})}))
     return pd.concat(parts,ignore_index=True)
 
 def utility_block(full_cal,full_test,params,cfg,seed,path):

@@ -13,6 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from v9_models import ObserverBank,ExperimentModel,perturb_guidance
 
 OSTA_FAMILY=['osta','observer_features','output_fusion','gated_attention','ungated_attention']
+AGE_SCALE=24.
 
 def osta_original_loss(output,targets,masks,organ_consistency_weight=.1,organ_diversity_weight=.05,early_alpha=.3,focal_gamma=2.,
                        alpha_pos=.75,alpha_neg=.25,post_weight=1.5):
@@ -101,6 +102,7 @@ def fit_normalizer(store):
     std=np.sqrt(np.maximum(var,1e-6));std[count==0]=1
     for j,f in enumerate(store.features):
         if f.endswith('_observed'):mean[j]=0.;std[j]=1.
+        elif f.endswith('_age'):mean[j]=0.;std[j]=AGE_SCALE   # v11: hours -> days, so 'fresh' is age*24 < 1
     return {'mean':mean.astype(np.float32),'std':std.astype(np.float32),'count':count.astype(int)}
 
 class ShardBatches(Sampler):
@@ -173,6 +175,7 @@ def predict(model,bank,store,batch,device,condition='normal',all_hours=False):
     d['Group_ID']=pd.Categorical.from_codes(group_cat.codes[code],group_cat.categories)
     d['Hospital_ID']=pd.Categorical.from_codes(hospital_cat.codes[code],hospital_cat.categories)
     d['OnsetHour']=onsets[code]
+    if 'FirstAntibioticAroundOnset' in store.index:d['FirstAntibioticAroundOnset']=store.index.FirstAntibioticAroundOnset.to_numpy(dtype=np.float32)[code]
     return d,({g:float(v/max(gate_n,1)) for g,v in zip(bank.names,gate_sum)} if gate_sum is not None else {})
 
 def train_arm(arm,train,val,bank,features,cfg,seed,path,device):
