@@ -138,8 +138,8 @@ def run_selftests():
         td=Path(td);root=td/'miiv';(root/'icu').mkdir(parents=True);(root/'hosp').mkdir()
         sel=pd.DataFrame({'stay_id':[1],'first_hour':[0.],'followup_end':[24.],'first_positive':[np.nan],'OnsetHour':[np.nan],'Outcome':[0]})
         pd.DataFrame({'stay_id':[1],'hadm_id':[10],'subject_id':[100],'intime':['2100-01-01 00:00:00'],'outtime':['2100-01-02 00:00:00']}).to_csv(root/'icu/icustays.csv',index=False)
-        pd.DataFrame({'itemid':[225792,225794,224385,227194,228640,228641],'label':['Invasive Ventilation','Non-invasive Ventilation','Intubation','Extubation','EtCO2','EtCO2 Alarm - High'],
-            'linksto':['procedureevents']*4+['chartevents']*2}).to_csv(root/'icu/d_items.csv',index=False)
+        pd.DataFrame({'itemid':[225792,225794,224385,227194,228640,228641,228642],'label':['Invasive Ventilation','Non-invasive Ventilation','Intubation','Extubation','EtCO2','EtCO2 Alarm - High','EtCO2 Clinical indication'],
+            'linksto':['procedureevents']*4+['chartevents']*3}).to_csv(root/'icu/d_items.csv',index=False)
         pd.DataFrame({'itemid':[51002,52642,51003],'label':['Troponin I','Troponin I','Troponin T']}).to_csv(root/'hosp/d_labitems.csv',index=False)
         pd.DataFrame({'stay_id':[1]*3,'itemid':[224385,225794,227194],'starttime':['2100-01-01 02:00:00','2100-01-01 03:00:00','2100-01-01 06:00:00'],
             'storetime':['2100-01-01 02:30:00','2100-01-01 03:00:00','2100-01-01 07:00:00']}).to_csv(root/'icu/procedureevents.csv',index=False)

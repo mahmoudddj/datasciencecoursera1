@@ -1305,8 +1305,8 @@
           "ids": [
             228640
           ],
-          "label_regex": "^(?:etco2|end tidal co2)",
-          "exclude_regex": "alarm|limit",
+          "label_regex": "^(?:etco2|end tidal co2)$",
+          "exclude_regex": "alarm|limit|indication",
           "table": "chartevents",
           "sub_var": "itemid"
         }
