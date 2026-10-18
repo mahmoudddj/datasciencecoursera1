@@ -247,6 +247,10 @@ def run_selftests():
         cr=pd.DataFrame({'event_hour':[0.,10.,20.],'available_hour':[1.,11.,21.],'value':[1.,1.6,3.1]})
         st=aki_stage(cr,np.array([2.,12.,22.]),np.array([np.nan,.3,np.nan]),np.zeros(3))
         check('aki_creatinine_and_urine_criteria',st.tolist()==[0.,1.,3.])
+        # Latest creatinine exactly 48 h old (integer hours): still current, must not crash (crashed on MIMIC in the _11 run).
+        cr48=pd.DataFrame({'event_hour':[2.],'available_hour':[3.],'value':[1.2]})
+        st48=aki_stage(cr48,np.array([50.,51.]),np.array([np.nan,np.nan]),np.zeros(2))
+        check('aki_48h_boundary_no_crash',st48.tolist()==[0.] + [np.nan] or (st48[0]==0. and np.isnan(st48[1])))
         root=td/'eicu';root.mkdir()
         pd.DataFrame({'patientunitstayid':[1],'uniquepid':['p1'],'hospitalid':[1],'unitadmitsource':['Floor'],'unittype':['MICU'],'hospitaladmitoffset':[-60],
             'apacheadmissiondx':['x'],'admissionweight':['100'],'admissionheight':['180'],'unitvisitnumber':['2']}).to_csv(root/'patient.csv',index=False)

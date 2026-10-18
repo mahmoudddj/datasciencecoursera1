@@ -1041,7 +1041,8 @@ def aki_stage(creat,hours,urine_rate,rrt):
         if m.any():
             order=np.argsort(e[m]);ve=v[m][order];ee=e[m][order];latest=ve[-1]
             if t-ee[-1]<=48:
-                ratio=latest/ve.min() if ve.min()>0 else np.nan;rise=latest-ve[ee>t-48].min()
+                # The 48 h window is inclusive at its boundary (a value exactly 48 h old is still current).
+                w=ve[ee>=t-48];ratio=latest/ve.min() if ve.min()>0 else np.nan;rise=latest-w.min() if len(w) else np.nan
                 stage=3. if (ratio>=3 or latest>=4) else 2. if ratio>=2 else 1. if (ratio>=1.5 or rise>=.3) else 0.
         if np.isfinite(urine_rate[i]):stage=np.nanmax([stage,1. if urine_rate[i]<.5 else 0.])
         if rrt[i]==1:stage=3.
