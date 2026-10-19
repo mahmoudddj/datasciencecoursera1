@@ -556,7 +556,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     ['qSOFA, NEWS2', 'Bedside screening scores from vital signs and mental state ' + c('seymour16', 'rcp') + '; predictors here, never the label'],
     ['AKI stage', 'Kidney injury stage from creatinine and urine output ' + c('kdigo')],
     ['Utility', 'Challenge score: reward for alarms up to 12 h before onset, cost for false alarms and missed sepsis; 1 perfect, 0 never alarming ' + c('reyna')],
-    ['Causal', 'Each value used only from the hour it was recorded, with a measured flag and its age; no hour after onset used'],
+    ['Causal', 'Each value used only from the hour it became available, with a measured flag and its age; hours after onset are never scored as warnings'],
   ];
   gl.forEach((g, i) => { const col = i % 2, row = Math.floor(i / 2), x = M + col * 6.15, y = 1.65 + row * 1.15; T(s, g[0], x, y, 1.8, 1.0, { size: 13, bold: true, color: RED }); T(s, g[1], x + 1.85, y, 4.1, 1.05, { size: 12 }); });
   refFooter(s);
@@ -578,7 +578,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     [th('Common practice'), th('This project'), th('Why')],
     [td('Challenge-prepared tables ' + c('reyna')), td('Raw MIMIC-IV and eICU', { bold: true }), td('Transfer across hospital systems is tested for real')],
     [td('Each study its own definition ' + c('moor21')), td('One Sepsis-3 definition on both databases ' + c('yaib', 'ricu'), { bold: true }), td('Results comparable')],
-    [td('Values carried forward; post-onset hours positive'), td('Each value used from the hour recorded, expires after 24 h; post-onset hours excluded', { bold: true }), td('No information from the future ' + c('kapoor'))],
+    [td('Values carried forward; post-onset hours positive'), td('Each value used from the hour available, most expire after 24 h; hours after onset never scored as warnings', { bold: true }), td('No information from the future ' + c('kapoor'))],
     [td('40 to 125 variables'), td('659 clinically defined predictors', { bold: true }), td('The whole clinical picture')],
     [td('Antibiotics as predictors'), td('Label-defining antibiotics excluded; prophylaxis kept by rule ' + c('bratzler'), { bold: true }), td('Avoids predicting the label from itself')],
     [td('AUROC on one split'), td('Utility, false alarms per day, warning time, calibration, sealed holdout', { bold: true }), td('What would help patients ' + c('shah'))],
