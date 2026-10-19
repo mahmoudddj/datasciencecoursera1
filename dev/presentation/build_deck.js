@@ -1,641 +1,652 @@
-// SCEBE Research Degree Conference 2026 deck: Mahmoud Essam Elrggal, 15 slides in 15 min + 5 min questions.
+// SCEBE 2026 deck v2: editorial clinical style, Arial, crimson accent, every claim referenced.
 const pptxgen = require('pptxgenjs');
 const path = require('path');
 const React = require('react');
 const ReactDOMServer = require('react-dom/server');
 const sharp = require('sharp');
 const fa = require('react-icons/fa');
+const gi = require('react-icons/gi');
 const { applyTheme } = require('/root/.claude/skills/synced/d91fe1c6-8d49-4422-b8c8-6dd15fde630e_6b953dd5-185b-425b-91bb-1cf229fc0818/pptx/scripts/apply_theme.js');
 
 const OUT = path.join(__dirname, 'Elrggal_Mahmoud_SCEBE2026.pptx');
+const SECOND_SUPERVISOR = process.env.SECOND_SUPERVISOR || 'Kia';
 
-const THEME = {
-  name: 'SepsisWarning2026',
-  headFontFace: 'Cambria',
-  bodyFontFace: 'Calibri',
-  colors: {
-    dk1: '14213D', lt1: 'FFFFFF', dk2: '0F2F4A', lt2: 'EEF3F7',
-    accent1: '0E7C86', accent2: '2A78D6', accent3: 'EB6834', accent4: '1BAF7A', accent5: '5C677D', accent6: 'E8A33D',
-    hlink: '0E7C86', folHlink: '5C677D',
-  },
-};
-const NAVY = '14213D', TEAL = '0E7C86', BLUE = '2A78D6', ORANGE = 'EB6834', GREY = '5C677D', TINT = 'EEF3F7', WHITE = 'FFFFFF', DKNAVY = '0F2F4A', LINE = 'D5DCE4', PEACH = 'FBE9E1', LBLUE = 'DCE6F7', LTEAL = 'D6EEF0';
+const INK = '1B1B1B', RED = 'C8102E', GREY = '5E5E5E', MID = '8C8C8C', LIGHT = 'F2F2F2', RULE = 'BDBDBD', WHITE = 'FFFFFF', PINK = 'FBE3E6';
+const THEME = { name: 'ClinicalEditorial', headFontFace: 'Arial', bodyFontFace: 'Arial',
+  colors: { dk1: INK, lt1: WHITE, dk2: '3A3A3A', lt2: LIGHT, accent1: RED, accent2: '3A3A3A', accent3: MID, accent4: '1F4E9A', accent5: '7A1020', accent6: 'D9A400', hlink: RED, folHlink: GREY } };
 
 const pres = new pptxgen();
-pres.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5
-pres.theme = { headFontFace: THEME.headFontFace, bodyFontFace: THEME.bodyFontFace };
+pres.layout = 'LAYOUT_WIDE';
+pres.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial' };
 pres.author = 'Mahmoud Essam Elrggal';
-pres.title = 'Can a sepsis warning stay useful in a hospital it has never seen?';
-const W = 13.333, H = 7.5, M = 0.6;
-const FOOT = 'Mahmoud Essam Elrggal  |  SCEBE Research Degree Conference, 20 October 2026';
+pres.title = 'Development of Novel AI Models for Early Detection and Prediction of Infectious Diseases, with a Focus on Sepsis';
+const W = 13.333, H = 7.5, M = 0.6, CW = W - 2 * M;
+const FOOT = 'Mahmoud Essam Elrggal  |  SCEBE Research Degree Conference 2026';
 
-async function icon(Name, color, px = 256) {
-  const svg = ReactDOMServer.renderToStaticMarkup(React.createElement(fa[Name], { color: '#' + color, size: px }));
-  const buf = await sharp(Buffer.from(svg)).resize(px, px).png().toBuffer();
-  return 'image/png;base64,' + buf.toString('base64');
+// ---------- references (numbered by first citation) ----------
+const REF = {
+  rudd: 'Rudd KE, Johnson SC, Agesa KM, et al. Global, regional, and national sepsis incidence and mortality, 1990-2017: analysis for the Global Burden of Disease Study. Lancet. 2020;395:200-211.',
+  murray: 'Antimicrobial Resistance Collaborators. Global burden of bacterial antimicrobial resistance in 2019: a systematic analysis. Lancet. 2022;399:629-655.',
+  timbrook: 'Timbrook TT, Morton JB, McConeghy KW, et al. The effect of molecular rapid diagnostic testing on clinical outcomes in bloodstream infections: a systematic review and meta-analysis. Clin Infect Dis. 2017;64:15-23.',
+  adams: 'Adams R, Henry KE, Sridharan A, et al. Prospective, multi-site study of patient outcomes after implementation of the TREWS machine learning-based early warning system for sepsis. Nat Med. 2022;28:1455-1460.',
+  amr: 'Elrggal ME, et al. Artificial intelligence in the diagnosis of antimicrobial resistance: rapid diagnostics and imaging innovations. Submitted, Int J Antimicrob Agents, 2026.',
+  singer: 'Singer M, Deutschman CS, Seymour CW, et al. The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3). JAMA. 2016;315:801-810.',
+  vincent: 'Vincent JL, Moreno R, Takala J, et al. The SOFA (Sepsis-related Organ Failure Assessment) score to describe organ dysfunction/failure. Intensive Care Med. 1996;22:707-710.',
+  liu: 'Liu V, Escobar GJ, Greene JD, et al. Hospital deaths in patients with sepsis from 2 independent cohorts. JAMA. 2014;312:90-92.',
+  seymour17: 'Seymour CW, Gesten F, Prescott HC, et al. Time to treatment and mortality during mandated emergency care for sepsis. N Engl J Med. 2017;376:2235-2244.',
+  kumar: 'Kumar A, Roberts D, Wood KE, et al. Duration of hypotension before initiation of effective antimicrobial therapy is the critical determinant of survival in human septic shock. Crit Care Med. 2006;34:1589-1596.',
+  churpek: 'Churpek MM, Snyder A, Han X, et al. Quick SOFA, SIRS, and early warning scores for detecting clinical deterioration in infected patients outside the ICU. Am J Respir Crit Care Med. 2017;195:906-911.',
+  yu: 'Yu AC, Mohajer B, Eng J. External validation of deep learning algorithms for radiologic diagnosis: a systematic review. Radiol Artif Intell. 2022;4:e210064.',
+  kwong: 'Kwong JCC, Erdman L, Khondker A, et al. The silent trial: the bridge between bench-to-bedside clinical AI applications. Front Digit Health. 2022;4:929508.',
+  nagendran: 'Nagendran M, Chen Y, Lovejoy CA, et al. Artificial intelligence versus clinicians: systematic review of design, reporting standards, and claims of deep learning studies. BMJ. 2020;368:m689.',
+  reyna: 'Reyna MA, Josef CS, Jeter R, et al. Early prediction of sepsis from clinical data: the PhysioNet/Computing in Cardiology Challenge 2019. Crit Care Med. 2020;48:210-217.',
+  agniel: 'Agniel D, Kohane IS, Weber GM. Biases in electronic health record data due to processes within the healthcare system: retrospective observational study. BMJ. 2018;361:k1479.',
+  zech: 'Zech JR, Badgeley MA, Liu M, et al. Variable generalization performance of a deep learning model to detect pneumonia in chest radiographs: a cross-sectional study. PLoS Med. 2018;15:e1002683.',
+  kapoor: 'Kapoor S, Narayanan A. Leakage and the reproducibility crisis in machine-learning-based science. Patterns. 2023;4:100804.',
+  shah: 'Shah NH, Milstein A, Bagley SC. Making machine learning models clinically useful. JAMA. 2019;322:1351-1352.',
+  kelly: 'Kelly CJ, Karthikesalingam A, Suleyman M, Corrado G, King D. Key challenges for delivering clinical impact with artificial intelligence. BMC Med. 2019;17:195.',
+  morrill: 'Morrill JH, Kormilitzin A, Nevado-Holgado AJ, et al. Utilization of the signature method to identify the early onset of sepsis from multivariate physiological time series in critical care monitoring. Crit Care Med. 2020;48:e976-e981.',
+  wong: 'Wong A, Otles E, Donnelly JP, et al. External validation of a widely implemented proprietary sepsis prediction model in hospitalized patients. JAMA Intern Med. 2021;181:1065-1070.',
+  fleuren: 'Fleuren LM, Klausch TLT, Zwager CL, et al. Machine learning for the prediction of sepsis: a systematic review and meta-analysis of diagnostic test accuracy. Intensive Care Med. 2020;46:383-400.',
+  moor21: 'Moor M, Rieck B, Horn M, Jutzeler CR, Borgwardt K. Early prediction of sepsis in the ICU using machine learning: a systematic review. Front Med. 2021;8:607952.',
+  tschandl: 'Tschandl P, Rinner C, Apalla Z, et al. Human-computer collaboration for skin cancer recognition. Nat Med. 2020;26:1229-1234.',
+  henrynpj: 'Henry KE, Kornfield R, Sridharan A, et al. Human-machine teaming is key to AI adoption: clinicians\' experiences with a deployed machine learning system. NPJ Digit Med. 2022;5:97.',
+  wiens: 'Wiens J, Saria S, Sendak M, et al. Do no harm: a roadmap for responsible machine learning for health care. Nat Med. 2019;25:1337-1340.',
+  bratzler: 'Bratzler DW, Dellinger EP, Olsen KM, et al. Clinical practice guidelines for antimicrobial prophylaxis in surgery. Am J Health Syst Pharm. 2013;70:195-283.',
+  evans: 'Evans L, Rhodes A, Alhazzani W, et al. Surviving Sepsis Campaign: international guidelines for management of sepsis and septic shock 2021. Intensive Care Med. 2021;47:1181-1247.',
+  johnson: 'Johnson AEW, Bulgarelli L, Shen L, et al. MIMIC-IV, a freely accessible electronic health record dataset. Sci Data. 2023;10:1.',
+  pollard: 'Pollard TJ, Johnson AEW, Raffa JD, et al. The eICU Collaborative Research Database, a freely available multi-center database for critical care research. Sci Data. 2018;5:180178.',
+  goldberger: 'Goldberger AL, Amaral LAN, Glass L, et al. PhysioBank, PhysioToolkit, and PhysioNet: components of a new research resource for complex physiologic signals. Circulation. 2000;101:e215-e220.',
+  yaib: 'van de Water R, Schmidt HNA, Elbers PWG, et al. Yet Another ICU Benchmark: a flexible multi-center framework for clinical machine learning. ICLR 2024.',
+  ricu: 'Bennett N, Plecko D, Ukor IF, Meinshausen N, Buhlmann P. ricu: R\'s interface to intensive care data. GigaScience. 2023;12.',
+  seymour16: 'Seymour CW, Liu VX, Iwashyna TJ, et al. Assessment of clinical criteria for sepsis (Sepsis-3). JAMA. 2016;315:762-774.',
+  vaswani: 'Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need. Advances in Neural Information Processing Systems (NeurIPS). 2017.',
+  che: 'Che Z, Purushotham S, Cho K, Sontag D, Liu Y. Recurrent neural networks for multivariate time series with missing values. Sci Rep. 2018;8:6085.',
+  bai: 'Bai S, Kolter JZ, Koltun V. An empirical evaluation of generic convolutional and recurrent networks for sequence modeling. arXiv:1803.01271. 2018.',
+  yeche23: 'Yeche H, Pace A, Ratsch G, Kuznetsova R. Temporal label smoothing for early event prediction. International Conference on Machine Learning (ICML). 2023.',
+  yeche21: 'Yeche H, Dresdner G, Locatello F, Huser M, Ratsch G. Neighborhood contrastive learning applied to online patient monitoring. International Conference on Machine Learning (ICML). 2021.',
+  thiswork: 'Elrggal ME, et al. Early sepsis warning on MIMIC-IV and eICU: preliminary development-split results, October 2026. Unpublished; manuscript in preparation.',
+  temporal: 'Elrggal ME, et al. Temporal patterns and predictors of sepsis onset in ICU patients: a retrospective cohort study using PhysioNet data. Submitted, Front Med, 2026.',
+  thermo: 'Elrggal ME, et al. Diagnostic applications of infrared thermography across infectious diseases: a systematic review with a subgroup meta-analysis. Submitted, JMIR, 2026.',
+  kdigo: 'Kidney Disease: Improving Global Outcomes (KDIGO) AKI Work Group. KDIGO clinical practice guideline for acute kidney injury. Kidney Int Suppl. 2012;2:1-138.',
+  rcp: 'Royal College of Physicians. National Early Warning Score (NEWS) 2: standardising the assessment of acute-illness severity in the NHS. London: RCP; 2017.',
+};
+const SHORT = {};
+for (const [k, v] of Object.entries(REF)) {
+  const parts = v.split('. ');
+  const surname = parts[0].split(' ')[0].replace(/,$/, '');
+  const yr = (v.match(/(19|20)\d\d/g) || ['']).slice(-1)[0];
+  const journal = (parts[2] || '').replace(/\s*(19|20)\d\d.*$/, '').replace(/;.*$/, '').trim();
+  SHORT[k] = `${surname} et al., ${journal} ${yr}`;
+}
+SHORT.amr = 'Elrggal et al., submitted 2026'; SHORT.temporal = 'Elrggal et al., submitted 2026'; SHORT.thermo = 'Elrggal et al., submitted 2026';
+SHORT.thiswork = 'This work, preliminary, unpublished'; SHORT.murray = 'AMR Collaborators, Lancet 2022'; SHORT.kdigo = 'KDIGO 2012'; SHORT.rcp = 'Royal College of Physicians 2017';
+SHORT.yaib = 'van de Water et al., ICLR 2024'; SHORT.vaswani = 'Vaswani et al., NeurIPS 2017'; SHORT.bai = 'Bai et al., arXiv 2018'; SHORT.yeche23 = 'Yeche et al., ICML 2023'; SHORT.yeche21 = 'Yeche et al., ICML 2021';
+const ORDER = []; let cur = null;
+function c(...keys) {
+  const nums = keys.map((k) => { if (!REF[k]) throw new Error('missing ref ' + k); if (!ORDER.includes(k)) ORDER.push(k); if (cur) cur.add(k); return ORDER.indexOf(k) + 1; });
+  return '[' + nums.join(', ') + ']';
+}
+function refFooter(slide, dark = false) {
+  if (!cur || !cur.size) return;
+  const items = [...cur].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)).map((k) => `[${ORDER.indexOf(k) + 1}] ${SHORT[k]}`);
+  slide.addText(items.join('   '), { x: M, y: 6.5, w: CW - 1.0, h: 0.5, isTextBox: true, margin: 0, fontSize: 9.5, color: dark ? 'F3C6CC' : GREY, valign: 'bottom', objectName: 'references' });
+}
+
+async function icon(lib, name, color = WHITE, px = 256) {
+  const svg = ReactDOMServer.renderToStaticMarkup(React.createElement(lib[name], { color: '#' + color, size: px }));
+  return 'image/png;base64,' + (await sharp(Buffer.from(svg)).resize(px, px).png().toBuffer()).toString('base64');
 }
 
 // ---------- layouts ----------
-pres.defineSlideMaster({
-  title: 'TITLE_DARK', background: { color: NAVY },
-  objects: [
-    { placeholder: { options: { name: 'title', type: 'title', x: M, y: 1.55, w: W - 2 * M, h: 2.2, fontSize: 36, bold: true, color: WHITE, valign: 'middle', margin: 0 } } },
-    { placeholder: { options: { name: 'body', type: 'body', x: M, y: 3.95, w: W - 2 * M, h: 2.9, fontSize: 16, color: WHITE, valign: 'top', margin: 0 } } },
-  ],
-});
-pres.defineSlideMaster({
-  title: 'CONTENT', background: { color: WHITE },
-  objects: [
-    { placeholder: { options: { name: 'title', type: 'title', x: M, y: 0.32, w: W - 2 * M, h: 1.05, fontSize: 26, bold: true, color: NAVY, valign: 'middle', margin: 0 } } },
-    { text: { text: FOOT, options: { x: M, y: H - 0.42, w: 9.5, h: 0.3, fontSize: 9, color: GREY, margin: 0 } } },
-  ],
-  slideNumber: { x: W - M - 0.8, y: H - 0.44, w: 0.8, h: 0.3, fontSize: 11, color: NAVY, align: 'right', bold: true },
-});
-pres.defineSlideMaster({
-  title: 'BACKUP', background: { color: WHITE },
-  objects: [
-    { text: { text: 'BACKUP', options: { x: W - M - 1.2, y: 0.22, w: 1.2, h: 0.3, fontSize: 10, bold: true, color: TEAL, align: 'right', margin: 0 } } },
-    { placeholder: { options: { name: 'title', type: 'title', x: M, y: 0.32, w: W - 2 * M - 1.3, h: 1.05, fontSize: 26, bold: true, color: NAVY, valign: 'middle', margin: 0 } } },
-    { text: { text: FOOT, options: { x: M, y: H - 0.42, w: 9.5, h: 0.3, fontSize: 9, color: GREY, margin: 0 } } },
-  ],
-  slideNumber: { x: W - M - 0.8, y: H - 0.44, w: 0.8, h: 0.3, fontSize: 11, color: NAVY, align: 'right', bold: true },
-});
-pres.defineSlideMaster({
-  title: 'CLOSING_DARK', background: { color: NAVY },
-  objects: [
-    { placeholder: { options: { name: 'title', type: 'title', x: M, y: 0.4, w: W - 2 * M, h: 1.0, fontSize: 30, bold: true, color: WHITE, valign: 'middle', margin: 0 } } },
-    { text: { text: FOOT, options: { x: M, y: H - 0.42, w: 9.5, h: 0.3, fontSize: 9, color: 'B8C4D2', margin: 0 } } },
-  ],
-  slideNumber: { x: W - M - 0.8, y: H - 0.44, w: 0.8, h: 0.3, fontSize: 11, color: WHITE, align: 'right', bold: true },
-});
+pres.defineSlideMaster({ title: 'CONTENT', background: { color: WHITE }, objects: [
+  { placeholder: { options: { name: 'title', type: 'title', x: M, y: 0.6, w: CW, h: 0.95, fontSize: 26, bold: true, color: INK, align: 'left', valign: 'top', margin: 0, fontFace: 'Arial' } } },
+  { text: { text: FOOT, options: { x: M, y: 7.08, w: 8, h: 0.25, fontSize: 9, color: MID, margin: 0 } } },
+], slideNumber: { x: W - M - 0.8, y: 7.04, w: 0.8, h: 0.3, fontSize: 12, color: RED, bold: true, align: 'right' } });
+pres.defineSlideMaster({ title: 'BACKUP', background: { color: WHITE }, objects: [
+  { placeholder: { options: { name: 'title', type: 'title', x: M, y: 0.6, w: CW, h: 0.95, fontSize: 24, bold: true, color: INK, align: 'left', valign: 'top', margin: 0, fontFace: 'Arial' } } },
+  { text: { text: FOOT, options: { x: M, y: 7.08, w: 8, h: 0.25, fontSize: 9, color: MID, margin: 0 } } },
+], slideNumber: { x: W - M - 0.8, y: 7.04, w: 0.8, h: 0.3, fontSize: 12, color: RED, bold: true, align: 'right' } });
+pres.defineSlideMaster({ title: 'TITLE', background: { color: WHITE }, objects: [] });
+pres.defineSlideMaster({ title: 'CLOSING', background: { color: RED }, objects: [
+  { placeholder: { options: { name: 'title', type: 'title', x: M, y: 0.6, w: CW, h: 0.95, fontSize: 30, bold: true, color: WHITE, align: 'left', valign: 'top', margin: 0, fontFace: 'Arial' } } },
+  { text: { text: FOOT, options: { x: M, y: 7.08, w: 8, h: 0.25, fontSize: 9, color: 'F3C6CC', margin: 0 } } },
+], slideNumber: { x: W - M - 0.8, y: 7.04, w: 0.8, h: 0.3, fontSize: 12, color: WHITE, bold: true, align: 'right' } });
 
 // ---------- helpers ----------
-function card(slide, x, y, w, h, opts = {}) {
-  slide.addShape(pres.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.08, fill: { color: opts.fill || TINT }, line: { color: opts.line || (opts.fill || TINT), width: 0.75 }, objectName: opts.name || 'card' });
+function T(s, str, x, y, w, h, o = {}) {
+  s.addText(str, { x, y, w, h, isTextBox: true, margin: o.margin == null ? 0 : o.margin, fontSize: o.size || 14, color: o.color || INK, bold: !!o.bold, italic: !!o.italic, align: o.align || 'left', valign: o.valign || 'top', objectName: o.name || 'text', paraSpaceAfter: o.psa, lineSpacingMultiple: o.lsm });
 }
-function text(slide, str, x, y, w, h, o = {}) {
-  slide.addText(str, { x, y, w, h, isTextBox: true, margin: 0, fontSize: o.fontSize || 14, color: o.color || NAVY, bold: !!o.bold, italic: !!o.italic, align: o.align || 'left', valign: o.valign || 'top', fontFace: o.fontFace, objectName: o.name || 'text', paraSpaceAfter: o.psa });
+function rich(s, runs, x, y, w, h, o = {}) {
+  s.addText(runs.map((r, i) => ({ text: r[0], options: { bold: !!(r[1] && r[1].bold), color: (r[1] && r[1].color) || o.color || INK, fontSize: (r[1] && r[1].size) || o.size || 14, breakLine: !!(r[1] && r[1].br) && i < runs.length - 1, italic: !!(r[1] && r[1].italic) } })),
+    { x, y, w, h, isTextBox: true, margin: 0, valign: o.valign || 'top', objectName: o.name || 'rich text', paraSpaceAfter: o.psa == null ? 4 : o.psa });
 }
-function bullets(slide, items, x, y, w, h, o = {}) {
-  const runs = items.map((t, i) => ({ text: t, options: { bullet: { indent: 14 }, breakLine: i < items.length - 1, paraSpaceAfter: o.psa == null ? 6 : o.psa } }));
-  slide.addText(runs, { x, y, w, h, isTextBox: true, margin: 0, fontSize: o.fontSize || 14, color: o.color || NAVY, valign: o.valign || 'top', objectName: o.name || 'bullets' });
+function list(s, items, x, y, w, h, o = {}) {
+  s.addText(items.map((t, i) => ({ text: t, options: { bullet: { indent: 16 }, breakLine: i < items.length - 1, paraSpaceAfter: o.psa == null ? 8 : o.psa } })),
+    { x, y, w, h, isTextBox: true, margin: 0, fontSize: o.size || 14, color: o.color || INK, valign: 'top', objectName: o.name || 'list' });
 }
-function stat(slide, x, y, w, h, big, label, o = {}) {
-  card(slide, x, y, w, h, { fill: o.fill || TINT, name: 'stat card' });
-  text(slide, big, x + 0.2, y + 0.15, w - 0.4, h * 0.5, { fontSize: o.bigSize || 34, bold: true, color: o.color || TEAL, fontFace: 'Cambria', valign: 'middle', name: 'stat number' });
-  text(slide, label, x + 0.2, y + h * 0.5 + 0.12, w - 0.4, h * 0.5 - 0.25, { fontSize: o.labelSize || 12, color: o.labelColor || NAVY, valign: 'top', name: 'stat label' });
+function box(s, x, y, w, h, o = {}) {
+  s.addShape(pres.ShapeType.rect, { x, y, w, h, fill: { color: o.fill || WHITE }, line: { color: o.line || INK, width: o.lw == null ? 1 : o.lw }, objectName: o.name || 'box' });
 }
-function arrow(slide, x1, y1, x2, y2, color = GREY, width = 1.5) {
-  const x = Math.min(x1, x2), y = Math.min(y1, y2), w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
-  slide.addShape(pres.ShapeType.line, { x, y, w: w || 0.001, h: h || 0.001, line: { color, width, endArrowType: 'triangle' }, flipH: x2 < x1, flipV: y2 < y1, objectName: 'arrow' });
+function tile(s, data, x, y, d = 0.6, fill = RED) {
+  s.addShape(pres.ShapeType.rect, { x, y, w: d, h: d, fill: { color: fill }, line: { color: fill, width: 0 }, objectName: 'icon tile' });
+  s.addImage({ data, x: x + d * 0.2, y: y + d * 0.2, w: d * 0.6, h: d * 0.6, objectName: 'icon' });
 }
-function iconCircle(slide, data, x, y, d = 0.62, fill = TEAL) {
-  slide.addShape(pres.ShapeType.ellipse, { x, y, w: d, h: d, fill: { color: fill }, line: { color: fill, width: 0 }, objectName: 'icon circle' });
-  slide.addImage({ data, x: x + d * 0.24, y: y + d * 0.24, w: d * 0.52, h: d * 0.52, objectName: 'icon' });
+function arrow(s, x1, y1, x2, y2, color = INK, width = 1.5) {
+  s.addShape(pres.ShapeType.line, { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1) || 0.001, h: Math.abs(y2 - y1) || 0.001, line: { color, width, endArrowType: 'triangle' }, flipH: x2 < x1, flipV: y2 < y1, objectName: 'arrow' });
 }
-function source(slide, str, dark = false) {
-  text(slide, str, M, H - 0.78, W - 2 * M, 0.3, { fontSize: 9, color: dark ? 'B8C4D2' : GREY, italic: true, name: 'sources' });
+function label(s, str, dark = false) { T(s, str, M, 0.26, 8, 0.3, { size: 11, bold: true, color: dark ? WHITE : RED, name: 'section label' }); }
+function prelim(s) {
+  s.addShape(pres.ShapeType.rect, { x: W - M - 4.6, y: 0.24, w: 4.6, h: 0.32, fill: { color: PINK }, line: { color: PINK, width: 0 }, objectName: 'preliminary tag' });
+  T(s, 'PRELIMINARY  |  full results in the manuscript in preparation', W - M - 4.55, 0.24, 4.5, 0.32, { size: 10, bold: true, color: RED, align: 'center', valign: 'middle' });
 }
-function prelim(slide) {
-  slide.addShape(pres.ShapeType.roundRect, { x: W - M - 5.1, y: 0.08, w: 5.1, h: 0.27, rectRadius: 0.13, fill: { color: PEACH }, line: { color: PEACH, width: 0 }, objectName: 'preliminary tag' });
-  text(slide, 'PRELIMINARY  |  development split  |  full results in the manuscript in preparation', W - M - 5.0, 0.08, 4.9, 0.27, { fontSize: 9, bold: true, color: ORANGE, align: 'center', valign: 'middle', name: 'preliminary text' });
-}
-const hdr = (t) => ({ text: t, options: { bold: true, color: WHITE, fill: { color: NAVY }, fontSize: 12, valign: 'middle' } });
-const cell = (t, o = {}) => ({ text: t, options: { fontSize: 11, color: NAVY, valign: 'middle', ...o } });
+function slide(master, section, sectionTitle) { cur = new Set(); const s = pres.addSlide({ masterName: master, sectionTitle }); if (section) label(s, section, master === 'CLOSING'); return s; }
+const th = (t) => ({ text: t, options: { bold: true, color: WHITE, fill: { color: INK }, fontSize: 12, valign: 'middle' } });
+const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, valign: 'middle', ...o } });
 
 (async () => {
-  const ICON = {
-    question: await icon('FaQuestion', WHITE), search: await icon('FaSearch', WHITE), lock: await icon('FaLock', WHITE), scale: await icon('FaBalanceScale', WHITE),
-    route: await icon('FaRoute', WHITE), pills: await icon('FaPills', WHITE), chart: await icon('FaChartLine', WHITE), check: await icon('FaCheck', WHITE),
-    cog: await icon('FaCogs', WHITE), book: await icon('FaBookOpen', WHITE), eye: await icon('FaEyeSlash', WHITE), exchange: await icon('FaExchangeAlt', WHITE),
-    db: await icon('FaDatabase', WHITE), userMd: await icon('FaUserMd', WHITE), comments: await icon('FaComments', WHITE), hospital: await icon('FaHospital', WHITE),
-    xray: await icon('FaXRay', WHITE),
+  const I = {
+    virus: await icon(fa, 'FaVirus'), pill: await icon(fa, 'FaPills'), micro: await icon(fa, 'FaMicroscope'), bell: await icon(fa, 'FaBell'),
+    lungs: await icon(gi, 'GiLungs'), heart: await icon(gi, 'GiHeartOrgan'), kidney: await icon(gi, 'GiKidneys'), liver: await icon(gi, 'GiLiver'), drop: await icon(gi, 'GiDrop'), brain: await icon(gi, 'GiBrain'),
+    db: await icon(fa, 'FaDatabase'), users: await icon(fa, 'FaUserMd'), hospital: await icon(fa, 'FaHospital'), search: await icon(fa, 'FaSearch'), chart: await icon(fa, 'FaChartLine'),
+    globe: await icon(fa, 'FaGlobeEurope'), clock: await icon(fa, 'FaStopwatch'), xray: await icon(fa, 'FaXRay'), scale: await icon(fa, 'FaBalanceScale'), exchange: await icon(fa, 'FaExchangeAlt'),
+    lock: await icon(fa, 'FaLock'), book: await icon(fa, 'FaBookOpen'), comments: await icon(fa, 'FaComments'), heartbeat: await icon(fa, 'FaHeartbeat', WHITE), check: await icon(fa, 'FaCheck'),
   };
 
-  // ================= 1. TITLE =================
-  pres.addSection({ title: 'Context and problem' });
-  let s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'Context and problem' });
-  text(s, 'SCEBE RESEARCH DEGREE CONFERENCE  |  20 OCTOBER 2026  |  MERCHISTON CAMPUS', M, 0.75, W - 2 * M, 0.35, { fontSize: 12, color: 'B8C4D2', bold: true, name: 'event line' });
-  s.addText('Can a sepsis warning built only from what clinicians knew at the time stay useful in a hospital it has never seen?', { placeholder: 'title' });
-  s.addText([
-    { text: 'PhD: Development of Novel AI Models for Early Detection and Prediction of Infectious Diseases, with a Focus on Sepsis', options: { fontSize: 16, italic: true, color: 'B8C4D2', breakLine: true, paraSpaceAfter: 14 } },
-    { text: 'Mahmoud Essam Elrggal', options: { fontSize: 20, bold: true, breakLine: true } },
-    { text: 'Pharmacist  |  PhD candidate, School of Computing, Engineering and the Built Environment, Edinburgh Napier University', options: { fontSize: 14, breakLine: true, paraSpaceAfter: 10 } },
-    { text: 'Director of Studies: Prof. Ahmed Al Dubai', options: { fontSize: 14 } },
-  ], { placeholder: 'body' });
-  s.addNotes('1 min. Who I am in one sentence: a pharmacist who treated infections before building models for them. One sentence of wider context: sepsis is how infection most often kills in hospital. The title is the question the whole talk answers; I will come back to it on slide 4.');
+  // ===== 1 TITLE =====
+  pres.addSection({ title: 'Context' });
+  cur = new Set();
+  let s = pres.addSlide({ masterName: 'TITLE', sectionTitle: 'Context' });
+  s.addShape(pres.ShapeType.rect, { x: W - 3.6, y: 0, w: 3.6, h: H, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'title panel' });
+  s.addImage({ data: I.heartbeat, x: W - 2.55, y: 1.0, w: 1.5, h: 1.5, objectName: 'title icon' });
+  T(s, 'SCEBE Research Degree Conference 2026', W - 3.3, 3.0, 3.0, 0.8, { size: 16, bold: true, color: WHITE });
+  T(s, '20 October 2026\nMerchiston Campus\nEdinburgh Napier University', W - 3.3, 3.85, 3.0, 1.2, { size: 14, color: WHITE });
+  T(s, 'Development of Novel AI Models for Early Detection and Prediction of Infectious Diseases, with a Focus on Sepsis', M, 1.0, W - 3.6 - M - 0.5, 2.3, { size: 32, bold: true, color: INK, valign: 'bottom', name: 'main title' });
+  T(s, 'Can a sepsis warning stay useful in a hospital it has never seen?', M, 3.45, W - 3.6 - M - 0.5, 0.6, { size: 20, bold: true, color: RED, name: 'subtitle' });
+  rich(s, [
+    ['Mahmoud Essam Elrggal', { bold: true, size: 18, br: true }],
+    ['PhD candidate, School of Computing, Engineering and the Built Environment, Edinburgh Napier University', { size: 14, br: true }],
+    [' ', { size: 8, br: true }],
+    ['Director of Studies: Prof. Ahmed Al Dubai', { size: 14, br: true }],
+    ['Second Supervisor: ' + SECOND_SUPERVISOR, { size: 14 }],
+  ], M, 4.5, W - 3.6 - M - 0.5, 1.8, { psa: 2 });
+  s.addNotes('1 min. Introduce yourself in one sentence as a healthcare professional and PhD candidate. Read the subtitle question: it is what the whole talk answers.');
 
-  // ================= 2. SEPSIS PRIMER =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Context and problem' });
-  s.addText('Sepsis kills about 11 million people a year, and the hours before antibiotics decide who survives', { placeholder: 'title' });
-  stat(s, M, 1.55, 2.6, 1.45, '49 M', 'cases of sepsis each year worldwide');
-  stat(s, M + 2.75, 1.55, 2.6, 1.45, '11 M', 'deaths each year, 1 in 5 of all deaths');
-  stat(s, M + 5.5, 1.55, 2.6, 1.45, '+4 to 8 %', 'higher mortality for every hour antibiotics are delayed');
-  card(s, M + 8.35, 1.55, W - 2 * M - 8.35, 1.45, { fill: NAVY, name: 'definition card' });
-  text(s, 'Sepsis-3 definition', M + 8.55, 1.65, 3.4, 0.3, { fontSize: 12, bold: true, color: 'B8C4D2' });
-  text(s, 'A suspected infection plus new organ dysfunction: a rise of 2 or more points on the SOFA organ-failure score. "Onset" is the hour both are met.', M + 8.55, 1.95, W - 2 * M - 8.75, 1.0, { fontSize: 12.5, color: WHITE });
-  const ty = 4.05, tx0 = M + 1.1, tx1 = W - M - 1.1;
-  s.addShape(pres.ShapeType.line, { x: tx0, y: ty, w: tx1 - tx0, h: 0.001, line: { color: LINE, width: 3 }, objectName: 'timeline' });
-  const steps = [
-    ['Infection starts', 'often unnoticed', GREY],
-    ['Physiology drifts', 'heart rate, breathing, labs change hour by hour', TEAL],
-    ['Our warning target', '6 hours before onset', BLUE],
-    ['Sepsis onset', 'organ dysfunction meets the definition', ORANGE],
-    ['Recognition and antibiotics', 'the clock the mortality figures run on', NAVY],
+  // ===== 2 INFECTIOUS DISEASE =====
+  s = slide('CONTENT', 'CONTEXT', 'Context');
+  s.addText('Detecting infection early saves lives and saves antibiotics', { placeholder: 'title' });
+  const ids = [
+    [I.globe, '11 M', 'sepsis deaths a year: 1 in 5 deaths worldwide ' + c('rudd')],
+    [I.pill, '1.27 M', 'deaths in 2019 caused directly by antibiotic-resistant bacteria; 4.95 M associated ' + c('murray')],
+    [I.micro, 'OR 0.66', 'odds of death with rapid diagnosis of bloodstream infection; effective therapy about 5 h sooner ' + c('timbrook')],
+    [I.bell, '-18.7 %', 'relative in-hospital mortality when a sepsis AI alert was confirmed by clinicians within 3 h ' + c('adams')],
   ];
-  steps.forEach((st, i) => {
-    const cx = tx0 + (tx1 - tx0) * i / (steps.length - 1);
-    s.addShape(pres.ShapeType.ellipse, { x: cx - 0.17, y: ty - 0.17, w: 0.34, h: 0.34, fill: { color: st[2] }, line: { color: WHITE, width: 2 }, objectName: 'timeline point' });
-    text(s, st[0], cx - 1.25, ty + 0.32, 2.5, 0.35, { fontSize: 13, bold: true, align: 'center', color: st[2] === GREY ? NAVY : st[2] });
-    text(s, st[1], cx - 1.25, ty + 0.66, 2.5, 0.7, { fontSize: 11.5, align: 'center', color: GREY });
+  ids.forEach((d, i) => {
+    const x = M + i * 3.07;
+    tile(s, d[0], x, 1.75, 0.6);
+    T(s, d[1], x, 2.45, 2.9, 0.7, { size: 34, bold: true, color: RED });
+    T(s, d[2], x, 3.15, 2.85, 1.3, { size: 13.5 });
   });
-  card(s, M, 5.65, W - 2 * M, 0.95, { fill: TINT, name: 'pharmacist note' });
-  iconCircle(s, ICON.pills, M + 0.18, 5.82, 0.6, TEAL);
-  text(s, 'The pharmacist\'s view: early antibiotics save lives, but antibiotics "just in case" for everyone breed resistance. A warning is only useful if it is right often enough to act on, and early enough to matter.', M + 0.95, 5.72, W - 2 * M - 1.15, 0.85, { fontSize: 13.5, valign: 'middle' });
-  source(s, 'Rudd et al., Lancet 2020 (global burden); Singer et al., JAMA 2016 (Sepsis-3); Kumar et al., Crit Care Med 2006 and Seymour et al., NEJM 2017 (hourly delay and mortality).');
-  s.addNotes('1 min. Define three words for the engineers: SOFA (organ-failure score), onset (the hour infection plus organ dysfunction are both met) and the six-hour target. Then the pharmacist point: the aim is the right patients early, not antibiotics for everyone.');
-
-  // ================= 3. THE GAP =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Context and problem' });
-  s.addText('Published sepsis AI scores well on its own data and fails where it matters: the next hospital', { placeholder: 'title' });
-  card(s, M, 1.55, 5.95, 2.55, { fill: TINT, name: 'evidence card 1' });
-  text(s, 'PhysioNet 2019 Challenge: 104 teams, one scoring rule', M + 0.25, 1.68, 5.5, 0.35, { fontSize: 14, bold: true });
-  text(s, '0.36', M + 0.25, 2.1, 1.7, 0.8, { fontSize: 38, bold: true, color: ORANGE, fontFace: 'Cambria', valign: 'middle' });
-  text(s, 'winning utility on the two hospitals in training', M + 0.25, 2.9, 2.4, 0.6, { fontSize: 11.5, color: GREY });
-  text(s, '-0.12', M + 3.0, 2.1, 1.7, 0.8, { fontSize: 38, bold: true, color: ORANGE, fontFace: 'Cambria', valign: 'middle' });
-  text(s, 'same model on the hidden third hospital: worse than no alarm at all', M + 3.0, 2.9, 2.75, 0.8, { fontSize: 11.5, color: GREY });
-  text(s, 'Utility: the challenge score that rewards an alarm 6 h before onset and penalises false alarms (0 = never alarming).', M + 0.25, 3.55, 5.5, 0.5, { fontSize: 10.5, italic: true, color: GREY });
-  card(s, M + 6.15, 1.55, W - 2 * M - 6.15, 2.55, { fill: TINT, name: 'evidence card 2' });
-  text(s, 'Epic Sepsis Model: deployed in hundreds of US hospitals', M + 6.4, 1.68, 5.6, 0.35, { fontSize: 14, bold: true });
-  text(s, '0.63', M + 6.4, 2.1, 1.7, 0.8, { fontSize: 38, bold: true, color: ORANGE, fontFace: 'Cambria', valign: 'middle' });
-  text(s, 'AUROC in independent validation, against 0.76 to 0.83 claimed by the vendor', M + 6.4, 2.9, 2.6, 0.8, { fontSize: 11.5, color: GREY });
-  text(s, '67 %', M + 9.35, 2.1, 1.7, 0.8, { fontSize: 38, bold: true, color: ORANGE, fontFace: 'Cambria', valign: 'middle' });
-  text(s, 'of sepsis patients missed, while alerting on 18 % of all admissions', M + 9.35, 2.9, 2.6, 0.8, { fontSize: 11.5, color: GREY });
-  text(s, 'A systematic review of 28 models reports AUROC 0.68 to 0.99; almost none were tested prospectively.', M + 6.4, 3.55, 5.6, 0.5, { fontSize: 10.5, italic: true, color: GREY });
-  text(s, 'Three things the literature rarely controls', M, 4.35, 8, 0.35, { fontSize: 15, bold: true });
-  const reasons = [
-    [ICON.eye, 'Future information leaks into training', 'hours after onset labelled positive; values used before they were recorded; treatments that define the label used as inputs'],
-    [ICON.chart, 'Scored by ranking, not by whether an alarm helps', 'AUROC on one split of one database; no cost for false alarms, no credit for warning time'],
-    [ICON.exchange, 'Each study defines sepsis its own way', 'results cannot be compared, and a model tuned to one definition fails under another'],
-  ];
-  reasons.forEach((r, i) => {
-    const x = M + i * 4.1;
-    iconCircle(s, r[0], x, 4.85, 0.6, NAVY);
-    text(s, r[1], x + 0.75, 4.82, 3.2, 0.5, { fontSize: 13, bold: true });
-    text(s, r[2], x + 0.75, 5.3, 3.2, 1.1, { fontSize: 11.5, color: GREY });
+  // pathway figure
+  const py = 5.0, steps = ['Infection begins', 'Body starts to change', 'Clinician recognises', 'Microbiology result (48-72 h)', 'Targeted treatment'];
+  const sw = 2.25, gap = 0.22;
+  steps.forEach((t, i) => {
+    const x = M + i * (sw + gap);
+    box(s, x, py, sw, 0.62, { fill: i === 1 || i === 2 ? PINK : LIGHT, line: i === 1 || i === 2 ? RED : RULE });
+    T(s, t, x + 0.08, py, sw - 0.16, 0.62, { size: 13, bold: true, align: 'center', valign: 'middle' });
+    if (i < steps.length - 1) arrow(s, x + sw, py + 0.31, x + sw + gap, py + 0.31, INK, 1.25);
   });
-  source(s, 'Reyna et al., Crit Care Med 2020 (challenge results); Wong et al., JAMA Intern Med 2021 (Epic external validation); Fleuren et al., Intensive Care Med 2020 (review).');
-  s.addNotes('1 min. The gap. The best entry of the largest public competition went negative on a hospital it had not seen; the most deployed commercial model missed two thirds of sepsis in an independent test. The three reasons at the bottom are what my project is built to control.');
+  T(s, 'AI prediction moves recognition earlier', M + sw + gap, py + 0.7, 2 * sw + gap, 0.35, { size: 13, bold: true, color: RED, align: 'center' });
+  T(s, 'AI rapid diagnostics shorten this step ' + c('amr'), M + 3 * (sw + gap), py + 0.7, sw, 0.6, { size: 12, color: GREY, align: 'center' });
+  T(s, 'The infection pathway', M, py - 0.42, 4, 0.35, { size: 13, bold: true, color: GREY });
+  refFooter(s);
+  s.addNotes('1 min. Four numbers: the burden of sepsis, the burden of resistance, and two pieces of evidence that acting earlier helps: rapid diagnostics with stewardship, and a sepsis AI alert that clinicians acted on. The pathway shows where AI helps: earlier recognition (my project) and faster diagnosis (my review).');
 
-  // ================= 4. THE QUESTION =================
-  pres.addSection({ title: 'Aims and approach' });
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Aims and approach' });
-  s.addText('The question the literature has not asked', { placeholder: 'title' });
-  card(s, M, 1.5, W - 2 * M, 1.5, { fill: NAVY, name: 'question card' });
-  iconCircle(s, ICON.question, M + 0.25, 1.93, 0.65, TEAL);
-  text(s, 'Using only the information a clinician could have seen at each hour, can a model warn of sepsis six hours ahead with positive clinical utility, and does that utility survive transfer to a hospital system it has never seen?', M + 1.1, 1.62, W - 2 * M - 1.35, 1.28, { fontSize: 17, bold: true, color: WHITE, valign: 'middle' });
-  card(s, M, 3.2, 5.9, 1.35, { fill: TINT, name: 'asked before' });
-  text(s, 'What has been asked', M + 0.25, 3.3, 5.4, 0.35, { fontSize: 12.5, bold: true, color: ORANGE });
-  text(s, 'How high can the AUROC go on one prepared dataset, with one team\'s label definition and whatever inputs were available?', M + 0.25, 3.65, 5.4, 0.85, { fontSize: 13 });
-  card(s, M + 6.1, 3.2, W - 2 * M - 6.1, 1.35, { fill: TINT, name: 'we ask' });
-  text(s, 'What this project asks', M + 6.35, 3.3, 5.6, 0.35, { fontSize: 12.5, bold: true, color: BLUE });
-  text(s, 'Would the alarm have helped this patient, at an acceptable false-alarm burden, and would it still help in the next hospital, under one shared definition of sepsis?', M + 6.35, 3.65, 5.6, 0.85, { fontSize: 13 });
-  const rqs = [
-    ['RQ1  Predictors', 'Which information known at hour t carries the signal: vital signs and laboratory values alone, or also treatments, devices, admission context and comorbidity that no public model uses?'],
-    ['RQ2  Architecture', 'Once causality is enforced, does structuring the model around organ systems add anything over simpler sequence models? A hypothesis to test, not an assumption.'],
-    ['RQ3  Transfer and trust', 'Does positive utility in one ICU database survive in another, and what would make the clinicians who receive the alarm act on it?'],
-  ];
-  rqs.forEach((r, i) => {
-    const x = M + i * 4.1;
-    card(s, x, 4.75, 3.9, 1.85, { fill: WHITE, line: LINE, name: 'rq card' });
-    text(s, r[0], x + 0.2, 4.85, 3.5, 0.35, { fontSize: 13, bold: true, color: TEAL });
-    text(s, r[1], x + 0.2, 5.2, 3.5, 1.35, { fontSize: 12 });
-  });
-  s.addNotes('1 min. Read the question slowly; it is the one thing to remember. The field optimises a ranking score on one dataset; we ask about the alarm and about transfer. Three research questions follow: predictors, architecture, transfer and trust.');
-
-  // ================= 5. CLINICIAN IN THE LOOP =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Aims and approach' });
-  s.addText('Why a clinician building the model changes what gets built', { placeholder: 'title' });
-  card(s, M, 1.5, 3.9, 4.95, { fill: NAVY, name: 'premise card' });
-  iconCircle(s, ICON.userMd, M + 0.25, 1.7, 0.62, TEAL);
-  text(s, 'The record is written by clinicians\' decisions', M + 1.0, 1.72, 2.75, 0.6, { fontSize: 13.5, bold: true, color: WHITE, valign: 'middle' });
-  text(s, 'Every order, culture and charted value exists because someone at the bedside decided to act. A model that does not know why a value exists learns the clinician\'s suspicion, not the patient\'s physiology, and that is exactly what fails in the next hospital.', M + 0.25, 2.5, 3.4, 1.9, { fontSize: 12, color: 'D7E0EA' });
-  text(s, 'A pharmacist among engineers', M + 0.25, 4.5, 3.4, 0.35, { fontSize: 12.5, bold: true, color: WHITE });
-  text(s, 'I can answer the clinical questions myself: which inputs are safe, which leak the answer, which alarm a team would act on. The engineering questions are where I need this room.', M + 0.25, 4.85, 3.4, 1.5, { fontSize: 11.5, color: 'D7E0EA' });
-  const ex = [
-    [ICON.pills, 'Example 1: antibiotics', 'Most pipelines either feed every antibiotic order to the model, which then predicts the label from itself because the label is defined by antibiotics plus cultures, or drop antibiotics altogether.',
-      'A pharmacist reads the order: cefazolin at induction of anaesthesia, stopped within 24 hours, no culture sent, is surgical prophylaxis, not suspicion of sepsis. We keep prophylaxis as a predictor by a guideline rule and exclude empirical and culture-directed antibiotics.'],
-    [ICON.xray, 'Example 2: clinician-suspicion proxies', 'A stress-dose hydrocortisone order or a chest X-ray request often means the team already suspects sepsis. To an engineer these are two strong predictors.',
-      'To a clinician they are the answer leaking in through the back door. We keep them, label them as proxies, and report every result with and without them, so the reader can see how much of the signal is the patient and how much is the team.'],
-  ];
-  ex.forEach((e, i) => {
-    const y = 1.5 + i * 2.55;
-    card(s, M + 4.1, y, W - 2 * M - 4.1, 2.4, { fill: TINT, name: 'example card' });
-    iconCircle(s, e[0], M + 4.3, y + 0.2, 0.6, ORANGE);
-    text(s, e[1], M + 5.05, y + 0.22, 6.8, 0.55, { fontSize: 14, bold: true, valign: 'middle' });
-    text(s, 'What is usually done', M + 4.3, y + 0.95, 3.75, 0.3, { fontSize: 11, bold: true, color: ORANGE });
-    text(s, e[2], M + 4.3, y + 1.25, 3.75, 1.1, { fontSize: 11, color: GREY });
-    text(s, 'What we do instead', M + 8.25, y + 0.95, 3.85, 0.3, { fontSize: 11, bold: true, color: BLUE });
-    text(s, e[3], M + 8.25, y + 1.25, 3.85, 1.1, { fontSize: 11 });
-  });
-  source(s, 'Prophylaxis rule from the ASHP / IDSA / SIS / SHEA surgical prophylaxis guidelines (2013) and the Surviving Sepsis Campaign (2021). The proxy sensitivity analysis is prespecified in the running comparison.');
-  s.addNotes('1 min. The "why me" slide. Left: the data are generated by clinicians\' decisions, so a model that does not know why a value exists learns the team\'s suspicion. Right: two concrete examples. Antibiotics: a pharmacist can tell prophylaxis from treatment by agent, timing and duration, and only prophylaxis is a safe predictor. Proxies: hydrocortisone and imaging orders are the team\'s suspicion; we report with and without them. Close: I can answer the clinical questions; the engineering questions are where I need this room.');
-
-  // ================= 6. WHY THIS WAY =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Aims and approach' });
-  s.addText('Why this way: six choices that go against common practice', { placeholder: 'title' });
-  const rows = [
-    [hdr('Common practice'), hdr('This project'), hdr('Why')],
-    [cell('Challenge-prepared tables: PhysioNet 2019, 40 variables, two hospitals'), cell('Raw MIMIC-IV 3.1 (one US academic centre, about 94,000 ICU stays) and eICU-CRD 2.0 (about 200 US hospitals, about 201,000 stays)', { bold: true }), cell('Different hospitals and charting systems make the transfer test real')],
-    [cell('Each study defines sepsis its own way'), cell('One Sepsis-3 definition applied identically to both databases (YAIB / ricu, Seymour suspicion window)', { bold: true }), cell('Results are comparable across databases and with the benchmark literature')],
-    [cell('Values carried forward; hours after onset labelled positive'), cell('Strict causality: each value used only from the hour it was recorded, expires after 24 h, with "measured?" and "how old?" channels; hours after onset excluded', { bold: true }), cell('No information from the future reaches the model')],
-    [cell('40 to 125 variables'), cell('655 clinician-defined predictors: vitals, labs, blood gases, SOFA / qSOFA / NEWS2, ventilation, vasopressor dose, fluids, urine output, devices, drug exposures, imaging orders, admission context, comorbidities', { bold: true }), cell('The whole clinical picture, defined by someone who has treated these patients')],
-    [cell('Antibiotics used as predictors'), cell('Antibiotics and cultures that define the label are excluded; prophylactic antibiotics are separated by a guideline rule and kept', { bold: true }), cell('Avoids predicting the label from itself')],
-    [cell('AUROC on one split'), cell('Utility, sensitivity at 0.5 or fewer false alarms per patient-day, warning time, calibration; 20 % of patients sealed and opened once', { bold: true }), cell('Measures what would help patients, and cannot be tuned to the test')],
-  ];
-  s.addTable(rows, { x: M, y: 1.5, w: W - 2 * M, colW: [3.2, 5.6, 3.33], rowH: [0.38, 0.72, 0.6, 0.78, 0.9, 0.62, 0.72], border: { type: 'solid', color: LINE, pt: 0.75 }, fontFace: 'Calibri', margin: 0.06, objectName: 'choices table' });
-  source(s, 'Key literature shaping these choices: Reyna 2020 (utility score); Seymour 2016 (suspicion window); van de Water 2024 (YAIB benchmark); Moor et al., eClinicalMedicine 2023 (training across sites improves transfer).');
-  s.addNotes('1 min. One row per choice. Point at rows 3 and 5 (causality, label-defining antibiotics) as the ones most published models get wrong, and row 4 as where the predictor list was written from the bedside. Do not read the table.');
-
-  // ================= 7. MIXED METHODS =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Aims and approach' });
-  s.addText('A mixed-methods design: the model, the clinicians who would use it, then hospital patients', { placeholder: 'title' });
-  const phases = [
-    [ICON.db, 'Phase 1  |  Quantitative (now)', TEAL, 'Causal modelling on MIMIC-IV and eICU: one label definition, 655 predictors, transfer between databases, utility and false-alarm burden, a sealed holdout opened once.', 'Output: a warning with measured utility and its alarm policy.'],
-    [ICON.comments, 'Phase 2  |  Qualitative (2027)', BLUE, 'Interviews and a survey with ICU doctors, nurses and pharmacists: would they act on this alarm, what explanation do they need (overall risk or risk per organ), what false-alarm rate would they tolerate, what would make them trust or ignore it.', 'Output: the alarm policy and the explanation the model must meet.'],
-    [ICON.hospital, 'Phase 3  |  Future direction', ORANGE, 'Test on hospital patients: the model runs silently on live ICU data, alarms are recorded but not shown, and compared with what happened. Then a clinician-facing pilot, with ethics approval and a data-governance agreement.', 'Output: evidence from real patients, in real time, in a hospital the model never trained on.'],
-  ];
-  phases.forEach((p, i) => {
-    const x = M + i * 4.1;
-    card(s, x, 1.55, 3.9, 3.75, { fill: WHITE, line: LINE, name: 'phase card' });
-    s.addShape(pres.ShapeType.roundRect, { x, y: 1.55, w: 3.9, h: 0.75, rectRadius: 0.08, fill: { color: p[2] }, line: { color: p[2], width: 0 }, objectName: 'phase header' });
-    iconCircle(s, p[0], x + 0.15, 1.63, 0.58, NAVY);
-    text(s, p[1], x + 0.85, 1.55, 3.0, 0.75, { fontSize: 13, bold: true, color: WHITE, valign: 'middle' });
-    text(s, p[3], x + 0.2, 2.45, 3.5, 1.95, { fontSize: 11.5 });
-    text(s, p[4], x + 0.2, 4.45, 3.5, 0.75, { fontSize: 11.5, bold: true, color: p[2] });
-    if (i < phases.length - 1) arrow(s, x + 3.9, 3.4, x + 4.1, 3.4, GREY, 2);
-  });
-  card(s, M, 5.55, W - 2 * M, 0.85, { fill: TINT, name: 'why mixed' });
-  text(s, 'Why mixed: an alarm nobody trusts saves nobody. The clinicians\' answers set the false-alarm budget and the explanation that the quantitative model has to meet before it reaches a patient. The pharmacist on the team can run that conversation in the ward\'s own language.', M + 0.2, 5.55, W - 2 * M - 0.4, 0.85, { fontSize: 12.5, valign: 'middle' });
-  s.addNotes('1 min. Three phases, left to right. Now: the quantitative work on two databases. Next: a qualitative study with the ICU clinicians who would receive the alarm, on trust and what they would act on. Future direction: run the model silently on hospital patients, then a clinician-facing pilot. The bottom line is the reason it is mixed methods.');
-
-  // ================= 8. MODELS =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Aims and approach' });
-  s.addText('Organ-structured attention is a hypothesis we test, not an assumption', { placeholder: 'title' });
-  text(s, 'OSTA: organ-system-aware temporal attention (my architecture)', M, 1.5, 6.3, 0.35, { fontSize: 13.5, bold: true, color: TEAL });
-  const organs = ['Respiratory', 'Cardiovascular', 'Renal', 'Hepatic', 'Coagulation', 'Neurological', 'Infection, treatment, context'];
-  const ox = M, oy = 1.95, oh = 0.42, og = 0.1;
+  // ===== 3 SEPSIS =====
+  s = slide('CONTENT', 'CONTEXT', 'Context');
+  s.addText('Sepsis is an infection that makes the body\'s own organs fail', { placeholder: 'title' });
+  T(s, 'Sepsis-3: life-threatening organ dysfunction caused by a dysregulated host response to infection ' + c('singer'), M, 1.6, 6.3, 0.75, { size: 15, bold: true });
+  T(s, 'Organ failure is measured by the SOFA score: 0 to 4 points for each organ system ' + c('vincent'), M, 2.4, 6.3, 0.5, { size: 13, color: GREY });
+  const organs = [[I.lungs, 'Lungs', 'oxygen ratio PaO2/FiO2'], [I.heart, 'Circulation', 'blood pressure, vasopressors'], [I.kidney, 'Kidneys', 'creatinine, urine output'],
+    [I.liver, 'Liver', 'bilirubin'], [I.drop, 'Clotting', 'platelets'], [I.brain, 'Brain', 'Glasgow Coma Scale']];
   organs.forEach((o, i) => {
-    const y = oy + i * (oh + og);
-    s.addShape(pres.ShapeType.roundRect, { x: ox, y, w: 2.1, h: oh, rectRadius: 0.06, fill: { color: TINT }, line: { color: LINE, width: 0.75 }, objectName: 'organ box' });
-    text(s, o, ox + 0.1, y, 1.95, oh, { fontSize: 11, valign: 'middle' });
-    arrow(s, ox + 2.1, y + oh / 2, ox + 2.45, y + oh / 2, GREY, 1);
-    s.addShape(pres.ShapeType.roundRect, { x: ox + 2.45, y, w: 1.35, h: oh, rectRadius: 0.06, fill: { color: LTEAL }, line: { color: TEAL, width: 0.75 }, objectName: 'organ attention' });
-    text(s, 'attention over hours', ox + 2.5, y, 1.25, oh, { fontSize: 9.5, valign: 'middle', align: 'center', color: TEAL });
+    const col = i % 3, row = Math.floor(i / 3), x = M + col * 2.12, y = 3.05 + row * 1.6;
+    tile(s, o[0], x, y, 0.7);
+    T(s, o[1], x + 0.8, y, 1.25, 0.35, { size: 14, bold: true });
+    T(s, o[2], x + 0.8, y + 0.35, 1.25, 0.9, { size: 12, color: GREY });
   });
-  const midY = oy + (organs.length * (oh + og) - og) / 2;
-  arrow(s, ox + 3.8, midY, ox + 4.15, midY, GREY, 1.5);
-  s.addShape(pres.ShapeType.roundRect, { x: ox + 4.15, y: midY - 0.75, w: 1.05, h: 1.5, rectRadius: 0.06, fill: { color: TEAL }, line: { color: TEAL, width: 0 }, objectName: 'cross organ' });
-  text(s, 'cross-organ attention', ox + 4.2, midY - 0.75, 0.95, 1.5, { fontSize: 10.5, bold: true, color: WHITE, align: 'center', valign: 'middle' });
-  arrow(s, ox + 5.2, midY, ox + 5.5, midY, GREY, 1.5);
-  s.addShape(pres.ShapeType.roundRect, { x: ox + 5.5, y: midY - 0.75, w: 1.0, h: 1.5, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY, width: 0 }, objectName: 'osta output' });
-  text(s, 'risk in the next 6 h, plus a risk per organ', ox + 5.55, midY - 0.75, 0.9, 1.5, { fontSize: 10, bold: true, color: WHITE, align: 'center', valign: 'middle' });
-  text(s, 'Each organ group is read by its own attention module, then the groups exchange information, mirroring how an ICU team reasons. Output: one overall risk and a risk per organ, so a warning can say which system is failing.', M, 5.75, 6.5, 0.9, { fontSize: 11.5, color: GREY });
-  const rx = M + 7.0;
-  text(s, 'CNN-Transformer (my earlier architecture)', rx, 1.5, 5.3, 0.35, { fontSize: 13.5, bold: true, color: BLUE });
-  const stages = [['hourly inputs', TINT, NAVY], ['causal convolutions: patterns over 1 to 12 h', LBLUE, BLUE], ['attention over the whole stay', LBLUE, BLUE], ['risk in the next 6 h', NAVY, WHITE]];
-  stages.forEach((st, i) => {
-    const y = 1.95 + i * 0.78;
-    s.addShape(pres.ShapeType.roundRect, { x: rx, y, w: 5.3, h: 0.5, rectRadius: 0.06, fill: { color: st[1] }, line: { color: st[1] === TINT ? LINE : st[1], width: 0.75 }, objectName: 'cnn stage' });
-    text(s, st[0], rx + 0.15, y, 5.0, 0.5, { fontSize: 12, valign: 'middle', align: 'center', color: st[2], bold: i === 3 });
-    if (i < stages.length - 1) arrow(s, rx + 2.65, y + 0.5, rx + 2.65, y + 0.78, GREY, 1);
+  box(s, 7.3, 1.6, W - M - 7.3, 4.75, { fill: LIGHT, line: LIGHT });
+  T(s, 'Why it is hard', 7.5, 1.72, 5, 0.35, { size: 15, bold: true, color: RED });
+  list(s, [
+    'Sepsis contributes to between one in two and one in three hospital deaths ' + c('liu') + '.',
+    'Each hour of delay to antibiotics raises the odds of death by about 4 % ' + c('seymour17') + '; in septic shock survival falls by 7.6 % per hour ' + c('kumar') + '.',
+    'Early signs are non-specific: fever, a fast heart rate and fast breathing are common in many ICU patients.',
+    'Bedside screening scores such as qSOFA and SIRS detect deterioration less accurately than early-warning scores ' + c('churpek') + '.',
+  ], 7.5, 2.15, W - M - 7.7, 4.1, { size: 14, psa: 10 });
+  refFooter(s);
+  s.addNotes('1 min. Define sepsis as infection plus organ failure, and SOFA as the organ scoring system, pointing at the six organs. Then: it is common, time-critical, and hard to recognise early, which is why prediction matters.');
+
+  // ===== 4 CLINICAL AI LITERATURE =====
+  s = slide('CONTENT', 'WHAT THE MEDICAL LITERATURE SHOWS', 'Context');
+  s.addText('Clinical AI often excels in development and fails in practice', { placeholder: 'title' });
+  const probs = [
+    [I.hospital, 'It fails on new data', '81 % of 86 deep-learning algorithms performed worse on external data ' + c('yu') + '. A model fell from AUC 0.90 to 0.50 when run silently on new patients ' + c('kwong') + '. Of 81 deep-learning studies, 9 were prospective and 6 tested in real clinical settings ' + c('nagendran') + '.'],
+    [I.search, 'It sees a narrow picture', 'The most used sepsis benchmark gives models 40 hourly variables ' + c('reyna') + '; treatments, devices and history are usually left out.'],
+    [I.users, 'It learns the care process, not the patient', 'Whether a laboratory test was ordered predicted survival for 86 % of 272 tests; the timing of the order beat the result itself for 68 % ' + c('agniel') + '. A pneumonia model learned which hospital took the X-ray ' + c('zech') + '.'],
+    [I.chart, 'It is judged by numbers, not clinical meaning', 'Data leakage inflates results in at least 17 scientific fields ' + c('kapoor') + '. Usefulness depends on the action a prediction triggers, not on AUROC alone ' + c('shah', 'kelly') + '.'],
+  ];
+  probs.forEach((p, i) => {
+    const col = i % 2, row = Math.floor(i / 2), x = M + col * 6.15, y = 1.7 + row * 2.4;
+    box(s, x, y, 5.95, 2.2, { line: RULE });
+    tile(s, p[0], x + 0.2, y + 0.2, 0.55);
+    T(s, p[1], x + 0.95, y + 0.2, 4.85, 0.55, { size: 16, bold: true, valign: 'middle' });
+    T(s, p[2], x + 0.2, y + 0.9, 5.55, 1.25, { size: 13 });
   });
-  card(s, rx, 5.15, 5.3, 1.5, { fill: TINT, name: 'comparison card' });
-  text(s, 'Compared on identical hours, decision rules fixed in advance', rx + 0.2, 5.22, 5.0, 0.3, { fontSize: 12, bold: true });
-  text(s, 'OSTA with and without organ grouping (the ablation that decides), GRU-D, temporal CNN, logistic regression, boosted trees, the challenge winner\'s method (path signatures + boosted trees), and self-supervised pretraining on 150,000 unlabelled stays. Organ structure is kept only if it beats the flat model on the validation split.', rx + 0.2, 5.52, 5.0, 1.1, { fontSize: 11 });
-  s.addNotes('1 min. Two diagrams, one message: OSTA is the architecture I proposed, and the honest way to defend it is to run the same model without the organ grouping on the same hours. The challenge winner\'s method is in the comparison as a benchmark, and the decision rules were written before the results existed.');
+  refFooter(s);
+  s.addNotes('1 min. The general lesson from medical AI, before sepsis: models fail on new data, see only part of the patient, learn how care is delivered rather than the disease, and are judged by numbers rather than by what a clinician would do with them.');
 
-  // ================= 9. LEAKAGE RESULT =================
-  pres.addSection({ title: 'Results and progress' });
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Results and progress' });
-  prelim(s);
-  s.addText('Preliminary result 1: removing information from the future is the biggest single correction', { placeholder: 'title' });
-  card(s, M, 1.5, 5.6, 4.95, { fill: TINT, name: 'leak card' });
-  iconCircle(s, ICON.search, M + 0.25, 1.7, 0.6, ORANGE);
-  text(s, 'What an audit of our own pipeline found', M + 1.0, 1.72, 4.4, 0.55, { fontSize: 14, bold: true, valign: 'middle' });
-  bullets(s, [
-    'Hours after sepsis onset were labelled positive, so the model learnt to recognise sepsis that had already started.',
-    'Measurements were carried forward from the time they were taken, not from the time they were available.',
-    'Treatments that are part of the label (antibiotics, cultures) were present among the inputs.',
-    'Earlier versions of our models were trained this way; they were retired and are not reported.',
-  ], M + 0.25, 2.45, 5.1, 3.0, { fontSize: 12.5, psa: 8 });
-  text(s, 'Numbers in the 0.9s in the literature should be read with this in mind.', M + 0.25, 5.6, 5.1, 0.7, { fontSize: 12.5, italic: true, color: NAVY, bold: true });
-  text(s, 'Rebuilt causally: OSTA on the PhysioNet 2019 test set (3-seed ensemble)', M + 5.85, 1.5, W - 2 * M - 5.85, 0.4, { fontSize: 13.5, bold: true, color: TEAL });
-  stat(s, M + 5.85, 2.0, 2.0, 1.5, '0.81', 'patient-level AUROC', { color: BLUE });
-  stat(s, M + 7.99, 2.0, 2.0, 1.5, '0.80', 'hourly AUROC', { color: BLUE });
-  stat(s, M + 10.13, 2.0, 2.0, 1.5, '0.22', 'normalised utility (0.30 at the conformal threshold)', { color: BLUE, labelSize: 11 });
-  card(s, M + 5.85, 3.75, W - 2 * M - 5.85, 2.7, { fill: WHITE, line: LINE, name: 'reading card' });
-  text(s, 'How to read these numbers', M + 6.05, 3.85, 6, 0.35, { fontSize: 13, bold: true });
-  bullets(s, [
-    'Positive hours are 1.6 % of all hours: ranking scores look modest even for a useful model.',
-    'Utility 0.22 means the alarms are worth about a fifth of a perfect alarm system, after paying for false alarms; at the conformal threshold (sensitivity 0.70, specificity 0.72) it is 0.30. The challenge winner scored 0.36 in-sample and below zero out of sample.',
-    'This is the honest starting point from which every later number is measured.',
-  ], M + 6.05, 4.25, W - 2 * M - 6.3, 2.15, { fontSize: 12, psa: 6 });
-  s.addNotes('1 min. Say "preliminary" first. Be direct: we found leakage in our own earlier models and retired them. The causal version scores lower and is the one we stand behind. Explain the utility number in words.');
+  // ===== 5 SEPSIS AI =====
+  s = slide('CONTENT', 'WHAT THE MEDICAL LITERATURE SHOWS', 'Context');
+  s.addText('Sepsis AI follows the same pattern', { placeholder: 'title' });
+  box(s, M, 1.7, 5.95, 2.65, { line: RULE });
+  T(s, 'PhysioNet 2019 Challenge: 104 teams ' + c('reyna'), M + 0.2, 1.82, 5.6, 0.4, { size: 15, bold: true });
+  T(s, '0.43', M + 0.2, 2.3, 2.2, 0.8, { size: 44, bold: true, color: INK });
+  T(s, 'winner\'s utility on new patients from its two training hospitals', M + 0.2, 3.1, 2.4, 0.9, { size: 12.5, color: GREY });
+  arrow(s, M + 2.55, 2.7, M + 3.15, 2.7, RED, 2.5);
+  T(s, '-0.12', M + 3.3, 2.3, 2.4, 0.8, { size: 44, bold: true, color: RED });
+  T(s, 'on a third hospital it had never seen: worse than no alarm ' + c('morrill'), M + 3.3, 3.1, 2.5, 0.9, { size: 12.5, color: GREY });
+  box(s, M + 6.15, 1.7, 5.95, 2.65, { line: RULE });
+  T(s, 'Epic Sepsis Model, widely deployed ' + c('wong'), M + 6.35, 1.82, 5.6, 0.4, { size: 15, bold: true });
+  T(s, '0.63', M + 6.35, 2.3, 2.3, 0.8, { size: 44, bold: true, color: RED });
+  T(s, 'AUROC in independent validation (vendor: 0.76 to 0.83)', M + 6.35, 3.1, 2.5, 0.9, { size: 12.5, color: GREY });
+  T(s, '67 %', M + 9.2, 2.3, 2.6, 0.8, { size: 44, bold: true, color: RED });
+  T(s, 'of sepsis cases missed while alerting on 18 % of all admissions', M + 9.2, 3.1, 2.7, 0.9, { size: 12.5, color: GREY });
+  box(s, M, 4.55, CW, 1.75, { fill: LIGHT, line: LIGHT });
+  rich(s, [
+    ['Across the field: ', { bold: true }], ['28 sepsis models reported AUROC from 0.68 to 0.99, with almost no prospective testing ' + c('fleuren') + '. ', {}],
+    ['Studies use different definitions and implementations of sepsis, so results cannot be compared ' + c('moor21') + '. ', {}],
+    ['The same three causes recur: information from the future, a narrow set of inputs, and scores that do not reflect whether an alarm would help.', { bold: true }],
+  ], M + 0.25, 4.7, CW - 0.5, 1.5, { size: 14 });
+  refFooter(s);
+  s.addNotes('1 min. Two concrete failures: the best entry of the largest public competition, and the most deployed commercial model. Utility is the challenge score that rewards an alarm before sepsis and charges for false alarms; zero means never alarming. Then the field-wide picture.');
 
-  // ================= 10. COVERAGE =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Results and progress' });
-  prelim(s);
-  s.addText('Preliminary result 2: making two raw databases speak the same language was most of the work', { placeholder: 'title' });
-  s.addChart(pres.ChartType.bar, [
-    { name: 'Before the extraction audit', labels: ['eICU temperature', 'eICU blood pressure', 'eICU weight', 'eICU GCS', 'MIMIC-IV urine rate', 'MIMIC-IV GCS'], values: [5, 21, 6, 62, 9, 66] },
-    { name: 'After', labels: ['eICU temperature', 'eICU blood pressure', 'eICU weight', 'eICU GCS', 'MIMIC-IV urine rate', 'MIMIC-IV GCS'], values: [94, 99.5, 96, 83, 44, 78] },
-  ], {
-    x: M, y: 1.5, w: 7.6, h: 4.9, barDir: 'col', barGrouping: 'clustered', barGapWidthPct: 60,
-    chartColors: [ORANGE, BLUE], showTitle: true, title: 'Share of patient-hours with a usable value (%)', titleFontSize: 13, titleColor: NAVY, titleFontFace: '+mn-lt',
-    showValue: true, dataLabelPosition: 'outEnd', dataLabelFontSize: 10, dataLabelColor: NAVY, dataLabelFontFace: '+mn-lt', dataLabelFormatCode: '0',
-    valAxisMinVal: 0, valAxisMaxVal: 100, valAxisMajorUnit: 25, valAxisLabelFontSize: 10, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt',
-    catAxisLabelFontSize: 10.5, catAxisLabelColor: NAVY, catAxisLabelFontFace: '+mn-lt', valGridLine: { color: LINE, size: 0.5 }, catGridLine: { style: 'none' },
-    showLegend: true, legendPos: 'b', legendFontSize: 11, legendColor: NAVY, legendFontFace: '+mn-lt', objectName: 'coverage chart',
-  });
-  card(s, M + 7.85, 1.5, W - 2 * M - 7.85, 4.9, { fill: TINT, name: 'coverage notes' });
-  text(s, 'What the audit changed', M + 8.05, 1.62, 4, 0.35, { fontSize: 14, bold: true });
-  bullets(s, [
-    'Samples of 10,000 ICU stays per database: 8,795 MIMIC-IV and 5,710 eICU stays after the benchmark\'s exclusions.',
-    '76 raw measurement channels mapped item by item, with every mapping checked against row counts and a unit audit.',
-    'eICU nurse-charted vitals, cuff pressures and weights were in different tables from the ones most pipelines read: knowing how nurses chart found them.',
-    'Urine output became a rate per kg only once each record was tied to the interval it covered, as the kidney criteria require.',
-    'Nothing here is a model change; it is where the transfer problem actually lives.',
-  ], M + 8.05, 2.05, W - 2 * M - 8.25, 4.2, { fontSize: 12, psa: 7 });
-  s.addNotes('1 min. The chart is coverage, not performance. Before the audit a third of eICU had no temperature at all; the values were in the nurses\' charting table. The message: the transfer problem is largely a data-representation problem, and that is where a clinician reading the raw tables earns their keep.');
+  // ===== 6 QUESTION =====
+  pres.addSection({ title: 'Question and approach' });
+  s = slide('CONTENT', 'RESEARCH QUESTION', 'Question and approach');
+  s.addText('The question this research asks', { placeholder: 'title' });
+  box(s, M, 1.65, CW, 1.45, { fill: RED, line: RED });
+  T(s, 'Using only what a clinician could have known at each hour, can a model warn of sepsis hours before onset with positive clinical utility, and does that utility hold in a hospital system it has never seen?', M + 0.3, 1.65, CW - 0.6, 1.45, { size: 19, bold: true, color: WHITE, valign: 'middle' });
+  box(s, M, 3.3, 5.95, 1.3, { line: RULE });
+  T(s, 'What has mostly been asked', M + 0.2, 3.4, 5.5, 0.35, { size: 13, bold: true, color: GREY });
+  T(s, 'How high can AUROC go on one prepared dataset, with one team\'s sepsis definition ' + c('fleuren', 'moor21') + '?', M + 0.2, 3.75, 5.5, 0.8, { size: 14 });
+  box(s, M + 6.15, 3.3, 5.95, 1.3, { line: RED, lw: 1.5 });
+  T(s, 'What this project asks', M + 6.35, 3.4, 5.5, 0.35, { size: 13, bold: true, color: RED });
+  T(s, 'Would the alarm have helped this patient, at a false-alarm burden clinicians accept, and would it still help in the next hospital?', M + 6.35, 3.75, 5.6, 0.8, { size: 14 });
+  const rqs = [['RQ1  Predictors', 'Does the whole clinical picture known at that hour (treatments, devices, admission context, history) add signal beyond vital signs and laboratory values?'],
+    ['RQ2  Architecture', 'Once causality is enforced, does organ-structured modelling add anything over simpler models?'],
+    ['RQ3  Transfer and trust', 'Does positive utility survive in another hospital system, and would healthcare professionals act on the alert?']];
+  rqs.forEach((r, i) => { const x = M + i * 4.1; T(s, r[0], x, 4.8, 3.9, 0.35, { size: 15, bold: true, color: RED }); T(s, r[1], x, 5.18, 3.85, 1.2, { size: 13.5 }); });
+  refFooter(s);
+  s.addNotes('1 min. Read the question slowly. The field asks how high a ranking score can go; we ask whether the alarm would help and whether it travels. Three research questions follow.');
 
-  // ================= 11. UTILITY RESULT =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Results and progress' });
-  prelim(s);
-  s.addText('Preliminary result 3: on MIMIC-IV the warning has positive utility, where the challenge winner collapsed on an unseen hospital', { placeholder: 'title' });
-  const labs = ['Challenge winner, hospitals in training', 'Challenge winner, hidden third hospital', 'Our causal OSTA, PhysioNet test', 'Our best model, MIMIC-IV development test'];
-  s.addChart(pres.ChartType.bar, [
-    { name: 'Normalised utility', labels: labs, values: [0.36, -0.12, 0.22, 0.18] },
-  ], {
-    x: M, y: 1.5, w: 7.3, h: 4.6, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 45,
-    chartColors: [ORANGE, ORANGE, BLUE, BLUE], showTitle: true, title: 'Normalised utility (1 = perfect alarms, 0 = never alarming, below 0 = worse than silence)', titleFontSize: 12, titleColor: NAVY, titleFontFace: '+mn-lt',
-    showValue: true, dataLabelPosition: 'outEnd', dataLabelFontSize: 11, dataLabelColor: NAVY, dataLabelFontBold: true, dataLabelFontFace: '+mn-lt', dataLabelFormatCode: '0.00',
-    valAxisMinVal: -0.2, valAxisMaxVal: 0.5, valAxisMajorUnit: 0.1, valAxisLabelFontSize: 10, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', valAxisLabelFormatCode: '0.0',
-    catAxisLabelFontSize: 11, catAxisLabelColor: NAVY, catAxisLabelFontFace: '+mn-lt', catAxisOrientation: 'maxMin', catAxisLabelPos: 'low', valGridLine: { color: LINE, size: 0.5 }, catGridLine: { style: 'none' },
-    showLegend: false, objectName: 'utility chart',
-  });
-  s.addShape(pres.ShapeType.rect, { x: M + 0.3, y: 6.2, w: 0.28, h: 0.2, fill: { color: ORANGE }, line: { color: ORANGE, width: 0 }, objectName: 'legend swatch' });
-  text(s, 'Published challenge entry (Reyna et al. 2020)', M + 0.68, 6.14, 3.3, 0.32, { fontSize: 11, valign: 'middle' });
-  s.addShape(pres.ShapeType.rect, { x: M + 4.1, y: 6.2, w: 0.28, h: 0.2, fill: { color: BLUE }, line: { color: BLUE, width: 0 }, objectName: 'legend swatch' });
-  text(s, 'This project (causal evaluation)', M + 4.48, 6.14, 2.8, 0.32, { fontSize: 11, valign: 'middle' });
-  card(s, M + 7.55, 1.5, W - 2 * M - 7.55, 4.9, { fill: TINT, name: 'mimic panel' });
-  text(s, 'MIMIC-IV development test split', M + 7.75, 1.6, 4.3, 0.35, { fontSize: 14, bold: true });
-  text(s, '1,422 stays, 63,488 hours, 71 sepsis events; 0.65 % of hours are positive', M + 7.75, 1.95, 4.3, 0.5, { fontSize: 11.5, color: GREY });
-  stat(s, M + 7.75, 2.5, 2.05, 1.25, '0.81', 'hourly AUROC, 3 seeds (SD 0.01)', { fill: WHITE, color: BLUE, bigSize: 28, labelSize: 10.5 });
-  stat(s, M + 9.95, 2.5, 2.0, 1.25, '5 h', 'median warning before onset', { fill: WHITE, color: BLUE, bigSize: 28, labelSize: 10.5 });
-  stat(s, M + 7.75, 3.9, 2.05, 1.25, '1 in 2', 'sepsis events caught at 0.5 false alarms per patient-day', { fill: WHITE, color: BLUE, bigSize: 28, labelSize: 10.5 });
-  stat(s, M + 9.95, 3.9, 2.0, 1.25, '0.18', 'utility, 95 % CI 0.08 to 0.27', { fill: WHITE, color: BLUE, bigSize: 28, labelSize: 10.5 });
-  text(s, 'Development split of a 10,000-stay sample, 1 to 3 seeds. The sealed 20 % holdout has not been opened. Our run of the winner\'s own method on MIMIC-IV is in progress.', M + 7.75, 5.3, W - 2 * M - 7.95, 1.0, { fontSize: 10.5, italic: true, color: GREY });
-  s.addNotes('1 min. Orange is the published competition result; blue is ours. The point is not that 0.18 is high; it is that it is positive on a database built from raw tables, with every hour scored causally, whereas the best competition entry went negative the moment it left its training hospitals. State the caveats aloud: preliminary, development split, small sample, holdout sealed.');
-
-  // ================= 12. OVERFITTING / SCALE =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Results and progress' });
-  prelim(s);
-  s.addText('Preliminary result 4: on 10,000 stays every architecture overfits within three epochs, so the next lever is scale', { placeholder: 'title' });
-  card(s, M, 1.5, 6.0, 4.9, { fill: TINT, name: 'evidence card' });
-  text(s, 'What the training records show', M + 0.2, 1.62, 5.6, 0.35, { fontSize: 14, bold: true });
+  // ===== 7 HCP IN THE LOOP =====
+  s = slide('CONTENT', 'APPROACH', 'Question and approach');
+  s.addText('Healthcare professionals in the loop make clinical AI safer and more useful', { placeholder: 'title' });
   const ev = [
-    ['1 to 3', 'epochs to the best validation score for every rich-feature neural model, while training loss keeps falling'],
-    ['175', 'septic stays in a training split: too few for 300 to 600 predictors'],
-    ['0.80 to 0.81', 'AUROC for OSTA, CNN-Transformer, output fusion and gated variants: differences smaller than seed noise (SD 0.012)'],
-    ['= 0', 'difference between OSTA with and without attention gates: the checkpoint is the first epoch either way'],
+    ['Better together', 'AI support improved clinicians\' diagnostic accuracy beyond AI or clinicians alone ' + c('tschandl')],
+    ['Engaged clinicians save lives', 'Sepsis alerts confirmed by clinicians within 3 h: 18.7 % lower relative mortality ' + c('adams')],
+    ['Trust is built, not assumed', 'Clinicians trust AI through experience, endorsement and systems that respect their judgement ' + c('henrynpj')],
+    ['Clinical input at every stage', 'From problem definition to deployment ' + c('wiens') + '; health records encode care decisions ' + c('agniel')],
   ];
-  ev.forEach((e, i) => {
-    const y = 2.1 + i * 1.05;
-    text(s, e[0], M + 0.2, y, 1.6, 0.8, { fontSize: 22, bold: true, color: ORANGE, fontFace: 'Cambria', valign: 'middle' });
-    text(s, e[1], M + 1.9, y, 3.9, 0.95, { fontSize: 12, valign: 'middle' });
-  });
-  card(s, M + 6.25, 1.5, W - 2 * M - 6.25, 4.9, { fill: WHITE, line: LINE, name: 'response card' });
-  text(s, 'What this changes', M + 6.45, 1.62, 5.5, 0.35, { fontSize: 14, bold: true });
-  const resp = [
-    [ICON.db, 'Full cohort', 'about 94,000 MIMIC-IV and 201,000 eICU stays: roughly nine times more sepsis cases than the samples used so far, three seeds'],
-    [ICON.cog, 'Self-supervised pretraining', 'the encoder first learns from up to 150,000 unlabelled stays to forecast the next value and organ worsening, without sepsis labels'],
-    [ICON.scale, 'Loss chosen by utility', 'utility-weighted training against plain and time-smoothed losses, selected on the validation split by a rule written in advance'],
-    [ICON.route, 'Running now', 'sixteen architectures, the organ-structure ablation and the challenge winner\'s method, on identical hours'],
+  ev.forEach((e, i) => { const x = M + i * 3.07; T(s, e[0], x, 1.6, 2.9, 0.6, { size: 14, bold: true, color: RED, valign: 'bottom' }); T(s, e[1], x, 2.25, 2.9, 0.95, { size: 12.5 }); });
+  const exs = [
+    [I.pill, 'Example 1: antibiotics', 'Usually: every antibiotic order is an input, so the model predicts sepsis from the treatment that defines it, or antibiotics are dropped entirely.',
+      'Here: cefazolin at induction of anaesthesia, stopped within 24 h, with no culture sent, is surgical prophylaxis ' + c('bratzler') + '. Prophylaxis is kept as a predictor by guideline rule; empirical and culture-directed antibiotics are excluded ' + c('evans') + '.'],
+    [I.xray, 'Example 2: suspicion proxies', 'Usually: a stress-dose hydrocortisone order or a chest X-ray request is treated as a strong predictor.',
+      'Here: these show that the team already suspects sepsis. They are declared as proxies and every result is reported with and without them, separating the patient\'s signal from the team\'s.'],
   ];
-  resp.forEach((r, i) => {
-    const y = 2.1 + i * 1.05;
-    iconCircle(s, r[0], M + 6.45, y + 0.12, 0.58, TEAL);
-    text(s, r[1], M + 7.2, y, 4.7, 0.32, { fontSize: 12.5, bold: true });
-    text(s, r[2], M + 7.2, y + 0.32, 4.7, 0.7, { fontSize: 11, color: GREY });
+  exs.forEach((e, i) => {
+    const x = M + i * 6.15, y = 3.3;
+    box(s, x, y, 5.95, 3.05, { line: RULE });
+    tile(s, e[0], x + 0.2, y + 0.2, 0.55);
+    T(s, e[1], x + 0.95, y + 0.2, 4.8, 0.55, { size: 16, bold: true, valign: 'middle' });
+    T(s, e[2], x + 0.2, y + 0.9, 5.55, 0.8, { size: 12.5, color: GREY });
+    T(s, e[3], x + 0.2, y + 1.7, 5.55, 1.3, { size: 13 });
   });
-  s.addNotes('1 min. The honest reading of the architecture comparison so far: on ten thousand stays nothing separates the models, because they all memorise 175 septic patients within a couple of epochs. So the next lever is data, and the sixteen-model comparison running this week treats architecture as a hypothesis.');
+  refFooter(s);
+  s.addNotes('1 min. The evidence first: human and AI together outperform either alone, sepsis alerts save lives when clinicians engage with them, trust has to be built, and health records encode clinical decisions. Then two examples from this project where clinical knowledge decided what the model may and may not see.');
 
-  // ================= 13. CONTRIBUTION =================
+  // ===== 8 DATABASES =====
+  s = slide('CONTENT', 'DATA', 'Question and approach');
+  s.addText('Three open intensive-care databases, all accessed through PhysioNet', { placeholder: 'title' });
+  const dbs = [
+    ['MIMIC-IV 3.1', 'Beth Israel Deaconess Medical Center, Boston', 'about 94,000', 'ICU stays', 'Every charted vital sign, laboratory result, medication, procedure, microbiology result and diagnosis, de-identified ' + c('johnson'), 'Development and internal testing'],
+    ['eICU-CRD 2.0', '208 US hospitals, 2014 to 2015', '200,859', 'ICU admissions', 'Tele-ICU records from many hospitals with different charting habits; times stored as minutes from ICU admission ' + c('pollard'), 'Second hospital system: the transfer test'],
+    ['PhysioNet 2019', 'Challenge data from US hospitals', '40,336', 'patients', '40 hourly variables, prepared by the organisers, with a pre-shifted sepsis label ' + c('reyna'), 'Comparison with published challenge models'],
+  ];
+  dbs.forEach((d, i) => {
+    const x = M + i * 4.1, w = 3.9;
+    box(s, x, 1.7, w, 4.15, { line: RULE });
+    tile(s, I.db, x + 0.2, 1.88, 0.55);
+    T(s, d[0], x + 0.9, 1.88, w - 1.0, 0.55, { size: 18, bold: true, valign: 'middle' });
+    T(s, d[1], x + 0.2, 2.55, w - 0.4, 0.55, { size: 12.5, color: GREY });
+    T(s, d[2], x + 0.2, 3.05, w - 0.4, 0.6, { size: 30, bold: true, color: RED });
+    T(s, d[3], x + 0.2, 3.62, w - 0.4, 0.3, { size: 12.5, color: GREY });
+    T(s, d[4], x + 0.2, 4.0, w - 0.4, 1.15, { size: 12.5 });
+    T(s, 'Role here: ' + d[5], x + 0.2, 5.2, w - 0.4, 0.6, { size: 12.5, bold: true });
+  });
+  T(s, 'Access requires credentialing, human-subjects research training and a data use agreement ' + c('goldberger') + '. No patient-level data leave the analysis environment. One sepsis definition is applied to both raw databases with published benchmark code ' + c('yaib', 'ricu') + '.', M, 5.95, CW, 0.55, { size: 12.5 });
+  refFooter(s);
+  s.addNotes('1 min. Introduce the databases before going deeper. MIMIC-IV is one large Boston teaching hospital; eICU is a network of 208 hospitals with very different charting; PhysioNet 2019 is the prepared challenge set used by most published models. All are open to credentialed researchers, which is what makes this work reproducible.');
+
+  // ===== 9 PIPELINE FIGURE =====
+  s = slide('CONTENT', 'APPROACH: MIXED-METHODS DESIGN', 'Question and approach');
+  s.addText('The research pipeline, built like the models it trains', { placeholder: 'title' });
+  T(s, 'Phase 1  Quantitative', M, 1.6, 4, 0.35, { size: 13, bold: true, color: RED });
+  const pipe = [
+    ['Raw records', 'MIMIC-IV and eICU', 'two hospital systems make transfer real'],
+    ['Harmonise', 'same concept, unit and clock', 'compare like with like'],
+    ['One label', 'Sepsis-3 onset hour ' + c('seymour16'), 'results comparable'],
+    ['Hourly features', '655, each used only from the hour recorded', 'no information from the future'],
+    ['Models', '16 compared on identical hours', 'architecture is a hypothesis'],
+    ['Evaluate', 'utility, false alarms per day, transfer, sealed holdout', 'what would help patients'],
+  ];
+  const bw = 1.82, bg = 0.24;
+  pipe.forEach((p, i) => {
+    const x = M + i * (bw + bg);
+    box(s, x, 2.0, bw, 1.55, { fill: i === 0 ? LIGHT : WHITE, line: INK });
+    T(s, p[0], x + 0.1, 2.08, bw - 0.2, 0.4, { size: 14, bold: true, color: RED });
+    T(s, p[1], x + 0.1, 2.48, bw - 0.2, 1.05, { size: 12 });
+    T(s, 'Why: ' + p[2], x, 3.65, bw, 0.6, { size: 11.5, color: GREY, italic: true });
+    if (i < pipe.length - 1) arrow(s, x + bw, 2.78, x + bw + bg, 2.78, INK, 1.5);
+  });
+  // phase 2 and 3
+  const ex = M + 5 * (bw + bg) + bw / 2;
+  arrow(s, ex, 4.25, ex, 4.6, RED, 2);
+  s.addShape(pres.ShapeType.line, { x: M + 2.0, y: 4.6, w: ex - M - 2.0, h: 0.001, line: { color: RED, width: 2 }, objectName: 'connector' });
+  arrow(s, M + 2.0, 4.6, M + 2.0, 4.85, RED, 2);
+  box(s, M, 4.85, 5.85, 1.5, { fill: PINK, line: RED });
+  T(s, 'Phase 2  Qualitative (in progress)', M + 0.2, 4.93, 5.5, 0.35, { size: 14, bold: true, color: RED });
+  T(s, 'Healthcare professionals: would they trust and act on the alert, what explanation do they need, what alarm burden is acceptable ' + c('henrynpj') + '.', M + 0.2, 5.3, 5.5, 1.0, { size: 12.5 });
+  arrow(s, M + 5.85, 5.6, M + 6.27, 5.6, RED, 2);
+  box(s, M + 6.27, 4.85, CW - 6.27, 1.5, { fill: WHITE, line: RED, lw: 1.5 });
+  T(s, 'Phase 3  Future direction: hospital patients', M + 6.47, 4.93, 5.4, 0.35, { size: 14, bold: true, color: RED });
+  T(s, 'A silent test on live ICU data (alerts logged, not shown, compared with outcomes), then a clinician-facing pilot ' + c('kwong') + '.', M + 6.47, 5.3, 5.4, 1.0, { size: 12.5 });
+  refFooter(s);
+  s.addNotes('1 min. Read the figure left to right like a model architecture: raw records, harmonisation, one label, hourly features, models, evaluation. Each box has its reason underneath. The evaluation feeds the qualitative phase with healthcare professionals, which is running now, and the future direction is a silent test on hospital patients.');
+
+  // ===== 10 MODELS =====
+  s = slide('CONTENT', 'APPROACH: MODELS', 'Question and approach');
+  s.addText('Organ-structured attention is a hypothesis we test, not an assumption', { placeholder: 'title' });
+  T(s, 'OSTA: organ-system-aware temporal attention (this project)', M, 1.6, 6.6, 0.35, { size: 14, bold: true, color: RED });
+  const og = ['Respiratory', 'Circulation', 'Kidney', 'Liver', 'Clotting', 'Brain', 'Infection, treatment, context'];
+  og.forEach((o, i) => {
+    const y = 2.05 + i * 0.5;
+    box(s, M, y, 2.3, 0.4, { fill: LIGHT, line: LIGHT });
+    T(s, o, M + 0.08, y, 2.2, 0.4, { size: 12, valign: 'middle' });
+    arrow(s, M + 2.3, y + 0.2, M + 2.6, y + 0.2, INK, 1);
+    box(s, M + 2.6, y, 1.35, 0.4, { line: RED });
+    T(s, 'attention over time', M + 2.62, y, 1.31, 0.4, { size: 10.5, align: 'center', valign: 'middle', color: RED });
+  });
+  const my = 2.05 + 3 * 0.5 + 0.2;
+  arrow(s, M + 3.95, my, M + 4.25, my, INK, 1.5);
+  box(s, M + 4.25, my - 0.8, 1.1, 1.6, { fill: RED, line: RED });
+  T(s, 'cross-organ attention', M + 4.28, my - 0.8, 1.04, 1.6, { size: 12, bold: true, color: WHITE, align: 'center', valign: 'middle' });
+  arrow(s, M + 5.35, my, M + 5.65, my, INK, 1.5);
+  box(s, M + 5.65, my - 0.8, 1.05, 1.6, { fill: INK, line: INK });
+  T(s, 'sepsis risk + risk per organ', M + 5.68, my - 0.8, 0.99, 1.6, { size: 12, bold: true, color: WHITE, align: 'center', valign: 'middle' });
+  T(s, 'Mirrors how an ICU team reasons: each organ, then how organs affect each other. Built on transformer attention ' + c('vaswani') + '.', M, 5.6, 6.6, 0.75, { size: 12.5, color: GREY });
+  const rx = M + 7.2, rw = CW - 7.2;
+  T(s, 'Compared on identical hours, rules fixed in advance', rx, 1.6, rw, 0.35, { size: 14, bold: true });
+  const arms = [
+    ['OSTA without organ grouping', 'the ablation that decides whether organ structure stays'],
+    ['CNN-Transformer (earlier work)', 'local patterns over 1 to 12 h, then attention'],
+    ['GRU-D, temporal CNN', 'models built for irregular ICU data ' + c('che', 'bai')],
+    ['Signatures + boosted trees', 'the PhysioNet 2019 winner\'s method ' + c('morrill')],
+    ['Self-supervised pretraining', 'learn from unlabelled stays first ' + c('yeche21')],
+    ['Logistic regression, boosted trees', 'simple baselines'],
+  ];
+  arms.forEach((a, i) => {
+    const y = 2.05 + i * 0.66;
+    s.addShape(pres.ShapeType.rect, { x: rx, y: y + 0.08, w: 0.14, h: 0.14, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'marker' });
+    T(s, a[0], rx + 0.3, y, rw - 0.3, 0.3, { size: 13.5, bold: true });
+    T(s, a[1], rx + 0.3, y + 0.3, rw - 0.3, 0.33, { size: 12, color: GREY });
+  });
+  T(s, 'Training loss chosen by clinical utility, against plain and time-smoothed losses ' + c('yeche23') + '.', rx, 6.0, rw, 0.4, { size: 12, color: GREY });
+  refFooter(s);
+  s.addNotes('1 min. OSTA groups the predictors by organ, reads each organ over time, lets the organs inform each other, and outputs a sepsis risk plus a risk per organ. Because I believe in it, I test it against the same model without the organ grouping, and against the published alternatives including the winner\'s method.');
+
+  // ===== 11 SAME LANGUAGE =====
+  pres.addSection({ title: 'Preliminary results' });
+  s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
+  s.addText('Result 1: making two hospital systems speak the same language', { placeholder: 'title' });
+  T(s, 'Example: body temperature', M, 1.6, 6, 0.35, { size: 14, bold: true, color: RED });
+  box(s, M, 2.0, 3.55, 1.75, { line: RULE });
+  rich(s, [['MIMIC-IV ' + c('johnson'), { bold: true, br: true }], ['item 223761: Temperature, Fahrenheit', { size: 12, br: true }], ['item 223762: Temperature, Celsius', { size: 12, br: true }], ['clock: date-shifted date and time', { size: 12, color: GREY }]], M + 0.15, 2.08, 3.3, 1.6, { size: 13.5 });
+  box(s, M, 3.95, 3.55, 1.75, { line: RULE });
+  rich(s, [['eICU ' + c('pollard'), { bold: true, br: true }], ['vital-sign table: temperature (often empty)', { size: 12, br: true }], ['nurse charting: "Temperature (C)", "(F)"', { size: 12, br: true }], ['clock: minutes from ICU admission', { size: 12, color: GREY }]], M + 0.15, 4.03, 3.3, 1.6, { size: 13.5 });
+  arrow(s, M + 3.55, 2.88, M + 4.1, 3.65, RED, 2); arrow(s, M + 3.55, 4.83, M + 4.1, 4.05, RED, 2);
+  box(s, M + 4.1, 3.0, 2.25, 1.75, { fill: RED, line: RED });
+  rich(s, [['One concept', { bold: true, color: WHITE, br: true }], ['Temperature in °C, hours from ICU admission, usable from the hour it was charted', { size: 12, color: WHITE }]], M + 4.2, 3.08, 2.05, 1.6, { size: 14 });
+  T(s, 'Repeated for 76 measurement channels plus drugs, devices, fluids and diagnoses ' + c('thiswork') + '.', M, 5.85, 6.4, 0.5, { size: 12.5, color: GREY });
+  s.addChart(pres.ChartType.bar, [
+    { name: 'Before harmonisation', labels: ['eICU temp.', 'eICU BP', 'eICU weight', 'eICU GCS', 'MIMIC urine', 'MIMIC GCS'], values: [5, 21, 6, 62, 9, 66] },
+    { name: 'After', labels: ['eICU temp.', 'eICU BP', 'eICU weight', 'eICU GCS', 'MIMIC urine', 'MIMIC GCS'], values: [94, 99.5, 96, 83, 44, 78] },
+  ], { x: M + 6.65, y: 1.55, w: CW - 6.65, h: 4.8, barDir: 'col', barGrouping: 'clustered', barGapWidthPct: 55, chartColors: [MID, RED],
+    showTitle: true, title: 'Patient-hours with a usable value (%)', titleFontSize: 13, titleColor: INK, titleFontFace: '+mn-lt',
+    showValue: true, dataLabelPosition: 'outEnd', dataLabelFontSize: 11, dataLabelColor: INK, dataLabelFontFace: '+mn-lt', dataLabelFormatCode: '0',
+    valAxisMinVal: 0, valAxisMaxVal: 110, valAxisMajorUnit: 25, valAxisLabelFontSize: 11, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt',
+    catAxisLabelFontSize: 11, catAxisLabelColor: INK, catAxisLabelFontFace: '+mn-lt', valGridLine: { color: 'E0E0E0', size: 0.5 }, catGridLine: { style: 'none' },
+    showLegend: true, legendPos: 'b', legendFontSize: 12, legendColor: INK, legendFontFace: '+mn-lt', objectName: 'coverage chart' });
+  refFooter(s);
+  s.addNotes('1 min. "Speaking the same language" means that every raw item in both databases is translated to one shared concept, in one unit, on one clock, available from the hour it was recorded. Temperature is the example: MIMIC-IV stores it under two item numbers, one in Fahrenheit and one in Celsius, with real dates; eICU stores it in a vital-sign table that is often empty and in the nurses\' charting table under text labels, with times counted in minutes from ICU admission. Without this, the same patient looks different to the model in each hospital. The chart shows how much usable data that recovered.');
+
+  // ===== 12 LEAKAGE =====
+  s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
+  s.addText('Result 2: removing information from the future is the biggest single correction', { placeholder: 'title' });
+  box(s, M, 1.65, 5.7, 4.7, { line: RULE });
+  tile(s, I.search, M + 0.2, 1.85, 0.55);
+  T(s, 'An audit of our own earlier pipeline found', M + 0.95, 1.85, 4.6, 0.55, { size: 15, bold: true, valign: 'middle' });
+  list(s, ['Hours after sepsis onset labelled positive: the model learnt sepsis that had already started.', 'Values used from when they were measured, not when they became available.', 'Treatments that define the label among the inputs.', 'Those models were retired and are not reported.'], M + 0.25, 2.6, 5.2, 2.9, { size: 14 });
+  T(s, 'Leakage of this kind is documented across science ' + c('kapoor') + '.', M + 0.25, 5.6, 5.2, 0.6, { size: 13, italic: true, color: GREY });
+  T(s, 'Rebuilt causally: OSTA on the PhysioNet 2019 test set, 3-seed ensemble ' + c('reyna', 'thiswork'), M + 5.95, 1.65, CW - 5.95, 0.6, { size: 14, bold: true, color: RED });
+  [['0.81', 'patient-level AUROC'], ['0.80', 'hourly AUROC'], ['0.22', 'utility (0.30 at the conformal threshold)']].forEach((k, i) => {
+    const x = M + 5.95 + i * 2.08;
+    box(s, x, 2.35, 1.95, 1.6, { fill: LIGHT, line: LIGHT });
+    T(s, k[0], x + 0.15, 2.45, 1.7, 0.75, { size: 36, bold: true, color: RED });
+    T(s, k[1], x + 0.15, 3.2, 1.7, 0.7, { size: 12 });
+  });
+  list(s, ['Only 1.6 % of hours are positive, so ranking scores look modest even for a useful model.', 'Utility 0.22: the alarms are worth about a fifth of perfect alarms after paying for false alarms.', 'This honest baseline is where every later number starts.'], M + 5.95, 4.2, CW - 5.95, 2.1, { size: 13.5 });
+  refFooter(s);
+  s.addNotes('1 min. Say "preliminary". We audited our own earlier models, found three kinds of leakage, and retired them. The causal version scores lower, and it is the one we stand behind.');
+
+  // ===== 13 UTILITY =====
+  s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
+  s.addText('Result 3: positive utility on MIMIC-IV, where the challenge winner fell below zero on an unseen hospital', { placeholder: 'title' });
+  const labs = ['Winner, new patients, its 2 hospitals', 'Winner, unseen third hospital', 'Our causal OSTA, PhysioNet test', 'Our best model, MIMIC-IV development test'];
+  s.addChart(pres.ChartType.bar, [{ name: 'Normalised utility', labels: labs, values: [0.43, -0.12, 0.22, 0.18] }], {
+    x: M, y: 1.65, w: 7.4, h: 4.3, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 45, chartColors: [MID, MID, RED, RED],
+    showTitle: true, title: 'Normalised utility: 1 = perfect, 0 = never alarming, below 0 = worse than silence', titleFontSize: 12, titleColor: INK, titleFontFace: '+mn-lt',
+    showValue: true, dataLabelPosition: 'outEnd', dataLabelFontSize: 12, dataLabelColor: INK, dataLabelFontBold: true, dataLabelFontFace: '+mn-lt', dataLabelFormatCode: '0.00',
+    valAxisMinVal: -0.4, valAxisMaxVal: 0.6, valAxisMajorUnit: 0.2, valAxisLabelFontSize: 11, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', valAxisLabelFormatCode: '0.0',
+    catAxisLabelFontSize: 12, catAxisLabelColor: INK, catAxisLabelFontFace: '+mn-lt', catAxisOrientation: 'maxMin', catAxisLabelPos: 'low', valGridLine: { color: 'E0E0E0', size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false, objectName: 'utility chart' });
+  s.addShape(pres.ShapeType.rect, { x: M + 0.3, y: 6.05, w: 0.25, h: 0.2, fill: { color: MID }, line: { color: MID, width: 0 }, objectName: 'legend swatch' });
+  T(s, 'Published challenge winner ' + c('reyna', 'morrill'), M + 0.62, 6.0, 3.3, 0.3, { size: 12, valign: 'middle' });
+  s.addShape(pres.ShapeType.rect, { x: M + 4.0, y: 6.05, w: 0.25, h: 0.2, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'legend swatch' });
+  T(s, 'This project, causal evaluation ' + c('thiswork'), M + 4.32, 6.0, 3.1, 0.3, { size: 12, valign: 'middle' });
+  const px = M + 7.65, pw = CW - 7.65;
+  box(s, px, 1.65, pw, 4.65, { fill: LIGHT, line: LIGHT });
+  T(s, 'MIMIC-IV development test split', px + 0.2, 1.75, pw - 0.4, 0.35, { size: 14, bold: true });
+  T(s, '1,422 stays, 63,488 hours, 71 sepsis events', px + 0.2, 2.1, pw - 0.4, 0.3, { size: 12, color: GREY });
+  [['0.81', 'hourly AUROC, 3 seeds'], ['5 h', 'median warning before onset'], ['1 in 2', 'sepsis events caught at 0.5 false alarms a day'], ['0.08-0.27', '95 % CI of utility 0.18']].forEach((k, i) => {
+    const col = i % 2, row = Math.floor(i / 2), x = px + 0.2 + col * (pw - 0.4) / 2, y = 2.55 + row * 1.35;
+    T(s, k[0], x, y, (pw - 0.5) / 2, 0.6, { size: k[0].length > 6 ? 22 : 28, bold: true, color: RED });
+    T(s, k[1], x, y + 0.6, (pw - 0.6) / 2, 0.6, { size: 12 });
+  });
+  T(s, 'On 10,000-stay samples all neural models reach AUROC 0.80 to 0.81: the full cohort will separate them. The winner\'s method is being replicated on MIMIC-IV now.', px + 0.2, 5.25, pw - 0.4, 1.0, { size: 12, color: GREY });
+  refFooter(s);
+  s.addNotes('1 min. Grey is the published winner: 0.43 on new patients from the hospitals it trained on, minus 0.12 on a hospital it had never seen. Red is this project. The point is not that 0.18 is high; it is positive, with its confidence interval above zero, on raw data scored causally. Say the caveats: preliminary, development split, holdout sealed.');
+
+  // ===== 14 CONTRIBUTION + NEXT =====
   pres.addSection({ title: 'Contribution and next steps' });
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Contribution and next steps' });
-  s.addText('The contribution so far is an honest, transferable test of sepsis warnings, built by a clinician', { placeholder: 'title' });
-  const contrib = [
-    [ICON.lock, 'A causal, cross-database pipeline', 'one Sepsis-3 definition on two raw ICU databases; every value used from the hour it was known; 655 clinician-defined predictors; antibiotics handled by a guideline rule; proxies declared'],
-    [ICON.scale, 'Evaluation by what helps patients', 'utility, false alarms per patient-day and warning time with patient-level confidence intervals; a 20 % holdout sealed until the protocol is frozen; nothing tuned on test data'],
-    [ICON.search, 'Three findings', 'leakage inflates published scores; data coverage drives transfer more than architecture; models overfit small samples within epochs'],
-    [ICON.book, 'Three manuscripts submitted in 2026', 'AI in antimicrobial-resistance diagnostics (Int J Antimicrob Agents, Oct); temporal patterns and predictors of sepsis onset in 27,101 ICU admissions (Frontiers in Medicine, Sep); infrared thermography in infectious disease, systematic review with meta-analysis (JMIR, Jul)'],
+  s = slide('CONTENT', 'CONTRIBUTION AND NEXT STEPS', 'Contribution and next steps');
+  s.addText('An honest, transferable test of sepsis warnings, and the path to hospital patients', { placeholder: 'title' });
+  T(s, 'Contribution so far', M, 1.6, 6, 0.35, { size: 15, bold: true, color: RED });
+  const con = [
+    [I.lock, 'Causal, cross-database pipeline', 'one sepsis definition, two hospital systems, 655 clinically defined predictors ' + c('thiswork')],
+    [I.scale, 'Evaluation by clinical utility', 'false alarms per day, warning time, transfer, sealed holdout ' + c('reyna')],
+    [I.search, 'Three findings', 'leakage inflates scores; data harmonisation drives transfer; small samples overfit'],
+    [I.book, 'Three manuscripts submitted in 2026', 'AMR diagnostics review ' + c('amr') + '; sepsis-onset cohort study ' + c('temporal') + '; thermography meta-analysis ' + c('thermo')],
   ];
-  contrib.forEach((c, i) => {
-    const col = i % 2, row = Math.floor(i / 2);
-    const x = M + col * 6.15, y = 1.6 + row * 2.4;
-    card(s, x, y, 5.95, 2.2, { fill: TINT, name: 'contribution card' });
-    iconCircle(s, c[0], x + 0.2, y + 0.22, 0.6, NAVY);
-    text(s, c[1], x + 0.95, y + 0.2, 4.8, 0.65, { fontSize: 14, bold: true, valign: 'middle' });
-    text(s, c[2], x + 0.2, y + 0.95, 5.55, 1.2, { fontSize: 11.5, color: GREY });
+  con.forEach((k, i) => {
+    const y = 2.05 + i * 0.98;
+    tile(s, k[0], M, y + 0.05, 0.5, INK);
+    T(s, k[1], M + 0.65, y, 5.4, 0.33, { size: 14, bold: true });
+    T(s, k[2], M + 0.65, y + 0.33, 5.6, 0.62, { size: 12.5, color: GREY });
   });
-  text(s, 'The main study, on MIMIC-IV and eICU, is being written up for submission; the numbers shown today are its preliminary, development-split results.', M, 6.45, W - 2 * M, 0.35, { fontSize: 11.5, italic: true, color: NAVY });
-  s.addNotes('1 min. Four cards. The contribution is methodological as much as it is a model: the pipeline and the evaluation are what make any later result believable. Mention the three submissions in one breath and say the main study is in preparation.');
-
-  // ================= 14. NEXT STEPS =================
-  s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: 'Contribution and next steps' });
-  s.addText('Next steps: scale, the sealed holdout, the clinicians, and then hospital patients', { placeholder: 'title' });
-  const plan = [
-    ['Oct to Nov 2026', 'Sixteen-model comparison on identical hours; shortlist by the prespecified validation rule; full results into the manuscript'],
-    ['Nov to Dec 2026', 'Full cohort (about 94,000 + 201,000 stays), three seeds; leave-hospital-out evaluation across eICU\'s hospitals; pooled multi-site training'],
-    ['Jan 2027', 'Freeze the protocol and open the sealed holdout once; fix the alarm policy (sensitivity against false alarms per patient-day)'],
-    ['Feb to Apr 2027', 'Qualitative study: interviews and a survey with ICU doctors, nurses and pharmacists on trust, explanation and the alarm burden they would accept'],
-    ['2027 onward', 'Radiology reports as predictors (MIMIC-IV notes); fairness by subgroup; then the future direction: a silent prospective test on hospital patients, with ethics approval'],
+  T(s, 'Next steps', M + 6.55, 1.6, 5, 0.35, { size: 15, bold: true, color: RED });
+  const nx = [
+    ['Now', 'Complete the qualitative study with healthcare professionals; finish the 16-model comparison'],
+    ['Next', 'Full cohort (about 94,000 + 200,000 stays), three seeds, leave-hospital-out testing'],
+    ['Then', 'Freeze the protocol; open the sealed holdout once; set the alarm policy with the qualitative findings'],
+    ['Future', 'Silent test on hospital patients, then a clinician-facing pilot ' + c('kwong')],
   ];
-  plan.forEach((p, i) => {
-    const y = 1.55 + i * 0.98;
-    s.addShape(pres.ShapeType.roundRect, { x: M, y: y + 0.05, w: 1.7, h: 0.55, rectRadius: 0.06, fill: { color: i === 4 ? ORANGE : TEAL }, line: { color: i === 4 ? ORANGE : TEAL, width: 0 }, objectName: 'plan date' });
-    text(s, p[0], M + 0.05, y + 0.05, 1.6, 0.55, { fontSize: 11, bold: true, color: WHITE, align: 'center', valign: 'middle' });
-    text(s, p[1], M + 1.9, y, 6.0, 0.9, { fontSize: 12, valign: 'top' });
-    if (i < plan.length - 1) s.addShape(pres.ShapeType.line, { x: M + 0.85, y: y + 0.65, w: 0.001, h: 0.33, line: { color: LINE, width: 1.5 }, objectName: 'plan connector' });
+  nx.forEach((k, i) => {
+    const y = 2.05 + i * 0.98;
+    box(s, M + 6.55, y + 0.02, 1.05, 0.5, { fill: i === 3 ? RED : INK, line: i === 3 ? RED : INK });
+    T(s, k[0], M + 6.55, y + 0.02, 1.05, 0.5, { size: 13, bold: true, color: WHITE, align: 'center', valign: 'middle' });
+    T(s, k[1], M + 7.8, y, CW - 7.8, 0.9, { size: 13 });
   });
-  card(s, M + 8.3, 1.55, W - 2 * M - 8.3, 4.85, { fill: NAVY, name: 'future card' });
-  iconCircle(s, ICON.hospital, M + 8.5, 1.75, 0.62, ORANGE);
-  text(s, 'Future direction: test the model on hospital patients', M + 9.25, 1.72, W - 2 * M - 9.25 - 0.15, 0.7, { fontSize: 14, bold: true, color: WHITE, valign: 'middle' });
-  bullets(s, [
-    'The model runs on live ICU data; alarms are logged, not shown, and compared with what happened to each patient.',
-    'Measures the three things no retrospective study can: real-time data delays, a hospital the model never trained on, and the alarm burden on a working unit.',
-    'Then a clinician-facing pilot shaped by the qualitative study: who receives the alarm, what it says, what they do next.',
-    'Needs ethics approval, a data-governance agreement and a clinical partner; the pharmacist on the team talks to the ward in its own language.',
-  ], M + 8.5, 2.6, W - 2 * M - 8.5 - 0.2, 3.7, { fontSize: 11.5, color: 'D7E0EA', psa: 8 });
-  s.addNotes('1 min. Left: the next six months, in order, ending with the holdout opened once and the clinician study. Right: the future direction the whole programme points at, a test on hospital patients, first silently, then with clinicians in the loop.');
+  T(s, 'Numbers shown today are preliminary development-split results; the full results are in the manuscript in preparation.', M, 6.0, CW, 0.35, { size: 12, italic: true, color: GREY });
+  refFooter(s);
+  s.addNotes('1 min. Contribution: the pipeline and the evaluation that make results believable, three findings, three submitted papers. Next: finish the qualitative study and the comparison, scale to the full cohort, open the holdout once, then test on hospital patients.');
 
-  // ================= 15. INPUT =================
-  pres.addSection({ title: 'Where I would like your input' });
-  s = pres.addSlide({ masterName: 'CLOSING_DARK', sectionTitle: 'Where I would like your input' });
+  // ===== 15 INPUT =====
+  pres.addSection({ title: 'Input' });
+  s = slide('CLOSING', 'WHERE I WOULD LIKE YOUR INPUT', 'Input');
   s.addText('Where I would like your input', { placeholder: 'title' });
   const qs = [
-    [ICON.scale, 'Which score should pick the model when they disagree?', 'Utility rewards an alarm six hours before onset and charges for every false-alarm hour; AUROC rewards ranking. On our data they already rank models differently. How much sensitivity would you trade to halve false alarms per patient-day, and should that trade-off be fixed before or after seeing the holdout?'],
-    [ICON.comments, 'How should I study trust before the model reaches a ward?', 'The qualitative phase asks ICU doctors, nurses and pharmacists whether they would act on the alarm and what they need to see. Interviews with patient vignettes, a survey with the model\'s own alarms, or a simulation with the alarm live on a screen: which would you choose, and what should it measure?'],
+    [I.scale, 'Which score should choose the model when they disagree?', 'Utility rewards an alarm hours before onset and charges for every false-alarm hour; AUROC rewards ranking ' + c('reyna', 'shah') + '. On our data they already rank models differently. How much sensitivity would you trade to halve false alarms per patient-day?'],
+    [I.exchange, 'How should one sepsis label work across two hospital systems?', 'In MIMIC-IV, suspicion of infection needs an antibiotic and a culture; eICU records antibiotics only ' + c('seymour16', 'pollard') + '. Harmonise both to the weaker definition, keep each database\'s best definition, or treat them as two targets?'],
   ];
   qs.forEach((q, i) => {
-    const y = 1.7 + i * 2.45;
-    s.addShape(pres.ShapeType.roundRect, { x: M, y, w: W - 2 * M, h: 2.2, rectRadius: 0.08, fill: { color: DKNAVY }, line: { color: '2A4A6B', width: 0.75 }, objectName: 'question card' });
-    iconCircle(s, q[0], M + 0.3, y + 0.35, 0.7, TEAL);
-    text(s, q[1], M + 1.3, y + 0.25, W - 2 * M - 1.6, 0.5, { fontSize: 17, bold: true, color: WHITE, valign: 'middle' });
-    text(s, q[2], M + 1.3, y + 0.8, W - 2 * M - 1.6, 1.3, { fontSize: 13, color: 'D7E0EA' });
+    const y = 1.75 + i * 2.35;
+    box(s, M, y, CW, 2.1, { fill: WHITE, line: WHITE });
+    tile(s, q[0], M + 0.25, y + 0.3, 0.7, RED);
+    T(s, q[1], M + 1.2, y + 0.25, CW - 1.5, 0.5, { size: 19, bold: true, valign: 'middle' });
+    T(s, q[2], M + 1.2, y + 0.8, CW - 1.5, 1.2, { size: 14 });
   });
-  text(s, 'Thank you. Backup slides follow: glossary, the utility score, predictor catalogue, cohorts, the running comparison, and the RD6 supplement.', M, 6.65, W - 2 * M, 0.35, { fontSize: 11, italic: true, color: 'B8C4D2' });
-  s.addNotes('1 min. Two concrete questions: which score decides the model, and how to study trust with clinicians. Then thank the audience and stop; backups are ready for questions.');
+  refFooter(s, true);
+  s.addNotes('1 min. Two questions: which score decides, and how to define sepsis across hospital systems. Then thank the audience and stop.');
 
-  // ================= BACKUPS =================
+  // ===== BACKUPS =====
   pres.addSection({ title: 'Backup' });
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
-  s.addText('Glossary: the clinical terms used in this talk', { placeholder: 'title' });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('Glossary of clinical terms', { placeholder: 'title' });
   const gl = [
-    ['Sepsis-3', 'Life-threatening organ dysfunction caused by a dysregulated response to infection (Singer et al. 2016). Operationalised as suspected infection plus a SOFA rise of 2 or more points.'],
-    ['SOFA', 'Sequential Organ Failure Assessment: 0 to 4 points for each of six organ systems (respiratory, cardiovascular, renal, hepatic, coagulation, neurological).'],
-    ['Suspected infection', 'An antibiotic order and a culture within a 72 h / 24 h window of each other (Seymour et al. 2016). eICU has antibiotics only.'],
-    ['Onset and horizon', 'Onset is the first hour both criteria are met. The model is asked, every hour, whether onset falls within the next 6 hours.'],
-    ['qSOFA and NEWS2', 'Bedside screening scores built from vital signs and mental state; used here as predictors, never as the label.'],
-    ['Utility score', 'PhysioNet 2019 scoring rule: reward for alarms from 12 h before to 3 h after onset, penalty for false-alarm hours and for missed sepsis, normalised so that 1 is perfect and 0 is never alarming.'],
-    ['False alarms per patient-day', 'How often the alarm fires on patients who do not develop sepsis, expressed per 24 h of monitoring; 0.5 is the budget used in this project.'],
-    ['Causal (availability-aware)', 'Each value is used only from the hour it was recorded in the system, with a measured-or-not flag and its age; no hour after onset is used for training or scoring.'],
+    ['Sepsis-3', 'Organ dysfunction caused by a dysregulated response to infection; operationalised as suspected infection plus a SOFA rise of 2 or more ' + c('singer')],
+    ['SOFA', '0 to 4 points for each of six organ systems ' + c('vincent')],
+    ['Suspected infection', 'An antibiotic and a culture within 72 h / 24 h of each other ' + c('seymour16') + '; eICU has antibiotics only'],
+    ['Onset and horizon', 'Onset is the first hour both criteria are met; the model asks every hour whether onset falls within the next 6 h'],
+    ['qSOFA, NEWS2', 'Bedside screening scores from vital signs and mental state ' + c('seymour16', 'rcp') + '; predictors here, never the label'],
+    ['AKI stage', 'Kidney injury stage from creatinine and urine output ' + c('kdigo')],
+    ['Utility', 'Challenge score: reward for alarms up to 12 h before onset, cost for false alarms and missed sepsis; 1 perfect, 0 never alarming ' + c('reyna')],
+    ['Causal', 'Each value used only from the hour it was recorded, with a measured flag and its age; no hour after onset used'],
   ];
-  gl.forEach((g, i) => {
-    const col = i % 2, row = Math.floor(i / 2);
-    const x = M + col * 6.1, y = 1.55 + row * 1.25;
-    text(s, g[0], x, y, 1.75, 1.1, { fontSize: 12.5, bold: true, color: TEAL });
-    text(s, g[1], x + 1.8, y, 4.2, 1.15, { fontSize: 11 });
-  });
+  gl.forEach((g, i) => { const col = i % 2, row = Math.floor(i / 2), x = M + col * 6.15, y = 1.65 + row * 1.15; T(s, g[0], x, y, 1.8, 1.0, { size: 13, bold: true, color: RED }); T(s, g[1], x + 1.85, y, 4.1, 1.05, { size: 12 }); });
+  refFooter(s);
 
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
-  s.addText('The utility score: what an alarm is worth, hour by hour', { placeholder: 'title' });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('The utility score: what an alarm is worth, hour by hour ' + c('reyna'), { placeholder: 'title' });
   s.addChart(pres.ChartType.line, [
-    { name: 'Reward for an alarm (true positive)', labels: ['-14', '-12', '-10', '-8', '-6', '-4', '-2', '0', '+1', '+3'], values: [0, 0, 0.33, 0.67, 1, 0.78, 0.56, 0.33, 0.22, 0] },
-    { name: 'Penalty for silence (false negative)', labels: ['-14', '-12', '-10', '-8', '-6', '-4', '-2', '0', '+1', '+3'], values: [0, 0, 0, 0, 0, -0.44, -0.89, -1.33, -1.56, -2] },
-  ], {
-    x: M, y: 1.5, w: 7.6, h: 4.9, lineSize: 2.5, lineDataSymbol: 'none', chartColors: [BLUE, ORANGE], showTitle: true, title: 'Hours relative to sepsis onset (negative = before onset)', titleFontSize: 12, titleColor: NAVY, titleFontFace: '+mn-lt',
-    valAxisMinVal: -2, valAxisMaxVal: 1, valAxisMajorUnit: 0.5, valAxisLabelFontSize: 10, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', catAxisLabelFontSize: 10, catAxisLabelColor: GREY, catAxisLabelFontFace: '+mn-lt',
-    valGridLine: { color: LINE, size: 0.5 }, catGridLine: { style: 'none' }, showLegend: true, legendPos: 'b', legendFontSize: 11, legendColor: NAVY, legendFontFace: '+mn-lt', objectName: 'utility curve',
-  });
-  card(s, M + 7.85, 1.5, W - 2 * M - 7.85, 4.9, { fill: TINT, name: 'utility notes' });
-  text(s, 'Reading the score', M + 8.05, 1.62, 4, 0.35, { fontSize: 14, bold: true });
-  bullets(s, [
-    'An alarm earns most when raised 6 h before onset; alarms earlier than 12 h earn nothing.',
-    'Every false-alarm hour on a patient who never develops sepsis costs 0.05.',
-    'Silence after onset is penalised up to 2 points per hour by 3 h after onset.',
-    'Normalised utility = (score - score of never alarming) / (perfect score - score of never alarming).',
-    'It rewards timing and punishes alert fatigue: the two things a bedside system is judged on.',
-    'Official scorer code used unchanged; alarms evaluated hourly on the first 120 h of each stay.',
-  ], M + 8.05, 2.05, W - 2 * M - 8.25, 4.2, { fontSize: 11.5, psa: 6 });
+    { name: 'Reward for an alarm (sepsis patient)', labels: ['-14', '-12', '-10', '-8', '-6', '-4', '-2', '0', '+1', '+3'], values: [0, 0, 0.33, 0.67, 1, 0.78, 0.56, 0.33, 0.22, 0] },
+    { name: 'Penalty for silence (sepsis patient)', labels: ['-14', '-12', '-10', '-8', '-6', '-4', '-2', '0', '+1', '+3'], values: [0, 0, 0, 0, 0, -0.44, -0.89, -1.33, -1.56, -2] },
+  ], { x: M, y: 1.6, w: 7.6, h: 4.7, lineSize: 3, lineDataSymbol: 'none', chartColors: [RED, MID], showTitle: true, title: 'Hours relative to sepsis onset', titleFontSize: 12, titleColor: INK, titleFontFace: '+mn-lt',
+    valAxisMinVal: -2, valAxisMaxVal: 1, valAxisMajorUnit: 0.5, valAxisLabelFontSize: 11, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', catAxisLabelFontSize: 11, catAxisLabelColor: GREY, catAxisLabelFontFace: '+mn-lt',
+    valGridLine: { color: 'E0E0E0', size: 0.5 }, catGridLine: { style: 'none' }, showLegend: true, legendPos: 'b', legendFontSize: 12, legendColor: INK, legendFontFace: '+mn-lt', objectName: 'utility curve' });
+  list(s, ['An alarm earns most at 6 h before onset; earlier than 12 h earns nothing.', 'Each false-alarm hour on a patient without sepsis costs 0.05.', 'Silence after onset costs up to 2 points per hour.', 'Normalised: (score - never alarming) / (perfect - never alarming).', 'Official scorer code used unchanged.'], M + 7.9, 1.75, CW - 7.9, 4.5, { size: 13.5 });
+  refFooter(s);
 
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
-  s.addText('The 655 predictors: the whole clinical picture, each with a measured flag and an age', { placeholder: 'title' });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('Six choices that differ from common practice', { placeholder: 'title' });
+  s.addTable([
+    [th('Common practice'), th('This project'), th('Why')],
+    [td('Challenge-prepared tables ' + c('reyna')), td('Raw MIMIC-IV and eICU', { bold: true }), td('Transfer across hospital systems is tested for real')],
+    [td('Each study its own definition ' + c('moor21')), td('One Sepsis-3 definition on both databases ' + c('yaib', 'ricu'), { bold: true }), td('Results comparable')],
+    [td('Values carried forward; post-onset hours positive'), td('Each value used from the hour recorded, expires after 24 h; post-onset hours excluded', { bold: true }), td('No information from the future ' + c('kapoor'))],
+    [td('40 to 125 variables'), td('655 clinically defined predictors', { bold: true }), td('The whole clinical picture')],
+    [td('Antibiotics as predictors'), td('Label-defining antibiotics excluded; prophylaxis kept by rule ' + c('bratzler'), { bold: true }), td('Avoids predicting the label from itself')],
+    [td('AUROC on one split'), td('Utility, false alarms per day, warning time, calibration, sealed holdout', { bold: true }), td('What would help patients ' + c('shah'))],
+  ], { x: M, y: 1.65, w: CW, colW: [3.4, 5.2, 3.53], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.07, objectName: 'choices table' });
+  refFooter(s);
+
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('The 655 predictors, each with a measured flag and an age', { placeholder: 'title' });
   const cats = [
-    ['Vital signs and monitoring', 'heart rate, blood pressures (cuff and arterial), respiratory rate, oxygen saturation, temperature, end-tidal CO2, central venous pressure, cardiac output, pain and sedation scores'],
-    ['Laboratory and blood gas', 'full chemistry, haematology with differential, coagulation, lactate, procalcitonin, troponin, BNP, ferritin, D-dimer, amylase, lipase, ammonia, urinalysis, blood gases'],
-    ['Scores and derived', 'SOFA (full and per organ), qSOFA, NEWS2, shock index, P/F and S/F ratios, neutrophil-lymphocyte ratio, BMI, changes against the previous value and the baseline, 24 h extremes and trends'],
-    ['Organ support', 'vasopressor dose in noradrenaline equivalents, ventilation mode and settings, oxygen flow, airway status, renal replacement therapy, urine output rate and AKI stage'],
-    ['Fluids, drugs and devices', 'crystalloids and transfusions, nutrition route, central and arterial lines, urinary catheters, drains; corticosteroids, immunosuppressants, chemotherapy, sedatives, opioids, diuretics, antipyretics'],
-    ['Context and history', 'admission source and ICU type, hours in hospital before ICU, prior admissions, prior positive cultures and antibiotics in earlier admissions, 17 comorbidity flags, infection-related phenotypes, imaging orders'],
-    ['Prophylactic antibiotics (MIMIC-IV)', 'surgical prophylaxis by agent, perioperative timing, duration and the absence of cultures or escalation; medical prophylaxis by agent and dose pattern'],
-    ['Never used as predictors', 'antibiotics and cultures that define suspected infection; race, ethnicity and insurance (fairness analysis only); anything recorded after the prediction hour'],
+    ['Vital signs and monitoring', 'heart rate, cuff and arterial pressures, respiratory rate, oxygen saturation, temperature, end-tidal CO2, CVP, cardiac output, pain and sedation scores'],
+    ['Laboratory and blood gas', 'chemistry, full blood count with differential, coagulation, lactate, procalcitonin, troponin, BNP, ferritin, D-dimer, ammonia, urinalysis, blood gases'],
+    ['Scores and derived', 'SOFA per organ ' + c('vincent') + ', qSOFA, NEWS2 ' + c('rcp') + ', shock index, P/F and S/F ratios, changes from previous and baseline, 24 h extremes'],
+    ['Organ support', 'vasopressor dose (noradrenaline equivalents), ventilation settings, oxygen flow, renal replacement, urine output and AKI stage ' + c('kdigo')],
+    ['Fluids, drugs, devices', 'crystalloids, transfusions, nutrition, central and arterial lines, catheters, drains; steroids, immunosuppressants, chemotherapy, sedatives, opioids'],
+    ['Context and history', 'admission source, ICU type, hours before ICU, prior admissions, prior positive cultures and antibiotics, 17 comorbidities, imaging orders'],
+    ['Prophylactic antibiotics', 'surgical prophylaxis by agent, timing, duration, no culture or escalation ' + c('bratzler') + '; medical prophylaxis by agent and dose'],
+    ['Never predictors', 'label-defining antibiotics and cultures; race, ethnicity, insurance (fairness analysis only); anything after the prediction hour'],
   ];
-  cats.forEach((c, i) => {
-    const col = i % 2, row = Math.floor(i / 2);
-    const x = M + col * 6.1, y = 1.55 + row * 1.25;
-    card(s, x, y, 5.95, 1.12, { fill: i === 7 ? PEACH : TINT, name: 'predictor card' });
-    text(s, c[0], x + 0.15, y + 0.08, 5.65, 0.3, { fontSize: 12, bold: true, color: i === 7 ? ORANGE : TEAL });
-    text(s, c[1], x + 0.15, y + 0.38, 5.65, 0.72, { fontSize: 10.5 });
-  });
+  cats.forEach((k, i) => { const col = i % 2, row = Math.floor(i / 2), x = M + col * 6.15, y = 1.65 + row * 1.2;
+    box(s, x, y, 5.95, 1.08, { fill: i === 7 ? PINK : LIGHT, line: i === 7 ? PINK : LIGHT });
+    T(s, k[0], x + 0.15, y + 0.06, 5.65, 0.3, { size: 12.5, bold: true, color: RED }); T(s, k[1], x + 0.15, y + 0.38, 5.65, 0.68, { size: 11.5 }); });
+  refFooter(s);
 
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
   s.addText('Cohorts, splits and the sealed holdout', { placeholder: 'title' });
-  const crow = [
-    [hdr('Database'), hdr('Candidate ICU stays'), hdr('Sample used so far'), hdr('After benchmark exclusions'), hdr('Sealed holdout'), hdr('Development use')],
-    [cell('MIMIC-IV 3.1 (BIDMC, Boston)', { bold: true }), cell('about 94,000'), cell('10,000'), cell('8,795 stays'), cell('20 % of patients by deterministic hash'), cell('train / validation / calibration / test, grouped by patient')],
-    [cell('eICU-CRD 2.0 (about 200 US hospitals)', { bold: true }), cell('about 201,000'), cell('10,000'), cell('5,710 stays'), cell('20 % of patients by deterministic hash'), cell('same, with hospital identifiers kept for leave-hospital-out')],
-  ];
-  s.addTable(crow, { x: M, y: 1.55, w: W - 2 * M, colW: [2.6, 1.8, 1.7, 2.0, 2.0, 2.03], rowH: [0.4, 0.75, 0.75], border: { type: 'solid', color: LINE, pt: 0.75 }, fontFace: 'Calibri', margin: 0.06, objectName: 'cohort table' });
-  bullets(s, [
-    'Labels: Sepsis-3 via the YAIB benchmark (ricu), onset within the next 6 h; hours after onset excluded; stays followed for up to 120 h.',
-    'Exclusions follow the benchmark (age, stay length, missing core data); the 10,000-stay samples are fixed random draws, identical across all runs so far.',
-    'The holdout is released only once, after the full-cohort protocol is frozen; no threshold, calibration or model choice ever touches it.',
-    'Transfer rows: each database\'s model is also scored on the other database\'s development patients.',
-    'Label harmonisation is an open question: MIMIC-IV suspicion needs an antibiotic and a culture, eICU records antibiotics only; both definitions will be reported.',
-    'Unlabelled pretraining corpus: up to 75,000 stays per database that are not in the labelled cohort and not in the holdout.',
-  ], M, 4.05, W - 2 * M, 2.6, { fontSize: 12, psa: 7 });
+  s.addTable([
+    [th('Database'), th('Candidate stays'), th('Sample so far'), th('After exclusions'), th('Sealed holdout')],
+    [td('MIMIC-IV 3.1 ' + c('johnson'), { bold: true }), td('about 94,000'), td('10,000'), td('8,795'), td('20 % of patients, deterministic hash')],
+    [td('eICU-CRD 2.0 ' + c('pollard'), { bold: true }), td('200,859'), td('10,000'), td('5,710'), td('20 % of patients, deterministic hash')],
+  ], { x: M, y: 1.65, w: CW, colW: [3.0, 2.1, 1.9, 2.0, 3.13], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.07, objectName: 'cohort table' });
+  list(s, ['Labels: Sepsis-3 via YAIB / ricu ' + c('yaib', 'ricu') + '; onset within the next 6 h; post-onset hours excluded; up to 120 h per stay.', 'The 10,000-stay samples are fixed random draws, identical in every run.', 'The holdout is opened once, after the protocol is frozen; nothing is tuned on it.', 'Unlabelled pretraining corpus: 67,455 MIMIC-IV and 75,000 eICU stays outside the cohort and the holdout.'], M, 3.4, CW, 2.9, { size: 14 });
+  refFooter(s);
 
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
-  s.addText('The comparison running now: sixteen models, three losses, rules fixed in advance', { placeholder: 'title' });
-  const arow = [
-    [hdr('Group'), hdr('Models'), hdr('Purpose')],
-    [cell('Kept from earlier runs', { bold: true }), cell('OSTA, output fusion, CNN-Transformer, logistic regression, boosted trees'), cell('continuity with the 10,000-stay results')],
-    [cell('Literature benchmark', { bold: true }), cell('path signatures + boosted trees (PhysioNet 2019 winner\'s method)'), cell('direct replication of the winner on our data')],
-    [cell('New supervised', { bold: true }), cell('flat OSTA (same model, no organ grouping), GRU-D, causal temporal CNN, CNN encoder + OSTA head, event attention + OSTA head'), cell('organ-structure ablation; irregular-sampling models from the literature')],
-    [cell('Self-supervised', { bold: true }), cell('CNN encoder pretrained on unlabelled stays (next value, measured-within-6 h, SOFA components and organ worsening at 6/12/24 h), fine-tuned with OSTA, flat and survival (hazard) heads; site and pooled encoders'), cell('label-free learning from 150,000 stays; survival framing of the horizon')],
-    [cell('Losses', { bold: true }), cell('utility-weighted cross-entropy (primary), plain cross-entropy, temporal label smoothing'), cell('chosen by validation utility + AUPRC rank-average')],
-    [cell('Decision rules', { bold: true }), cell('organ structure kept only if OSTA beats flat OSTA on validation; shortlist = top 2 to 3 new models + baselines; full cohort with 3 seeds'), cell('no choice is made on test data')],
-  ];
-  s.addTable(arow, { x: M, y: 1.55, w: W - 2 * M, colW: [2.2, 6.3, 3.63], rowH: [0.38, 0.55, 0.55, 0.75, 1.05, 0.55, 0.75], border: { type: 'solid', color: LINE, pt: 0.75 }, fontFace: 'Calibri', margin: 0.06, objectName: 'arms table' });
-  text(s, 'Evaluation additions in this run: warning time relative to the first antibiotic order, transfer to the other database, a conformal alarm policy with abstention on out-of-distribution hours, and a sensitivity analysis without clinician-suspicion proxies (hydrocortisone, imaging orders, prophylaxis).', M, 6.2, W - 2 * M, 0.6, { fontSize: 11, italic: true, color: GREY });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('On 10,000 stays every model overfits within three epochs', { placeholder: 'title' });
+  [['1 to 3', 'epochs to the best validation score, while training loss keeps falling'], ['175', 'septic stays per training split, against 300 to 655 predictors'], ['0.80 to 0.81', 'AUROC of OSTA, CNN-Transformer, output fusion: differences below seed noise (SD 0.012)']].forEach((k, i) => {
+    const x = M + i * 4.1; T(s, k[0], x, 1.8, 3.9, 0.8, { size: 36, bold: true, color: RED }); T(s, k[1], x, 2.65, 3.8, 1.1, { size: 14 }); });
+  list(s, ['Response: full cohort (about nine times more sepsis cases), self-supervised pretraining on unlabelled stays ' + c('yeche21') + ', loss chosen by utility ' + c('yeche23') + ', three seeds.', 'All figures: ' + 'this work, preliminary ' + c('thiswork') + '.'], M, 4.1, CW, 2.0, { size: 14 });
+  refFooter(s);
 
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
-  s.addText('RD6 supplement: publications and outputs, October 2025 to October 2026', { placeholder: 'title' });
-  const prow = [
-    [hdr('Manuscript'), hdr('Journal'), hdr('Submitted'), hdr('Status')],
-    [cell('Artificial Intelligence in the Diagnosis of Antimicrobial Resistance: Rapid Diagnostics and Imaging Innovations (narrative review)', { bold: true }), cell('International Journal of Antimicrobial Agents'), cell('9 Oct 2026'), cell('Technical check')],
-    [cell('Temporal Patterns and Predictors of Sepsis Onset in ICU Patients: A Retrospective Cohort Study Using PhysioNet Data', { bold: true }), cell('Frontiers in Medicine'), cell('23 Sep 2026'), cell('Editorial assignment')],
-    [cell('Diagnostic Applications of Infrared Thermography Across Infectious Diseases: A Systematic Review with a Subgroup Meta-Analysis', { bold: true }), cell('JMIR'), cell('18 Jul 2026'), cell('In review')],
-    [cell('Early sepsis warning on MIMIC-IV and eICU: causal predictors, utility and transfer (main study)', { bold: true }), cell('target: critical care informatics journal'), cell('in preparation'), cell('full-cohort run and sealed-holdout evaluation pending')],
-  ];
-  s.addTable(prow, { x: M, y: 1.55, w: W - 2 * M, colW: [6.0, 2.6, 1.5, 2.03], rowH: [0.38, 0.8, 0.8, 0.8, 0.8], border: { type: 'solid', color: LINE, pt: 0.75 }, fontFace: 'Calibri', margin: 0.06, objectName: 'publications table' });
-  bullets(s, [
-    'The cohort study (27,101 ICU admissions, 8 % sepsis, median onset 100 h) is the statistical companion to the modelling work: Cox models with a 6 h backshifted label identify early predictors that the deep models then use.',
-    'The CNN-Transformer and OSTA manuscripts drafted in early 2026 were withheld after the leakage audit; both architectures are being re-evaluated causally in the current comparison.',
-  ], M, 5.3, W - 2 * M, 1.2, { fontSize: 11.5, psa: 6 });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('RD6 supplement: publications and outputs', { placeholder: 'title' });
+  s.addTable([
+    [th('Manuscript'), th('Journal'), th('Submitted'), th('Status')],
+    [td('Artificial Intelligence in the Diagnosis of Antimicrobial Resistance: Rapid Diagnostics and Imaging Innovations', { bold: true }), td('Int J Antimicrob Agents'), td('9 Oct 2026'), td('Technical check')],
+    [td('Temporal Patterns and Predictors of Sepsis Onset in ICU Patients: A Retrospective Cohort Study Using PhysioNet Data', { bold: true }), td('Frontiers in Medicine'), td('23 Sep 2026'), td('Editorial assignment')],
+    [td('Diagnostic Applications of Infrared Thermography Across Infectious Diseases: A Systematic Review with a Subgroup Meta-Analysis', { bold: true }), td('JMIR'), td('18 Jul 2026'), td('In review')],
+    [td('Early sepsis warning on MIMIC-IV and eICU: causal predictors, utility and transfer', { bold: true }), td('critical care informatics journal'), td('in preparation'), td('full-cohort and holdout results pending')],
+  ], { x: M, y: 1.65, w: CW, colW: [6.2, 2.5, 1.5, 1.93], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.07, objectName: 'publications table' });
+  T(s, 'Earlier CNN-Transformer and OSTA manuscripts were withheld after the leakage audit; both architectures are re-evaluated causally in the current comparison.', M, 5.6, CW, 0.6, { size: 13, color: GREY });
 
-  s = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
-  s.addText('RD6 supplement: training completed and what became of the March 2026 plan', { placeholder: 'title' });
-  text(s, 'Training and professional development', M, 1.5, 6, 0.35, { fontSize: 14, bold: true, color: TEAL });
-  const pd = [
-    ['Harvard PPCR: Clinical Trials Design, Implementation and Analysis', 'completed, March 2025 to February 2026; informs the validation and alarm-policy study design'],
-    ['Iowa State University: Machine Learning Programme', 'completed, October to December 2025'],
-    ['DataCamp Python Data Science Career Track', 'in progress since September 2025'],
-    ['Research data and compute', 'PhysioNet credentialed access to MIMIC-IV 3.1 and eICU-CRD 2.0; reproducible notebook pipeline with 212 automated engineering checks'],
-  ];
-  pd.forEach((p, i) => {
-    const y = 1.95 + i * 1.05;
-    iconCircle(s, ICON.check, M, y + 0.1, 0.55, TEAL);
-    text(s, p[0], M + 0.72, y, 5.3, 0.32, { fontSize: 12, bold: true });
-    text(s, p[1], M + 0.72, y + 0.32, 5.3, 0.7, { fontSize: 10.5, color: GREY });
-  });
-  text(s, 'What happened to the March 2026 plan', M + 6.6, 1.5, 5.6, 0.35, { fontSize: 14, bold: true, color: TEAL });
-  const mp = [
-    ['MIMIC-IV external validation', 'became the core of the programme, extended to eICU with one shared label definition'],
-    ['Submit the CNN-Transformer and OSTA papers', 'paused after the leakage audit; both models are in the causal comparison instead'],
-    ['AMR review', 'revised and submitted to the International Journal of Antimicrobial Agents'],
-    ['Present at a conference', 'this conference; the RD6 review follows'],
-    ['Clinical stakeholder study', 'now the qualitative phase of a mixed-methods design, scheduled after the full-cohort results'],
-  ];
-  mp.forEach((p, i) => {
-    const y = 1.95 + i * 0.85;
-    text(s, p[0], M + 6.6, y, 2.4, 0.8, { fontSize: 11.5, bold: true });
-    text(s, p[1], M + 9.1, y, W - M - 9.1, 0.8, { fontSize: 11, color: GREY });
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('RD6 supplement: training and the March 2026 plan', { placeholder: 'title' });
+  T(s, 'Training', M, 1.6, 5.8, 0.35, { size: 15, bold: true, color: RED });
+  list(s, ['Harvard PPCR: Clinical Trials Design, Implementation and Analysis (completed Feb 2026)', 'Iowa State University: Machine Learning Programme (completed Dec 2025)', 'DataCamp Python Data Science Career Track (in progress)', 'PhysioNet credentialed access: MIMIC-IV 3.1, eICU-CRD 2.0'], M, 2.0, 5.8, 4.0, { size: 13.5 });
+  T(s, 'March 2026 plan: what happened', M + 6.3, 1.6, 5.8, 0.35, { size: 15, bold: true, color: RED });
+  list(s, ['External validation on MIMIC-IV: became the core programme, extended to eICU.', 'CNN-Transformer and OSTA papers: withheld after the leakage audit.', 'AMR review: revised and submitted to Int J Antimicrob Agents.', 'Clinician study: now the qualitative phase, in progress.', 'Conference presentation: this talk.'], M + 6.3, 2.0, CW - 6.3, 4.0, { size: 13.5 });
+
+  // References (generated last, so every number is final)
+  const refs = ORDER.map((k, i) => `[${i + 1}] ${REF[k]}`);
+  const half = Math.ceil(refs.length / 2);
+  [refs.slice(0, half), refs.slice(half)].forEach((chunk, p) => {
+    cur = null;
+    const r = pres.addSlide({ masterName: 'BACKUP', sectionTitle: 'Backup' });
+    T(r, 'BACKUP', M, 0.26, 8, 0.3, { size: 11, bold: true, color: RED });
+    r.addText(`References (${p + 1} of 2)`, { placeholder: 'title' });
+    const colN = Math.ceil(chunk.length / 2);
+    [chunk.slice(0, colN), chunk.slice(colN)].forEach((col, j) => {
+      r.addText(col.map((t, i) => ({ text: t, options: { breakLine: i < col.length - 1, paraSpaceAfter: 4 } })), { x: M + j * 6.15, y: 1.35, w: 5.95, h: 5.6, isTextBox: true, margin: 0, fontSize: 10, color: INK, valign: 'top', objectName: 'reference list' });
+    });
   });
 
   await pres.writeFile({ fileName: OUT });
   await applyTheme(OUT, THEME);
-  console.log('written', OUT);
-})().catch(e => { console.error(e); process.exit(1); });
+  console.log('written', OUT, 'references:', ORDER.length);
+})().catch((e) => { console.error(e); process.exit(1); });
