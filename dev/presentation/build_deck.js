@@ -602,6 +602,43 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     T(s, k[0], x + 0.15, y + 0.06, 5.65, 0.3, { size: 12.5, bold: true, color: RED }); T(s, k[1], x + 0.15, y + 0.38, 5.65, 0.68, { size: 11.5 }); });
   refFooter(s);
 
+  // ===== BACKUP: HOW THE MODELS EVOLVED =====
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('How the models evolved: each stage was triggered by a finding from the one before', { placeholder: 'title' });
+  const stages = [
+    ['Earlier work: PhysioNet 2019', [
+      ['CNN-Transformer', 'Convolution for local patterns, then attention; no clinical structure ' + c('vaswani')],
+      ['OSTA', 'Predictors grouped by organ, as SOFA does, with a risk per organ ' + c('vincent')],
+      ['Leakage audit', 'Future information found; both retired, OSTA rebuilt causally ' + c('kapoor')],
+    ], 'Found: the honest baseline is modest (utility 0.22) ' + c('thiswork')],
+    ['V10: MIMIC-IV and eICU', [
+      ['OSTA + per-organ observers', 'Small organ models trained on separate patients, like specialty consults'],
+      ['Four ways to use them', 'As inputs; added at the output (fusion); steering cross-organ attention, gated or ungated'],
+      ['Controls', 'Raw values only; extra labelled patients; the original OSTA loss restored'],
+    ], 'Found: no variant beat OSTA; models peaked within 1 to 3 epochs ' + c('thiswork')],
+    ['V11: prespecified comparison', [
+      ['Test the organ idea', 'Flat OSTA: the same model without organ grouping'],
+      ['Learn from the literature', 'GRU-D, temporal CNN, the winner\'s method ' + c('che', 'bai', 'morrill')],
+      ['Use scarce labels better', 'Self-supervised pretraining, per-channel encoders, hazard head, utility-weighted loss ' + c('yeche21')],
+    ], 'Found: all 21 models above zero; organ grouping not supported; scale decides ' + c('thiswork')],
+  ];
+  const evW = 3.75, evG = (CW - 3 * evW) / 2;
+  stages.forEach((st, i) => {
+    const x = M + i * (evW + evG);
+    box(s, x, 1.6, evW, 0.5, { fill: INK, line: INK });
+    T(s, st[0], x + 0.12, 1.6, evW - 0.24, 0.5, { size: 13.5, bold: true, color: WHITE, valign: 'middle' });
+    st[1].forEach((it, j) => {
+      const y = 2.22 + j * 1.07;
+      box(s, x, y, evW, 0.97, { fill: LIGHT, line: LIGHT });
+      T(s, it[0], x + 0.12, y + 0.04, evW - 0.24, 0.3, { size: 13, bold: true, color: RED });
+      T(s, it[1], x + 0.12, y + 0.34, evW - 0.24, 0.6, { size: 11.5 });
+    });
+    box(s, x, 5.5, evW, 0.8, { fill: PINK, line: PINK });
+    T(s, st[2], x + 0.12, 5.5, evW - 0.24, 0.8, { size: 12, bold: true, valign: 'middle' });
+    if (i < 2) arrow(s, x + evW + 0.04, 5.9, x + evW + evG - 0.04, 5.9, RED, 2);
+  });
+  refFooter(s);
+
   // ===== BACKUP: ALL MODELS (two slides) =====
   const modelTable = (rows) => s.addTable([
     [th('Model'), th('Core idea'), th('How it differs'), th('Utility')],

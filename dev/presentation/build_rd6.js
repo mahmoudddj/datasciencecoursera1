@@ -185,10 +185,45 @@ children.push(P('The decision rules fixed before any result were applied on vali
 
 
 
-children.push(H2('4.6 Publications and dissemination'));
+children.push(H2('4.6 How the models evolved: why each was built and how they differ'));
+children.push(P('The models in this project were not chosen at once. They were built in three stages, and each stage was triggered by a finding from the one before. This section explains what led to each model, how it differs from its predecessors, and what became of it. Table 4 lists every model.'));
+children.push(H3('Stage 1, earlier work on PhysioNet 2019: from a general architecture to an organ-structured one'));
+children.push(P('The first model was a CNN-Transformer: convolutional layers capture short local trends in the hourly vital signs and laboratory values, and transformer attention (Vaswani et al., 2017) links them across the whole stay. It treats every variable alike and offers no clinical explanation. The OSTA-Transformer was proposed to address that. Clinicians assess sepsis organ by organ, as the SOFA score does (Vincent et al., 1996), so OSTA groups the predictors by organ system, reads each organ over time with its own attention, lets the organs attend to each other, and outputs a sepsis risk together with a risk per organ that a clinician can read. It was trained with a purpose-built loss: focal loss for the rare positive hours (Lin et al., 2017), time weights that emphasise the hours nearest onset, and two organ terms that encourage the per-organ risks to agree with the overall risk and to stay diverse. The leakage audit (Section 4.1; Kapoor and Narayanan, 2023) then showed that both models had been trained with information from the future. Both were withdrawn, and OSTA was rebuilt causally, giving the honest PhysioNet baseline: hourly AUROC 0.80, patient AUROC 0.81 and normalised utility 0.22.'));
+children.push(H3('Stage 2, V10 on MIMIC-IV and eICU: can independent organ evidence guide OSTA?'));
+children.push(P('Moving to the raw databases raised a design question. OSTA learns how much each organ matters only from the sepsis labels. A bank of small per-organ "observer" networks, each trained on a separate group of patients (the observer-fit split) to estimate risk from one organ\'s measurements, could act like specialty consultations and give OSTA independent evidence. Four ways of using that evidence were compared on identical hours, and the protocol stated in advance that none was to be assumed to win: observer features (the observers\' outputs as extra inputs), output fusion (added to OSTA\'s output through a learned weight), gated attention guidance (the observers steer OSTA\'s cross-organ attention, with learned gates deciding when to trust them), and ungated guidance (the same steering always on, as a control for the gate). Two controls ran alongside: the same models on raw values only, to test whether feature engineering adds anything, and OSTA trained on the observers\' patients as well, to test whether any gain from observers merely reflects extra labelled patients. When the purpose-built OSTA loss was found to have been replaced by plain cross-entropy in the new code, it was restored for fidelity and compared directly.'));
+children.push(P('The findings were consistent. No integration beat OSTA: over three seeds the gated minus OSTA AUPRC difference was +0.002 (95 % CI -0.001 to 0.005), and the ungated control was lower than the gated arm. Output fusion was the strongest of the family. Raw values matched engineered features on MIMIC-IV, extra labelled patients did not help, and the restored OSTA loss performed no better than cross-entropy. The training records explained why the variants could not separate: every rich-feature neural model reached its best validation score within one to three epochs, so the chosen checkpoint was close to the shared starting point. The sample, not the architecture, was the limit.'));
+children.push(H3('Stage 3, V11: test the idea, learn from the literature, use scarce labels better'));
+children.push(P('Stage 3 was designed from those findings. First, the organ hypothesis is tested directly: flat OSTA is the same model with all predictors in one group, and organ structure is kept only if OSTA beats it on validation. Second, models built for irregular ICU data in the sepsis literature (Moor et al., 2021) were added on identical hours: GRU-D, which lets stale measurements decay towards normal (Che et al., 2018); a causal temporal convolutional network (Bai et al., 2018); and the PhysioNet 2019 winner\'s method, path signatures with boosted trees (Morrill et al., 2020). Third, because labelled sepsis cases are scarce, the self-supervised models first learn physiology from unlabelled stays by forecasting values and organ scores (Yèche et al., 2021), a per-channel encoder reads each signal with its own measurement pattern, event attention uses only fresh measurements (Horn et al., 2020), and a discrete-time hazard head uses when onset happens rather than only whether (Gensheimer and Narasimhan, 2019). Finally, the training loss was aligned with the clinical score: the utility-weighted loss weights each hour by what an alarm there is worth, compared against plain cross-entropy and temporal label smoothing (Yèche et al., 2023). The observer features, gated and ungated guidance, the extra-label control and the original OSTA loss were retired; output fusion, the CNN-Transformer, OSTA and the two baselines were kept. The preliminary outcome is in Sections 4.4 and 4.5: all 21 models have positive utility on MIMIC-IV, organ structure is not supported at this sample size, and the full cohort will rank the shortlisted models.'));
+children.push(P('Table 4. Every model in the project: what led to it, how it differs, and its status.', { bold: true, after: 80 }));
+children.push(table(['Model', 'Stage', 'What led to it', 'How it differs', 'Status'], [
+  ['CNN-Transformer', 'Stage 1', 'First architecture: local trends plus long-range attention', 'Treats all variables alike; no clinical structure', 'Leaky version withdrawn; causal version kept as a comparator'],
+  ['OSTA-Transformer', 'Stage 1', 'Need for clinical structure and explanation', 'Organ groups, cross-organ attention, risk per organ, purpose-built loss', 'Leaky version withdrawn; causal rebuild is the PhysioNet baseline and a V11 arm'],
+  ['Observer features', 'Stage 2', 'Give OSTA independent per-organ evidence', 'Observer outputs as extra inputs', 'No gain; retired'],
+  ['Output fusion', 'Stage 2', 'The same evidence without changing OSTA', 'Observer outputs added at the output', 'Strongest of the family; kept'],
+  ['Gated attention guidance', 'Stage 2', 'Let the evidence steer which organs OSTA attends to', 'Learned gates on cross-organ attention', 'Equal to OSTA; retired'],
+  ['Ungated attention guidance', 'Stage 2', 'Control for the gate', 'Guidance always on', 'Lower than gated; retired'],
+  ['Raw-value control', 'Stage 2', 'Does feature engineering add anything?', 'Raw values, masks and ages only', 'Matched engineered features on MIMIC-IV; kept as a control'],
+  ['Extra-label control', 'Stage 2', 'Is an observer gain only extra labels?', 'OSTA trained on the observers\' patients too', 'No gain; retired'],
+  ['Original OSTA loss', 'Stage 2', 'Fidelity to the original OSTA', 'Focal loss, time weights, organ terms', 'No gain over cross-entropy; retired'],
+  ['Logistic regression', 'All', 'Transparent baseline', 'Linear, one hour at a time', 'Kept'],
+  ['Boosted trees', 'All', 'Strong tabular baseline (Friedman, 2001)', 'Non-linear, one hour at a time', 'Kept'],
+  ['Flat OSTA', 'Stage 3', 'Test the organ hypothesis directly', 'OSTA without organ grouping', 'Beat OSTA on validation; shortlisted'],
+  ['GRU-D', 'Stage 3', 'Built for irregular, stale ICU data', 'Recurrent; learned decay of old values', 'Shortlisted'],
+  ['Temporal CNN', 'Stage 3', 'Common in the sepsis literature', 'Causal convolutions; fixed look-back', 'Shortlisted'],
+  ['Signatures + boosted trees', 'Stage 3', 'Benchmark against the published winner', 'Trajectory summaries, then trees', 'Kept as the benchmark'],
+  ['CNN to OSTA', 'Stage 3', 'Read each signal on its own terms', 'Per-channel encoder before OSTA', 'Supervised control for pretraining'],
+  ['Event OSTA', 'Stage 3', 'Use real measurements, not carried values', 'Attention to fresh vital signs only', 'Not shortlisted'],
+  ['Self-supervised CNN to OSTA and flat twin', 'Stage 3', 'Few labelled sepsis cases', 'Encoder pretrained without labels', 'Added to the full cohort as declared exploratory pair'],
+  ['Pooled-encoder twins', 'Stage 3', 'Adaptation across hospital systems', 'Pretrained on both databases', 'Not shortlisted'],
+  ['Hazard head', 'Stage 3', 'Use the timing of onset', 'Survival curve at 1 to 24 h', 'Not shortlisted'],
+  ['Mean ensemble', 'Stage 3', 'Average out single-model errors', 'Mean of OSTA, CNN-Transformer and the self-supervised model', 'Secondary analysis'],
+], [1750, 1000, 2150, 2200, 1900]));
+children.push(gap());
+
+children.push(H2('4.7 Publications and dissemination'));
 children.push(P('Three manuscripts were submitted during the period (Section 5). The main study on MIMIC-IV and eICU is being written up for submission in 2027 once the full-cohort and sealed-holdout results are available. The candidate presents the work at the SCEBE Research Degree Conference on 20 October 2026 (15-minute talk and questions).'));
 
-children.push(H2('4.7 Deviations from the March 2026 plan'));
+children.push(H2('4.8 Deviations from the March 2026 plan'));
 children.push(table(['Planned in March 2026', 'What happened', 'Reason'], [
   ['Submit the CNN-Transformer paper (Apr-May) and the OSTA paper (May-Jun)', 'Withheld', 'leakage audit; both architectures are being re-evaluated causally in the current comparison'],
   ['Respond to PLOS ONE reviewer feedback on the AMR review', 'Revised and submitted to the International Journal of Antimicrobial Agents (9 Oct 2026)', 'change of venue after revision'],
@@ -243,6 +278,25 @@ children.push(bullet([R('Ethics lead time for the prospective phase. ', { bold: 
 // 8 Conclusion
 children.push(H1('8. Conclusion'));
 children.push(P('The period turned a set of promising but leaky results into an honest, transferable research programme. The candidate audited and retired the earlier models, built a causal pipeline across two raw ICU databases with one shared definition of sepsis and a clinician-defined predictor set, moved evaluation to clinical utility with a sealed holdout, and produced preliminary evidence that, on identical MIMIC-IV hours, all 21 models compared, including the competition winner\'s own method, keep a positive utility, while transfer to a second hospital system remains the open problem. Three manuscripts were submitted. The next period scales the evaluation to the full cohort, opens the holdout once, brings in the clinicians who would receive the alarm, and prepares the prospective test on hospital patients that the whole programme points towards.'));
+
+
+// 9 References
+children.push(H1('9. References'));
+children.push(P('Bai S, Kolter JZ, Koltun V. An empirical evaluation of generic convolutional and recurrent networks for sequence modeling. arXiv:1803.01271. 2018.', { size: 20, after: 80 }));
+children.push(P('Che Z, Purushotham S, Cho K, Sontag D, Liu Y. Recurrent neural networks for multivariate time series with missing values. Sci Rep. 2018;8:6085.', { size: 20, after: 80 }));
+children.push(P('Friedman JH. Greedy function approximation: a gradient boosting machine. Ann Stat. 2001;29:1189-1232.', { size: 20, after: 80 }));
+children.push(P('Gensheimer MF, Narasimhan B. A scalable discrete-time survival model for neural networks. PeerJ. 2019;7:e6257.', { size: 20, after: 80 }));
+children.push(P('Horn M, Moor M, Bock C, Rieck B, Borgwardt K. Set functions for time series. International Conference on Machine Learning (ICML). 2020.', { size: 20, after: 80 }));
+children.push(P('Kapoor S, Narayanan A. Leakage and the reproducibility crisis in machine-learning-based science. Patterns. 2023;4:100804.', { size: 20, after: 80 }));
+children.push(P('Lin TY, Goyal P, Girshick R, He K, Dollar P. Focal loss for dense object detection. IEEE International Conference on Computer Vision (ICCV). 2017.', { size: 20, after: 80 }));
+children.push(P('Moor M, Rieck B, Horn M, Jutzeler CR, Borgwardt K. Early prediction of sepsis in the ICU using machine learning: a systematic review. Front Med. 2021;8:607952.', { size: 20, after: 80 }));
+children.push(P('Morrill JH, Kormilitzin A, Nevado-Holgado AJ, et al. Utilization of the signature method to identify the early onset of sepsis from multivariate physiological time series in critical care monitoring. Crit Care Med. 2020;48:e976-e981.', { size: 20, after: 80 }));
+children.push(P('Reyna MA, Josef CS, Jeter R, et al. Early prediction of sepsis from clinical data: the PhysioNet/Computing in Cardiology Challenge 2019. Crit Care Med. 2020;48:210-217.', { size: 20, after: 80 }));
+children.push(P('Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need. Advances in Neural Information Processing Systems (NeurIPS). 2017.', { size: 20, after: 80 }));
+children.push(P('Vincent JL, Moreno R, Takala J, et al. The SOFA (Sepsis-related Organ Failure Assessment) score to describe organ dysfunction/failure. Intensive Care Med. 1996;22:707-710.', { size: 20, after: 80 }));
+children.push(P('Wong A, Otles E, Donnelly JP, et al. External validation of a widely implemented proprietary sepsis prediction model in hospitalized patients. JAMA Intern Med. 2021;181:1065-1070.', { size: 20, after: 80 }));
+children.push(P('Yeche H, Dresdner G, Locatello F, Huser M, Ratsch G. Neighborhood contrastive learning applied to online patient monitoring. International Conference on Machine Learning (ICML). 2021.', { size: 20, after: 80 }));
+children.push(P('Yeche H, Pace A, Ratsch G, Kuznetsova R. Temporal label smoothing for early event prediction. International Conference on Machine Learning (ICML). 2023.', { size: 20, after: 80 }));
 
 // ---------- document ----------
 const { Header, Footer, PageNumber } = require('docx');
