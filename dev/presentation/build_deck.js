@@ -9,7 +9,7 @@ const gi = require('react-icons/gi');
 const { applyTheme } = require('/root/.claude/skills/synced/d91fe1c6-8d49-4422-b8c8-6dd15fde630e_6b953dd5-185b-425b-91bb-1cf229fc0818/pptx/scripts/apply_theme.js');
 
 const OUT = path.join(__dirname, 'Elrggal_Mahmoud_SCEBE2026.pptx');
-const SECOND_SUPERVISOR = process.env.SECOND_SUPERVISOR || 'Kia';
+const SECOND_SUPERVISOR = process.env.SECOND_SUPERVISOR || 'Dr Kia Dashtipour';
 
 const INK = '1B1B1B', RED = 'C8102E', GREY = '5E5E5E', MID = '8C8C8C', LIGHT = 'F2F2F2', RULE = 'BDBDBD', WHITE = 'FFFFFF', PINK = 'FBE3E6';
 const THEME = { name: 'ClinicalEditorial', headFontFace: 'Arial', bodyFontFace: 'Arial',
@@ -367,7 +367,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   arrow(s, M + 2.0, 4.6, M + 2.0, 4.85, RED, 2);
   box(s, M, 4.85, 5.85, 1.5, { fill: PINK, line: RED });
   T(s, 'Phase 2  Qualitative (in progress)', M + 0.2, 4.93, 5.5, 0.35, { size: 14, bold: true, color: RED });
-  T(s, 'Healthcare professionals: would they trust and act on the alert, what explanation do they need, what alarm burden is acceptable ' + c('henrynpj') + '.', M + 0.2, 5.3, 5.5, 1.0, { size: 12.5 });
+  T(s, 'Online interviews and round-table discussions with 20 infectious disease and critical care consultants from different hospitals: would they trust and act on the alert, what explanation do they need, what alarm burden is acceptable ' + c('henrynpj') + '.', M + 0.2, 5.3, 5.5, 1.0, { size: 12 });
   arrow(s, M + 5.85, 5.6, M + 6.27, 5.6, RED, 2);
   box(s, M + 6.27, 4.85, CW - 6.27, 1.5, { fill: WHITE, line: RED, lw: 1.5 });
   T(s, 'Phase 3  Future direction: hospital patients', M + 6.47, 4.93, 5.4, 0.35, { size: 14, bold: true, color: RED });
@@ -506,7 +506,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   });
   T(s, 'Next steps', M + 6.55, 1.6, 5, 0.35, { size: 15, bold: true, color: RED });
   const nx = [
-    ['Now', 'Complete the qualitative study with healthcare professionals; finish the 16-model comparison'],
+    ['Now', 'Complete the qualitative study (20 infectious disease and critical care consultants); finish the 16-model comparison'],
     ['Next', 'Full cohort (about 94,000 + 200,000 stays), three seeds, leave-hospital-out testing'],
     ['Then', 'Freeze the protocol; open the sealed holdout once; set the alarm policy with the qualitative findings'],
     ['Future', 'Silent test on hospital patients, then a clinician-facing pilot ' + c('kwong')],
@@ -630,7 +630,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   T(s, 'Training', M, 1.6, 5.8, 0.35, { size: 15, bold: true, color: RED });
   list(s, ['Harvard PPCR: Clinical Trials Design, Implementation and Analysis (completed Feb 2026)', 'Iowa State University: Machine Learning Programme (completed Dec 2025)', 'DataCamp Python Data Science Career Track (in progress)', 'PhysioNet credentialed access: MIMIC-IV 3.1, eICU-CRD 2.0'], M, 2.0, 5.8, 4.0, { size: 13.5 });
   T(s, 'March 2026 plan: what happened', M + 6.3, 1.6, 5.8, 0.35, { size: 15, bold: true, color: RED });
-  list(s, ['External validation on MIMIC-IV: became the core programme, extended to eICU.', 'CNN-Transformer and OSTA papers: withheld after the leakage audit.', 'AMR review: revised and submitted to Int J Antimicrob Agents.', 'Clinician study: now the qualitative phase, in progress.', 'Conference presentation: this talk.'], M + 6.3, 2.0, CW - 6.3, 4.0, { size: 13.5 });
+  list(s, ['External validation on MIMIC-IV: became the core programme, extended to eICU.', 'CNN-Transformer and OSTA papers: withheld after the leakage audit.', 'AMR review: revised and submitted to Int J Antimicrob Agents.', 'Clinician study: now the qualitative phase (20 consultants), nearly complete.', 'Conference presentation: this talk.'], M + 6.3, 2.0, CW - 6.3, 4.0, { size: 13.5 });
 
   // References (generated last, so every number is final)
   const refs = ORDER.map((k, i) => `[${i + 1}] ${REF[k]}`);

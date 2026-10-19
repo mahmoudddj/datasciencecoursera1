@@ -53,7 +53,7 @@ children.push(P('Development of Novel Artificial Intelligence Models for Early D
 children.push(table(['Field', 'Detail'], [
   ['Candidate', 'Mahmoud Essam Elrggal'],
   ['Director of Studies', 'Prof. Ahmed Al Dubai'],
-  ['Second Supervisor', 'Kia'],
+  ['Second Supervisor', 'Dr Kia Dashtipour'],
   ['School', 'School of Computing, Engineering and the Built Environment'],
   ['University', 'Edinburgh Napier University'],
   ['Reporting period', 'April 2026 - October 2026'],
@@ -78,7 +78,7 @@ children.push(H2('2.1 Objectives'));
   'Define the predictor set from the bedside: the full clinical picture (655 predictors), with antibiotics and cultures that define the label excluded, prophylactic antibiotics separated by a guideline rule, and clinician-suspicion proxies declared and tested in sensitivity analyses.',
   'Evaluate architectures as hypotheses, including the candidate\'s OSTA-Transformer, against the same model without organ structure, simpler sequence models, the PhysioNet winner\'s method and self-supervised pretraining, with decision rules fixed before results exist.',
   'Judge models by what would help patients: normalised utility, sensitivity at a fixed false-alarm burden, warning time, calibration and transfer between databases, with patient-level confidence intervals.',
-  'Conduct a qualitative study with healthcare professionals on whether they would trust and act on the alert, what explanation they need, and what false-alarm rate they would accept (in progress).',
+  'Conduct a qualitative study (online interviews and round-table discussions with 20 infectious disease and critical care consultants from different hospitals) on whether they would trust and act on the alert, what explanation they need, and what false-alarm rate they would accept (in progress, nearly complete).',
   'Prepare a prospective, initially silent, test of the model on hospital patients, and disseminate the work through peer-reviewed publication.',
 ].forEach((t) => children.push(numbered(t, 'objectives')));
 children.push(H2('2.2 Research questions'));
@@ -91,7 +91,7 @@ children.push(H1('3. Research Methodology'));
 children.push(H2('3.1 Mixed-methods design'));
 children.push(table(['Phase', 'Method', 'Output'], [
   ['Phase 1 - Quantitative (in progress)', 'Retrospective modelling on MIMIC-IV and eICU: one label definition, causal features, prespecified architecture and loss comparison, utility-based evaluation, transfer between databases, sealed holdout opened once.', 'A warning model with measured utility and an alarm policy.'],
-  ['Phase 2 - Qualitative (in progress, nearly complete)', 'Study with healthcare professionals on trust in and use of an AI sepsis alert: whether they would act on it, the explanation they need and the alarm burden they accept.', 'The false-alarm budget, the explanation (overall risk or risk per organ) and the trust conditions the model must meet.'],
+  ['Phase 2 - Qualitative (in progress, nearly complete)', 'Online semi-structured interviews and round-table discussions with 20 infectious disease and critical care consultants from different hospitals on trust in and use of an AI sepsis alert: whether they would act on it, the explanation they need and the alarm burden they accept.', 'The false-alarm budget, the explanation (overall risk or risk per organ) and the trust conditions the model must meet.'],
   ['Phase 3 - Prospective (future direction)', 'Silent-mode run on live ICU data with alarms logged but not shown, compared with outcomes; then a clinician-facing pilot. Requires ethics approval, a data-governance agreement and a clinical partner.', 'Evidence from real patients, in real time, in a hospital the model never trained on.'],
 ], [2300, 4300, 2400]));
 children.push(gap());
@@ -223,7 +223,7 @@ children.push(table(['When', 'Objective', 'Deliverable'], [
   ['Oct - Nov 2026', 'Complete the sixteen-model comparison; apply the prespecified validation rules (loss, organ structure, shortlist)', 'shortlist and rules recorded; comparison section of the manuscript'],
   ['Nov - Dec 2026', 'Full cohort (about 94,000 MIMIC-IV and 201,000 eICU stays), three seeds; leave-hospital-out evaluation across eICU hospitals; pooled multi-site training; label-harmonisation sensitivity (antibiotic-only suspicion on MIMIC-IV)', 'full-cohort development results; compute plan (Colab or a dedicated cloud machine)'],
   ['Jan 2027', 'Freeze the protocol; open the sealed holdout once; fix the alarm policy (sensitivity against false alarms per patient-day); subgroup fairness analysis', 'holdout results; alarm policy; manuscript draft'],
-  ['Nov - Dec 2026', 'Complete the qualitative study with healthcare professionals and its analysis', 'findings on trust, explanation and alarm burden; input to the alarm policy'],
+  ['Nov - Dec 2026', 'Complete the qualitative study (20 consultants) and its thematic analysis', 'findings on trust, explanation and alarm burden; input to the alarm policy'],
   ['Feb - Apr 2027', 'Radiology reports as predictors (MIMIC-IV notes, rule-based findings with local text models; no external services)', 'ablation with and without notes'],
   ['From mid-2027', 'Future direction: prepare the silent prospective test on hospital patients (clinical partner, data-governance agreement, ethics)', 'protocol for the prospective phase; submission of the main study'],
 ], [1700, 4500, 2800]));
