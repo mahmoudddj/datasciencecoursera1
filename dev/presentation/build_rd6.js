@@ -53,6 +53,7 @@ children.push(P('Development of Novel Artificial Intelligence Models for Early D
 children.push(table(['Field', 'Detail'], [
   ['Candidate', 'Mahmoud Essam Elrggal'],
   ['Director of Studies', 'Prof. Ahmed Al Dubai'],
+  ['Second Supervisor', 'Kia'],
   ['School', 'School of Computing, Engineering and the Built Environment'],
   ['University', 'Edinburgh Napier University'],
   ['Reporting period', 'April 2026 - October 2026'],
@@ -64,8 +65,8 @@ children.push(gap(240));
 // 1 Introduction
 children.push(H1('1. Introduction'));
 children.push(P('Sepsis, a dysregulated host response to infection that leads to organ dysfunction, affects about 49 million people a year and causes about 11 million deaths. Each hour of delay in antibiotic treatment raises mortality by roughly 4 to 8 per cent, yet the clinical definition (Sepsis-3: suspected infection plus a rise of at least two points on the SOFA organ-failure score) is met only once organ damage has begun. An early warning that arrives hours before the definition is met, and that clinicians trust enough to act on, remains the unmet need this PhD addresses.'));
-children.push(P('Published sepsis prediction models report excellent discrimination on their own data and fail where it matters. The winning entry of the PhysioNet 2019 Challenge scored a normalised utility of 0.36 on the two hospitals it trained on and -0.12 on a hidden third hospital, worse than never alarming (Reyna et al., 2020). The Epic Sepsis Model, deployed in hundreds of US hospitals, achieved an AUROC of 0.63 in independent validation against a vendor claim of 0.76 to 0.83, missing 67 per cent of sepsis patients while alerting on 18 per cent of all admissions (Wong et al., 2021). Three causes recur: information from the future leaks into training; models are scored by ranking rather than by whether an alarm would help; and every study defines sepsis its own way.'));
-children.push(P('This reporting period therefore re-oriented the programme. An audit of the candidate\'s own earlier pipeline found look-ahead leakage; those models were retired and their results are no longer reported. The work moved from the challenge\'s prepared tables to two raw ICU databases, MIMIC-IV 3.1 and eICU-CRD 2.0, with one shared Sepsis-3 definition, strict hour-by-hour causality, a clinician-defined predictor set, and evaluation by clinical utility with a sealed holdout. The research design became mixed-methods: the quantitative modelling now under way, a qualitative study with the ICU clinicians who would receive the alarm, and, as the future direction, a prospective test on hospital patients.'));
+children.push(P('Published sepsis prediction models report excellent discrimination on their own data and fail where it matters. The winning entry of the PhysioNet 2019 Challenge scored a normalised utility of 0.43 on new patients from the two hospitals it trained on and -0.12 on a hidden third hospital, worse than never alarming (overall official score 0.36; Reyna et al., 2020; Morrill et al., 2020). The Epic Sepsis Model, deployed in hundreds of US hospitals, achieved an AUROC of 0.63 in independent validation against a vendor claim of 0.76 to 0.83, missing 67 per cent of sepsis patients while alerting on 18 per cent of all admissions (Wong et al., 2021). Three causes recur: information from the future leaks into training; models are scored by ranking rather than by whether an alarm would help; and every study defines sepsis its own way.'));
+children.push(P('This reporting period therefore re-oriented the programme. An audit of the candidate\'s own earlier pipeline found look-ahead leakage; those models were retired and their results are no longer reported. The work moved from the challenge\'s prepared tables to two raw ICU databases, MIMIC-IV 3.1 and eICU-CRD 2.0, with one shared Sepsis-3 definition, strict hour-by-hour causality, a clinician-defined predictor set, and evaluation by clinical utility with a sealed holdout. The research design became mixed-methods: the quantitative modelling now under way, a qualitative study with the healthcare professionals who would receive the alert (now nearly complete), and, as the future direction, a prospective test on hospital patients.'));
 
 // 2 Aim and objectives
 children.push(H1('2. Research Aim and Objectives'));
@@ -77,7 +78,7 @@ children.push(H2('2.1 Objectives'));
   'Define the predictor set from the bedside: the full clinical picture (655 predictors), with antibiotics and cultures that define the label excluded, prophylactic antibiotics separated by a guideline rule, and clinician-suspicion proxies declared and tested in sensitivity analyses.',
   'Evaluate architectures as hypotheses, including the candidate\'s OSTA-Transformer, against the same model without organ structure, simpler sequence models, the PhysioNet winner\'s method and self-supervised pretraining, with decision rules fixed before results exist.',
   'Judge models by what would help patients: normalised utility, sensitivity at a fixed false-alarm burden, warning time, calibration and transfer between databases, with patient-level confidence intervals.',
-  'Conduct a qualitative study with ICU doctors, nurses and pharmacists on whether they would act on the alarm, what explanation they need, and what false-alarm rate they would accept.',
+  'Conduct a qualitative study with healthcare professionals on whether they would trust and act on the alert, what explanation they need, and what false-alarm rate they would accept (in progress).',
   'Prepare a prospective, initially silent, test of the model on hospital patients, and disseminate the work through peer-reviewed publication.',
 ].forEach((t) => children.push(numbered(t, 'objectives')));
 children.push(H2('2.2 Research questions'));
@@ -90,7 +91,7 @@ children.push(H1('3. Research Methodology'));
 children.push(H2('3.1 Mixed-methods design'));
 children.push(table(['Phase', 'Method', 'Output'], [
   ['Phase 1 - Quantitative (in progress)', 'Retrospective modelling on MIMIC-IV and eICU: one label definition, causal features, prespecified architecture and loss comparison, utility-based evaluation, transfer between databases, sealed holdout opened once.', 'A warning model with measured utility and an alarm policy.'],
-  ['Phase 2 - Qualitative (planned, 2027)', 'Semi-structured interviews with patient vignettes and a survey built on the model\'s own alarms, with ICU doctors, nurses and pharmacists; thematic analysis; ethics approval to be sought.', 'The false-alarm budget, the explanation (overall risk or risk per organ) and the trust conditions the model must meet.'],
+  ['Phase 2 - Qualitative (in progress, nearly complete)', 'Study with healthcare professionals on trust in and use of an AI sepsis alert: whether they would act on it, the explanation they need and the alarm burden they accept.', 'The false-alarm budget, the explanation (overall risk or risk per organ) and the trust conditions the model must meet.'],
   ['Phase 3 - Prospective (future direction)', 'Silent-mode run on live ICU data with alarms logged but not shown, compared with outcomes; then a clinician-facing pilot. Requires ethics approval, a data-governance agreement and a clinical partner.', 'Evidence from real patients, in real time, in a hospital the model never trained on.'],
 ], [2300, 4300, 2400]));
 children.push(gap());
@@ -170,7 +171,7 @@ children.push(table(['Measure', 'MIMIC-IV development test split'], [
   ['Sensitivity at 0.5 false alarms per patient-day', 'about one sepsis event in two'],
   ['Median warning before onset', '5 hours'],
   ['Normalised utility', 'best model 0.18 (95 % CI 0.08 to 0.27); OSTA 0.12'],
-  ['Reference points', 'PhysioNet 2019 winner: 0.36 on its training hospitals, -0.12 on the hidden hospital; our causal OSTA on PhysioNet: 0.22'],
+  ['Reference points', 'PhysioNet 2019 winner: 0.43 on new patients from its training hospitals, -0.12 on the hidden hospital; our causal OSTA on PhysioNet: 0.22'],
 ], [3200, 5800]));
 children.push(gap());
 children.push(P('The utility on MIMIC-IV is modest but clearly positive on a database built from raw tables with every hour scored causally, whereas the best competition entry fell below zero as soon as it left its training hospitals. On eICU the development-split AUROC is 0.67 to 0.69 and the utility is not yet distinguishable from zero; eICU has the weaker antibiotic-only label and, before the audit, the poorest coverage, and it is the focus of the full-cohort, leave-hospital-out and label-harmonisation work planned below. The candidate\'s replication of the winner\'s own method on both databases is in progress.'));
@@ -188,7 +189,7 @@ children.push(table(['Planned in March 2026', 'What happened', 'Reason'], [
   ['Respond to PLOS ONE reviewer feedback on the AMR review', 'Revised and submitted to the International Journal of Antimicrobial Agents (9 Oct 2026)', 'change of venue after revision'],
   ['External validation of OSTA on MIMIC-IV (Jun-Aug)', 'Became the core programme: MIMIC-IV and eICU, one label, causal pipeline, utility evaluation', 'validation on prepared data would have inherited the leakage'],
   ['Real-time deployment feasibility', 'Deferred to the prospective phase', 'depends on the full-cohort model and the clinician study'],
-  ['Clinical stakeholder study with ICU clinicians', 'Now the qualitative phase of a mixed-methods design (Feb-Apr 2027)', 'sequenced after the full-cohort results so that the alarms shown to clinicians are real'],
+  ['Clinical stakeholder study with ICU clinicians', 'Now the qualitative phase of a mixed-methods design; in progress and nearly complete', 'its findings set the alarm policy before the holdout is opened'],
   ['Conference presentation', 'SCEBE Research Degree Conference, 20 Oct 2026', 'as planned'],
 ], [2900, 3300, 2800]));
 children.push(gap());
@@ -214,7 +215,7 @@ children.push(table(['Activity', 'Status', 'Relevance to the PhD'], [
   ['SCEBE Research Degree Conference, 15-minute presentation', '20 October 2026', 'presentation skills; feedback on model selection and the clinician study design'],
 ], [3600, 1900, 3500]));
 children.push(gap());
-children.push(P('Skills developed this period: large-scale extraction from raw ICU databases (DuckDB over multi-gigabyte tables; item dictionaries and unit audits), the ricu and YAIB benchmark tooling, causal and availability-aware feature design, utility-based evaluation and the official PhysioNet scorer, prespecified analysis protocols with sealed holdouts, reproducible notebook engineering with automated checks, and GPU training on cloud runtimes. The candidate also led the clinical specification of the predictor set, the antibiotic classification rule and the proxy analysis, which is where a pharmacist\'s training directly shaped the method.'));
+children.push(P('Skills developed this period: large-scale extraction from raw ICU databases (DuckDB over multi-gigabyte tables; item dictionaries and unit audits), the ricu and YAIB benchmark tooling, causal and availability-aware feature design, utility-based evaluation and the official PhysioNet scorer, prespecified analysis protocols with sealed holdouts, reproducible notebook engineering with automated checks, and GPU training on cloud runtimes. The candidate also led the clinical specification of the predictor set, the antibiotic classification rule and the proxy analysis, where the candidate\'s clinical training directly shaped the method.'));
 
 // 7 Plan
 children.push(H1('7. Plan for the Next Six Months (November 2026 - April 2027)'));
@@ -222,7 +223,7 @@ children.push(table(['When', 'Objective', 'Deliverable'], [
   ['Oct - Nov 2026', 'Complete the sixteen-model comparison; apply the prespecified validation rules (loss, organ structure, shortlist)', 'shortlist and rules recorded; comparison section of the manuscript'],
   ['Nov - Dec 2026', 'Full cohort (about 94,000 MIMIC-IV and 201,000 eICU stays), three seeds; leave-hospital-out evaluation across eICU hospitals; pooled multi-site training; label-harmonisation sensitivity (antibiotic-only suspicion on MIMIC-IV)', 'full-cohort development results; compute plan (Colab or a dedicated cloud machine)'],
   ['Jan 2027', 'Freeze the protocol; open the sealed holdout once; fix the alarm policy (sensitivity against false alarms per patient-day); subgroup fairness analysis', 'holdout results; alarm policy; manuscript draft'],
-  ['Feb - Apr 2027', 'Qualitative study: ethics application, interviews with vignettes and a survey using the model\'s own alarms, with ICU doctors, nurses and pharmacists; thematic analysis', 'ethics approval; interview guide and survey; findings on trust, explanation and alarm burden'],
+  ['Nov - Dec 2026', 'Complete the qualitative study with healthcare professionals and its analysis', 'findings on trust, explanation and alarm burden; input to the alarm policy'],
   ['Feb - Apr 2027', 'Radiology reports as predictors (MIMIC-IV notes, rule-based findings with local text models; no external services)', 'ablation with and without notes'],
   ['From mid-2027', 'Future direction: prepare the silent prospective test on hospital patients (clinical partner, data-governance agreement, ethics)', 'protocol for the prospective phase; submission of the main study'],
 ], [1700, 4500, 2800]));
@@ -231,7 +232,7 @@ children.push(H2('7.1 Risks and mitigations'));
 children.push(bullet([R('Compute time. ', { bold: true }), R('The full cohort is about nine times the current sample; Colab runs of 12 to 16 hours per experiment are at the limit. Mitigation: a dedicated cloud GPU machine for the full-cohort runs, with the same resumable pipeline.')]));
 children.push(bullet([R('Label heterogeneity. ', { bold: true }), R('eICU\'s antibiotic-only suspicion is weaker than MIMIC-IV\'s. Mitigation: report transfer under both definitions and a harmonised antibiotic-only sensitivity analysis.')]));
 children.push(bullet([R('Small-sample overfitting. ', { bold: true }), R('Mitigation: scale, self-supervised pretraining, three seeds, and a shortlist chosen on validation rather than test.')]));
-children.push(bullet([R('Ethics lead time for the qualitative study and the prospective phase. ', { bold: true }), R('Mitigation: start the ethics application in January 2027 and secure a clinical partner during the qualitative phase.')]));
+children.push(bullet([R('Ethics lead time for the prospective phase. ', { bold: true }), R('Mitigation: start the ethics and data-governance applications in early 2027 and build on contacts made during the qualitative study to secure a clinical partner.')]));
 
 // 8 Conclusion
 children.push(H1('8. Conclusion'));
