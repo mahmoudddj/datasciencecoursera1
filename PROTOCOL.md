@@ -309,6 +309,7 @@ Retired after the earlier stages (Section 14): observer features, gated and unga
 - **Planned, not yet implemented (TO FREEZE before stage 2):**
   - subgroup fairness analysis by sex and age, and by race, ethnicity and insurance, which would be extracted for analysis only, never as predictors;
   - eICU leave-hospital-out evaluation.
+  - paired patient-level bootstrap of the utility difference between arms, computed from the saved per-stay utilities (`utility_per_stay.parquet`). Until it is run, no arm is reported as better than another on utility; overlapping intervals do not settle the question either way.
 
 Test results are reported for every arm and are never used to choose anything. The one declared exception is D1 in `PROTOCOL_DEVIATIONS.md`.
 

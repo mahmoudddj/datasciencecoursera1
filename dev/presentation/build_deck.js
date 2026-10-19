@@ -446,11 +446,11 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
 
   // ===== 12 LEAKAGE =====
   s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
-  s.addText('Result 2: removing information from the future is the biggest single correction', { placeholder: 'title' });
+  s.addText('Result 2: removing information from the future, and the honest baseline it leaves', { placeholder: 'title' });
   box(s, M, 1.65, 5.7, 4.7, { line: RULE });
   tile(s, I.search, M + 0.2, 1.85, 0.55);
   T(s, 'An audit of our own earlier pipeline found', M + 0.95, 1.85, 4.6, 0.55, { size: 15, bold: true, valign: 'middle' });
-  list(s, ['Hours after sepsis onset labelled positive: the model learnt sepsis that had already started.', 'Values used from when they were measured, not when they became available.', 'Treatments that define the label among the inputs.', 'Those models were retired and are not reported.'], M + 0.25, 2.6, 5.2, 2.9, { size: 14 });
+  list(s, ['Hours after onset scored as correct early warnings: recognising sepsis already present counted as predicting it.', 'Values used from when they were measured, not when they became available.', 'Treatments that define the label among the inputs.', 'Those models were retired and are not reported.'], M + 0.25, 2.6, 5.2, 2.9, { size: 14 });
   T(s, 'Leakage of this kind is documented across science ' + c('kapoor') + '.', M + 0.25, 5.6, 5.2, 0.6, { size: 13, italic: true, color: GREY });
   T(s, 'Rebuilt causally: OSTA on the PhysioNet 2019 test set, 3-seed ensemble ' + c('reyna', 'thiswork'), M + 5.95, 1.65, CW - 5.95, 0.6, { size: 14, bold: true, color: RED });
   [['0.81', 'patient-level AUROC'], ['0.80', 'hourly AUROC'], ['0.22', 'utility (0.30 at the conformal threshold)']].forEach((k, i) => {
@@ -459,27 +459,27 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     T(s, k[0], x + 0.15, 2.45, 1.7, 0.75, { size: 36, bold: true, color: RED });
     T(s, k[1], x + 0.15, 3.2, 1.7, 0.7, { size: 12 });
   });
-  list(s, ['Only 1.6 % of hours are positive, so ranking scores look modest even for a useful model.', 'Utility 0.22: the alarms are worth about a fifth of perfect alarms after paying for false alarms.', 'This honest baseline is where every later number starts.'], M + 5.95, 4.2, CW - 5.95, 2.1, { size: 13.5 });
+  list(s, ['Only 1.6 % of hours are positive, so ranking scores look modest even for a useful model.', 'Utility 0.22: about a fifth of the way from never alarming to perfect alarms, under the challenge\'s scoring rules; a score, not a measured clinical benefit.', 'This honest baseline is where every later number starts.'], M + 5.95, 4.2, CW - 5.95, 2.1, { size: 13.5 });
   refFooter(s);
   s.addNotes('1 min. Say "preliminary". We audited our own earlier models, found three kinds of leakage, and retired them. The causal version scores lower, and it is the one we stand behind.');
 
   // ===== 13 UTILITY =====
   s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
-  s.addText('Result 3: on identical MIMIC-IV hours, all 21 models have positive utility, including the winner\'s approach', { placeholder: 'title' });
-  const labs = ['Winner, published: its 2 hospitals', 'Winner, published: unseen hospital', 'Winner\'s approach, rebuilt here', 'OSTA (this project)', 'GRU-D (chosen on validation)'];
-  s.addChart(pres.ChartType.bar, [{ name: 'Normalised utility', labels: labs, values: [0.43, -0.12, 0.15, 0.23, 0.19] }], {
-    x: M, y: 1.65, w: 7.4, h: 4.3, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 40, chartColors: [MID, MID, '3A3A3A', RED, RED],
-    showTitle: true, title: 'Normalised utility: 1 = perfect, 0 = never alarming, below 0 = worse than silence', titleFontSize: 12, titleColor: INK, titleFontFace: '+mn-lt',
+  s.addText('Result 3: on identical MIMIC-IV hours, all 21 models score above zero; none is shown to be best', { placeholder: 'title' });
+  const labs = ['Logistic regression', 'Boosted trees', 'Winner\'s approach, rebuilt here', 'Temporal CNN', 'GRU-D (chosen on validation)', 'Flat OSTA (no organ grouping)', 'OSTA', 'Self-supervised CNN to OSTA'];
+  s.addChart(pres.ChartType.bar, [{ name: 'Normalised utility', labels: labs, values: [0.08, 0.10, 0.15, 0.17, 0.19, 0.23, 0.23, 0.29] }], {
+    x: M, y: 1.65, w: 7.4, h: 4.3, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 40, chartColors: [MID, MID, '3A3A3A', RED, RED, RED, RED, RED],
+    showTitle: true, title: 'Normalised utility on identical hours: 1 = perfect, 0 = never alarming (8 of 21 models shown)', titleFontSize: 12, titleColor: INK, titleFontFace: '+mn-lt',
     showValue: true, dataLabelPosition: 'outEnd', dataLabelFontSize: 12, dataLabelColor: INK, dataLabelFontBold: true, dataLabelFontFace: '+mn-lt', dataLabelFormatCode: '0.00',
-    valAxisMinVal: -0.4, valAxisMaxVal: 0.6, valAxisMajorUnit: 0.2, valAxisLabelFontSize: 11, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', valAxisLabelFormatCode: '0.0',
-    catAxisLabelFontSize: 12, catAxisLabelColor: INK, catAxisLabelFontFace: '+mn-lt', catAxisOrientation: 'maxMin', catAxisLabelPos: 'low', valGridLine: { color: 'E0E0E0', size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false, objectName: 'utility chart' });
+    valAxisMinVal: 0, valAxisMaxVal: 0.4, valAxisMajorUnit: 0.1, valAxisLabelFontSize: 11, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', valAxisLabelFormatCode: '0.0',
+    catAxisLabelFontSize: 11.5, catAxisLabelColor: INK, catAxisLabelFontFace: '+mn-lt', catAxisOrientation: 'maxMin', catAxisLabelPos: 'low', valGridLine: { color: 'E0E0E0', size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false, objectName: 'utility chart' });
   s.addShape(pres.ShapeType.rect, { x: M + 0.1, y: 6.05, w: 0.25, h: 0.2, fill: { color: MID }, line: { color: MID, width: 0 }, objectName: 'legend swatch' });
-  T(s, 'Published ' + c('reyna', 'morrill'), M + 0.42, 6.0, 1.9, 0.3, { size: 12, valign: 'middle' });
+  T(s, 'Baselines', M + 0.42, 6.0, 1.9, 0.3, { size: 12, valign: 'middle' });
   s.addShape(pres.ShapeType.rect, { x: M + 2.3, y: 6.05, w: 0.25, h: 0.2, fill: { color: '3A3A3A' }, line: { color: '3A3A3A', width: 0 }, objectName: 'legend swatch' });
-  T(s, 'Winner\'s approach, our pipeline', M + 2.62, 6.0, 2.5, 0.3, { size: 12, valign: 'middle' });
+  T(s, 'Winner\'s approach ' + c('morrill'), M + 2.62, 6.0, 2.5, 0.3, { size: 12, valign: 'middle' });
   s.addShape(pres.ShapeType.rect, { x: M + 5.1, y: 6.05, w: 0.25, h: 0.2, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'legend swatch' });
   T(s, 'This project ' + c('thiswork'), M + 5.42, 6.0, 2.0, 0.3, { size: 12, valign: 'middle' });
-  T(s, 'Counterpart of the winner\'s 0.43, not of -0.12: an internal split, and the same hospital system (PhysioNet hospital A is Beth Israel Deaconess, the MIMIC-IV hospital) ' + c('reyna') + '. The transfer test is the sealed holdout, still closed.', M, 6.3, 7.5, 0.4, { size: 10, color: GREY });
+  T(s, 'Internal MIMIC-IV test split. No model is shown to be better than another: the differences are within what 71 events can resolve. Transfer to another hospital system is untested here; the sealed holdout is still closed.', M, 6.3, 7.5, 0.4, { size: 10, color: GREY });
   const px = M + 7.65, pw = CW - 7.65;
   box(s, px, 1.65, pw, 4.65, { fill: LIGHT, line: LIGHT });
   T(s, 'MIMIC-IV development test split', px + 0.2, 1.75, pw - 0.4, 0.35, { size: 14, bold: true });
@@ -489,9 +489,9 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     T(s, k[0], x, y, (pw - 0.5) / 2, 0.55, { size: k[0].length > 6 ? 22 : 28, bold: true, color: RED });
     T(s, k[1], x, y + 0.55, (pw - 0.6) / 2, 0.7, { size: 11.5 });
   });
-  T(s, 'Rules fixed in advance, applied on validation: organ grouping did not beat the same model without it; GRU-D, TCN and flat OSTA shortlisted. Validation and test rankings disagree, so the full cohort decides.', px + 0.2, 5.15, pw - 0.4, 1.1, { size: 11.5, color: GREY });
+  T(s, 'Rules fixed in advance, applied on validation: organ grouping did not beat the same model without it; GRU-D, TCN and flat OSTA shortlisted. Validation and test rankings disagree; the full cohort will narrow the uncertainty.', px + 0.2, 5.15, pw - 0.4, 1.1, { size: 11.5, color: GREY });
   refFooter(s);
-  s.addNotes('1 min. Grey is the published winner: 0.43 on its own hospitals, minus 0.12 on an unseen one. Dark grey is the winner\'s approach, path signatures plus boosted trees, rebuilt in our causal pipeline on all our predictors: 0.15. Say clearly: our bars are the counterpart of the 0.43, an internal split, and the same hospital system, because PhysioNet hospital A is Beth Israel Deaconess, the MIMIC-IV hospital. The counterpart of minus 0.12 is the sealed cross-database holdout, not yet opened. Red is this project: OSTA 0.23, and GRU-D, the model the prespecified rule chose on validation, 0.19. All 21 models have positive utility with confidence intervals above zero. The organ grouping did not beat the same model without it at this sample size; that is reported as found. Say: preliminary, one run, development split.');
+  s.addNotes('1 min. Eight of the 21 models, all scored on identical hours. Grey: the two baselines, 0.08 and 0.10. Dark grey: the winner\'s approach, signatures plus boosted trees, in our causal pipeline on all our predictors, 0.15. Red: this project, 0.17 to 0.29. Every one of the 21 is above zero with its interval above zero, under the challenge\'s scoring rules. Do not call any model best: the differences are within what 71 events can resolve, and paired comparisons on utility have not been run yet. Organ grouping was not supported on validation; the rule shortlisted GRU-D, TCN and flat OSTA. Internal split only: transfer is untested here and the holdout is closed.');
 
   // ===== 14 CONTRIBUTION + NEXT =====
   pres.addSection({ title: 'Contribution and next steps' });
@@ -682,7 +682,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     [td('MIMIC-IV 3.1 ' + c('johnson'), { bold: true }), td('about 94,000'), td('10,000'), td('8,795'), td('20 % of patients, deterministic hash')],
     [td('eICU-CRD 2.0 ' + c('pollard'), { bold: true }), td('200,859'), td('10,000'), td('5,710'), td('20 % of patients, deterministic hash')],
   ], { x: M, y: 1.65, w: CW, colW: [3.0, 2.1, 1.9, 2.0, 3.13], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.07, objectName: 'cohort table' });
-  list(s, ['Labels: Sepsis-3 via YAIB / ricu ' + c('yaib', 'ricu') + '; onset within the next 6 h; post-onset hours excluded; up to 120 h per stay.', 'The 10,000-stay samples are fixed random draws, identical in every run.', 'The holdout is opened once, after the protocol is frozen; nothing is tuned on it.', 'Unlabelled pretraining corpus: 67,455 MIMIC-IV and 75,000 eICU stays outside the cohort and the holdout.'], M, 3.4, CW, 2.9, { size: 14 });
+  list(s, ['Labels: Sepsis-3 via YAIB / ricu ' + c('yaib', 'ricu') + '; onset within the next 6 h; hours after onset never scored as warnings; up to 120 h per stay.', 'The 10,000-stay samples are fixed random draws, identical in every run.', 'The holdout is opened once, after the protocol is frozen; nothing is tuned on it.', 'Unlabelled pretraining corpus: 67,455 MIMIC-IV and 75,000 eICU stays outside the cohort and the holdout.'], M, 3.4, CW, 2.9, { size: 14 });
   refFooter(s);
 
   s = slide('BACKUP', 'BACKUP', 'Backup');
