@@ -2,7 +2,7 @@
 
 Instructions are recorded here one slide at a time as the user gives them. Nothing is built until the user says "build". Each entry: slide number, instruction as understood, open questions, and whether the rehearsal script or the RD6 report is affected.
 
-Current deck: 15 talk slides + backups 16-28 (commit d17755e).
+Current deck: 15 talk slides + backups 16-30. BUILT 19 Oct 2026 with the user's answer "use your recommendations" for every open item (labels a; slide 2 GBD + WHO TB; slide 4 title a, leakage a; title list; RQ3 clause kept; colonoscopy; Cox Table 4; two-panel slide 13 with 0.36 official; slide 15 with the known-so-far block). New talk order: 11 cohort study, 12 harmonisation, 13 two-panel utility, 14 contribution, 15 take-home; leakage slide and the two questions moved to backups 25 and 26.
 
 | Slide | Instruction | Open questions | Also affects |
 |---|---|---|---|
