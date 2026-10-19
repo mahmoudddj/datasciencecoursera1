@@ -45,7 +45,7 @@ Phase 1 runs in two stages:
 |---|---|---|
 | MIMIC-IV | 3.1 (Beth Israel Deaconess Medical Center, Boston) | Development; transfer target |
 | eICU-CRD | 2.0 (208 US hospitals) | Development; transfer target; leave-hospital-out in stage 2 |
-| PhysioNet/CinC Challenge 2019 | Public training set | Earlier work and the causal OSTA baseline (Section 14); legacy external validation (Notebook B) |
+| PhysioNet/CinC Challenge 2019 | Public training set (hospital systems A and B; a third, C, was hidden) | Earlier work and the causal OSTA baseline (Section 14); legacy external validation (Notebook B). Hospital system A is Beth Israel Deaconess, the MIMIC-IV hospital (Reyna et al. 2020), so the challenge data are not an external test for a MIMIC-IV-trained model and are not used as one |
 
 **Governance:**
 
@@ -372,7 +372,7 @@ Test results are reported for every arm and are never used to choose anything. T
 
 ## 13. Legacy external validation (Notebook B)
 
-Notebook B applies the PhysioNet 2019-trained models, frozen, with no fitting on the target data, to the full 120-hour step-labelled trajectories of MIMIC-IV and eICU development patients. Stays with onset before 7 h are excluded.
+Notebook B applies the PhysioNet 2019-trained models, frozen, with no fitting on the target data, to the full 120-hour step-labelled trajectories of MIMIC-IV and eICU development patients. Stays with onset before 7 h are excluded. Because challenge hospital system A is Beth Israel Deaconess, the MIMIC-IV results of Notebook B are a same-hospital check and only the eICU results are external.
 
 | Model | Original training recipe |
 |---|---|

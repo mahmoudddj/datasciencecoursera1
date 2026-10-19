@@ -405,7 +405,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     ['OSTA without organ grouping', 'the ablation that decides whether organ structure stays'],
     ['CNN-Transformer (earlier work)', 'local patterns over 1 to 12 h, then attention'],
     ['GRU-D, temporal CNN', 'models built for irregular ICU data ' + c('che', 'bai')],
-    ['Signatures + boosted trees', 'the PhysioNet 2019 winner\'s method ' + c('morrill')],
+    ['Signatures + boosted trees', 'the PhysioNet 2019 winner\'s approach ' + c('morrill')],
     ['Self-supervised pretraining', 'learn from unlabelled stays first ' + c('yeche21')],
     ['Logistic regression, boosted trees', 'simple baselines'],
   ];
@@ -465,8 +465,8 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
 
   // ===== 13 UTILITY =====
   s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
-  s.addText('Result 3: on identical MIMIC-IV hours, all 21 models have positive utility, including the winner\'s method', { placeholder: 'title' });
-  const labs = ['Winner, published: its 2 hospitals', 'Winner, published: unseen hospital', 'Winner\'s method, rebuilt here', 'OSTA (this project)', 'GRU-D (chosen on validation)'];
+  s.addText('Result 3: on identical MIMIC-IV hours, all 21 models have positive utility, including the winner\'s approach', { placeholder: 'title' });
+  const labs = ['Winner, published: its 2 hospitals', 'Winner, published: unseen hospital', 'Winner\'s approach, rebuilt here', 'OSTA (this project)', 'GRU-D (chosen on validation)'];
   s.addChart(pres.ChartType.bar, [{ name: 'Normalised utility', labels: labs, values: [0.43, -0.12, 0.15, 0.23, 0.19] }], {
     x: M, y: 1.65, w: 7.4, h: 4.3, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 40, chartColors: [MID, MID, '3A3A3A', RED, RED],
     showTitle: true, title: 'Normalised utility: 1 = perfect, 0 = never alarming, below 0 = worse than silence', titleFontSize: 12, titleColor: INK, titleFontFace: '+mn-lt',
@@ -476,21 +476,22 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   s.addShape(pres.ShapeType.rect, { x: M + 0.1, y: 6.05, w: 0.25, h: 0.2, fill: { color: MID }, line: { color: MID, width: 0 }, objectName: 'legend swatch' });
   T(s, 'Published ' + c('reyna', 'morrill'), M + 0.42, 6.0, 1.9, 0.3, { size: 12, valign: 'middle' });
   s.addShape(pres.ShapeType.rect, { x: M + 2.3, y: 6.05, w: 0.25, h: 0.2, fill: { color: '3A3A3A' }, line: { color: '3A3A3A', width: 0 }, objectName: 'legend swatch' });
-  T(s, 'Winner\'s method, our pipeline', M + 2.62, 6.0, 2.5, 0.3, { size: 12, valign: 'middle' });
+  T(s, 'Winner\'s approach, our pipeline', M + 2.62, 6.0, 2.5, 0.3, { size: 12, valign: 'middle' });
   s.addShape(pres.ShapeType.rect, { x: M + 5.1, y: 6.05, w: 0.25, h: 0.2, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'legend swatch' });
   T(s, 'This project ' + c('thiswork'), M + 5.42, 6.0, 2.0, 0.3, { size: 12, valign: 'middle' });
+  T(s, 'Counterpart of the winner\'s 0.43, not of -0.12: an internal split, and the same hospital system (PhysioNet hospital A is Beth Israel Deaconess, the MIMIC-IV hospital) ' + c('reyna') + '. The transfer test is the sealed holdout, still closed.', M, 6.3, 7.5, 0.4, { size: 10, color: GREY });
   const px = M + 7.65, pw = CW - 7.65;
   box(s, px, 1.65, pw, 4.65, { fill: LIGHT, line: LIGHT });
   T(s, 'MIMIC-IV development test split', px + 0.2, 1.75, pw - 0.4, 0.35, { size: 14, bold: true });
   T(s, '1,422 stays, 71 sepsis events, identical hours', px + 0.2, 2.1, pw - 0.4, 0.3, { size: 12, color: GREY });
-  [['21 / 21', 'models with utility above zero, every 95 % CI above zero'], ['0.08-0.29', 'utility range across all models'], ['0.23', 'OSTA, 95 % CI 0.13 to 0.34'], ['0.15', 'winner\'s method, 95 % CI 0.06 to 0.22']].forEach((k, i) => {
+  [['21 / 21', 'models with utility above zero, every 95 % CI above zero'], ['0.08-0.29', 'utility range across all models'], ['0.23', 'OSTA, 95 % CI 0.13 to 0.34'], ['0.15', 'winner\'s approach, 95 % CI 0.06 to 0.22']].forEach((k, i) => {
     const col = i % 2, row = Math.floor(i / 2), x = px + 0.2 + col * (pw - 0.4) / 2, y = 2.5 + row * 1.3;
     T(s, k[0], x, y, (pw - 0.5) / 2, 0.55, { size: k[0].length > 6 ? 22 : 28, bold: true, color: RED });
     T(s, k[1], x, y + 0.55, (pw - 0.6) / 2, 0.7, { size: 11.5 });
   });
   T(s, 'Rules fixed in advance, applied on validation: organ grouping did not beat the same model without it; GRU-D, TCN and flat OSTA shortlisted. Validation and test rankings disagree, so the full cohort decides.', px + 0.2, 5.15, pw - 0.4, 1.1, { size: 11.5, color: GREY });
   refFooter(s);
-  s.addNotes('1 min. Grey is the published winner: 0.43 on its own hospitals, minus 0.12 on an unseen one. Dark grey is the winner\'s own method rebuilt in our causal pipeline on MIMIC-IV: 0.15. Red is this project: OSTA 0.23, and GRU-D, the model the prespecified rule chose on validation, 0.19. All 21 models have positive utility with confidence intervals above zero. The organ grouping did not beat the same model without it at this sample size; that is reported as found. Say: preliminary, one run, development split.');
+  s.addNotes('1 min. Grey is the published winner: 0.43 on its own hospitals, minus 0.12 on an unseen one. Dark grey is the winner\'s approach, path signatures plus boosted trees, rebuilt in our causal pipeline on all our predictors: 0.15. Say clearly: our bars are the counterpart of the 0.43, an internal split, and the same hospital system, because PhysioNet hospital A is Beth Israel Deaconess, the MIMIC-IV hospital. The counterpart of minus 0.12 is the sealed cross-database holdout, not yet opened. Red is this project: OSTA 0.23, and GRU-D, the model the prespecified rule chose on validation, 0.19. All 21 models have positive utility with confidence intervals above zero. The organ grouping did not beat the same model without it at this sample size; that is reported as found. Say: preliminary, one run, development split.');
 
   // ===== 14 CONTRIBUTION + NEXT =====
   pres.addSection({ title: 'Contribution and next steps' });
@@ -618,7 +619,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     ], 'Found: no variant beat OSTA; models peaked within 1 to 3 epochs ' + c('thiswork')],
     ['V11: prespecified comparison', [
       ['Test the organ idea', 'Flat OSTA: the same model without organ grouping'],
-      ['Learn from the literature', 'GRU-D, temporal CNN, the winner\'s method ' + c('che', 'bai', 'morrill')],
+      ['Learn from the literature', 'GRU-D, temporal CNN, the winner\'s approach ' + c('che', 'bai', 'morrill')],
       ['Use scarce labels better', 'Self-supervised pretraining, per-channel encoders, hazard head, utility-weighted loss ' + c('yeche21')],
     ], 'Found: all 21 models above zero; organ grouping not supported; scale decides ' + c('thiswork')],
   ];
@@ -646,11 +647,11 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   ], { x: M, y: 1.55, w: CW, colW: [2.55, 4.45, 4.13, 1.0], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.05, objectName: 'models table' });
   const modelNote = 'Utility: normalised utility on the MIMIC-IV development test split, one seed, preliminary ' + c('thiswork') + '. Every 95 % CI is above zero and the intervals overlap, so the order is not a ranking.';
   s = slide('BACKUP', 'BACKUP', 'Backup');
-  s.addText('Every model compared (1 of 2): baselines, the winner\'s method and sequence models', { placeholder: 'title' });
+  s.addText('Every model compared (1 of 2): baselines, the winner\'s approach and sequence models', { placeholder: 'title' });
   modelTable([
     ['Logistic regression', 'One weighted sum of the current hour\'s predictors', 'No time modelling: the floor every model must beat', '0.08'],
     ['Boosted trees ' + c('friedman'), 'Many small decision trees, each correcting the last', 'Non-linear thresholds, but sees one hour at a time', '0.10'],
-    ['Signatures + boosted trees ' + c('morrill'), 'Recent trajectories summarised as path signatures, then boosted trees', 'The PhysioNet 2019 winner\'s method; time enters through fixed summaries', '0.15'],
+    ['Signatures + boosted trees ' + c('morrill'), 'Recent trajectories summarised as path signatures, then boosted trees', 'The PhysioNet 2019 winner\'s approach, not its full pipeline; time enters through fixed summaries', '0.15'],
     ['OSTA (earlier work)', 'Predictors grouped by organ, attention over time per organ, then across organs', 'The reference model; risk per organ', '0.23'],
     ['Output fusion (earlier work)', 'OSTA plus small per-organ models trained on separate patients, added at the output', 'Independent per-organ second opinions fused at the end', '0.25'],
     ['CNN-Transformer (earlier work) ' + c('vaswani'), 'Convolution finds 1 to 12 h patterns, then attention', 'No organ grouping', '0.24'],

@@ -76,7 +76,7 @@ children.push(H2('2.1 Objectives'));
 [
   'Build a causal, cross-database pipeline: one Sepsis-3 definition applied identically to MIMIC-IV and eICU, every value used only from the hour it was recorded, hours after onset excluded, and a 20 per cent patient holdout sealed until the protocol is frozen.',
   'Define the predictor set from the bedside: the full clinical picture (659 predictors), with antibiotics and cultures that define the label excluded, prophylactic antibiotics separated by a guideline rule, and clinician-suspicion proxies declared and tested in sensitivity analyses.',
-  'Evaluate architectures as hypotheses, including the candidate\'s OSTA-Transformer, against the same model without organ structure, simpler sequence models, the PhysioNet winner\'s method and self-supervised pretraining, with decision rules fixed before results exist.',
+  'Evaluate architectures as hypotheses, including the candidate\'s OSTA-Transformer, against the same model without organ structure, simpler sequence models, the PhysioNet winner\'s approach and self-supervised pretraining, with decision rules fixed before results exist.',
   'Judge models by what would help patients: normalised utility, sensitivity at a fixed false-alarm burden, warning time, calibration and transfer between databases, with patient-level confidence intervals.',
   'Conduct a qualitative study (online interviews and round-table discussions with 20 infectious disease and critical care consultants from different hospitals) on whether they would trust and act on the alert, what explanation they need, and what false-alarm rate they would accept (in progress, nearly complete).',
   'Prepare a prospective, initially silent, test of the model on hospital patients, and disseminate the work through peer-reviewed publication.',
@@ -129,7 +129,7 @@ children.push(P('Two inputs are flagged as clinician-suspicion proxies, stress-d
 
 children.push(H2('3.5 Models and the prespecified comparison'));
 children.push(bullet('Kept from earlier runs: OSTA-Transformer (organ-system-aware temporal attention with cross-organ attention and per-organ risk), output fusion, CNN-Transformer, logistic regression and boosted trees.'));
-children.push(bullet('Literature benchmark: path signatures with boosted trees, the method of the PhysioNet 2019 winner, replicated on the same hours.'));
+children.push(bullet('Literature benchmark: path signatures with boosted trees, following the approach of the PhysioNet 2019 winner (signature features of the vital-sign trajectories, then gradient boosting) on the same hours and predictors. It is the winner\'s approach, not a replication of its full pipeline.'));
 children.push(bullet('New supervised models: OSTA without organ grouping (the ablation that decides whether organ structure is kept), GRU-D, a causal temporal CNN, a CNN encoder with an OSTA head, and event attention with an OSTA head.'));
 children.push(bullet('Self-supervised: a per-channel causal CNN encoder pretrained on up to 75,000 unlabelled stays per database (next-value forecasting, measured-within-six-hours, SOFA organ components and organ worsening at 6, 12 and 24 hours), fine-tuned with OSTA, flat and discrete-time survival heads; site-specific and pooled encoders.'));
 children.push(bullet('Losses: utility-weighted cross-entropy (primary), plain cross-entropy and temporal label smoothing, chosen by the rank-average of validation utility and AUPRC.'));
@@ -169,7 +169,7 @@ children.push(table(['Measure', 'MIMIC-IV development test split'], [
   ['Models compared', '21: sixteen architectures, loss comparators (cross-entropy and time-to-onset weighted) and a mean ensemble'],
   ['Normalised utility', 'all 21 models above zero, every 95 % CI above zero; range 0.08 to 0.29'],
   ['OSTA-Transformer', '0.23 (95 % CI 0.13 to 0.34)'],
-  ['Winner\'s method rebuilt in this pipeline', '0.15 (95 % CI 0.06 to 0.22)'],
+  ['Winner\'s approach (signatures + boosted trees) rebuilt in this pipeline', '0.15 (95 % CI 0.06 to 0.22)'],
   ['Highest point estimates', 'self-supervised CNN encoder with OSTA head 0.29 (0.17 to 0.39); CNN with OSTA head 0.28; mean ensemble 0.28'],
   ['Model chosen by the validation rule', 'GRU-D, 0.19 (0.08 to 0.29)'],
   ['Logistic regression', '0.08 (0.01 to 0.16)'],
@@ -177,7 +177,7 @@ children.push(table(['Measure', 'MIMIC-IV development test split'], [
   ['Reference points', 'PhysioNet 2019 winner: 0.43 on new patients from its training hospitals, -0.12 on the hidden hospital; our causal OSTA on PhysioNet: 0.22'],
 ], [3200, 5800]));
 children.push(gap());
-children.push(P('On a database built from raw tables with every hour scored causally, every model keeps a positive utility, including the competition winner\'s own method, whereas the published winner fell below zero as soon as it left its training hospitals. The architectures differ more in point estimate than their overlapping intervals can support at this sample size. Transfer is the open problem: MIMIC-IV models scored on eICU development patients give utilities of -0.03 to 0.04 with intervals that include zero (hourly AUROC 0.58 to 0.68). eICU has the weaker antibiotic-only label and is the focus of the native eICU results (running at the time of writing), the full cohort, leave-hospital-out evaluation and label harmonisation.'));
+children.push(P('On a database built from raw tables with every hour scored causally, every model keeps a positive utility, including the competition winner\'s approach. These are internal results: the counterpart of the winner\'s 0.43 on its own hospitals, one of which (Beth Israel Deaconess, hospital system A of the challenge) is also the MIMIC-IV hospital. The counterpart of the winner\'s -0.12 on an unseen hospital is the sealed cross-database holdout, which has not been opened. The architectures differ more in point estimate than their overlapping intervals can support at this sample size. Transfer is the open problem: MIMIC-IV models scored on eICU development patients give utilities of -0.03 to 0.04 with intervals that include zero (hourly AUROC 0.58 to 0.68). eICU has the weaker antibiotic-only label and is the focus of the native eICU results (running at the time of writing), the full cohort, leave-hospital-out evaluation and label harmonisation.'));
 
 children.push(H2('4.5 Overfitting and the prespecified decisions'));
 children.push(P('Training records show that every rich-feature neural model reaches its best validation score within one to three epochs while the training loss keeps falling: a training split contains about 175 septic stays, too few for 300 to 650 predictors. The validation split is also too small to rank models reliably: OSTA and OSTA without organ grouping tie on test (0.23 each) but score 0.12 and 0.28 on validation, and the validation leaders (GRU-D 0.29, TCN 0.29) are mid-table on test.'));
