@@ -69,6 +69,9 @@ const REF = {
   temporal: 'Elrggal ME, et al. Temporal patterns and predictors of sepsis onset in ICU patients: a retrospective cohort study using PhysioNet data. Submitted, Front Med, 2026.',
   thermo: 'Elrggal ME, et al. Diagnostic applications of infrared thermography across infectious diseases: a systematic review with a subgroup meta-analysis. Submitted, JMIR, 2026.',
   kdigo: 'Kidney Disease: Improving Global Outcomes (KDIGO) AKI Work Group. KDIGO clinical practice guideline for acute kidney injury. Kidney Int Suppl. 2012;2:1-138.',
+  friedman: 'Friedman JH. Greedy function approximation: a gradient boosting machine. Ann Stat. 2001;29:1189-1232.',
+  horn: 'Horn M, Moor M, Bock C, Rieck B, Borgwardt K. Set functions for time series. International Conference on Machine Learning (ICML). 2020.',
+  gensheimer: 'Gensheimer MF, Narasimhan B. A scalable discrete-time survival model for neural networks. PeerJ. 2019;7:e6257.',
   rcp: 'Royal College of Physicians. National Early Warning Score (NEWS) 2: standardising the assessment of acute-illness severity in the NHS. London: RCP; 2017.',
 };
 const SHORT = {};
@@ -81,7 +84,7 @@ for (const [k, v] of Object.entries(REF)) {
 }
 SHORT.amr = 'Elrggal et al., submitted 2026'; SHORT.temporal = 'Elrggal et al., submitted 2026'; SHORT.thermo = 'Elrggal et al., submitted 2026';
 SHORT.thiswork = 'This work, preliminary, unpublished'; SHORT.murray = 'AMR Collaborators, Lancet 2022'; SHORT.kdigo = 'KDIGO 2012'; SHORT.rcp = 'Royal College of Physicians 2017';
-SHORT.yaib = 'van de Water et al., ICLR 2024'; SHORT.vaswani = 'Vaswani et al., NeurIPS 2017'; SHORT.bai = 'Bai et al., arXiv 2018'; SHORT.yeche23 = 'Yeche et al., ICML 2023'; SHORT.yeche21 = 'Yeche et al., ICML 2021';
+SHORT.yaib = 'van de Water et al., ICLR 2024'; SHORT.horn = 'Horn et al., ICML 2020'; SHORT.friedman = 'Friedman, Ann Stat 2001'; SHORT.gensheimer = 'Gensheimer and Narasimhan, PeerJ 2019'; SHORT.vaswani = 'Vaswani et al., NeurIPS 2017'; SHORT.bai = 'Bai et al., arXiv 2018'; SHORT.yeche23 = 'Yeche et al., ICML 2023'; SHORT.yeche21 = 'Yeche et al., ICML 2021';
 const ORDER = []; let cur = null;
 function c(...keys) {
   const nums = keys.map((k) => { if (!REF[k]) throw new Error('missing ref ' + k); if (!ORDER.includes(k)) ORDER.push(k); if (cur) cur.add(k); return ORDER.indexOf(k) + 1; });
@@ -599,6 +602,41 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     T(s, k[0], x + 0.15, y + 0.06, 5.65, 0.3, { size: 12.5, bold: true, color: RED }); T(s, k[1], x + 0.15, y + 0.38, 5.65, 0.68, { size: 11.5 }); });
   refFooter(s);
 
+  // ===== BACKUP: ALL MODELS (two slides) =====
+  const modelTable = (rows) => s.addTable([
+    [th('Model'), th('Core idea'), th('How it differs'), th('Utility')],
+    ...rows.map((r) => [td(r[0], { bold: true, fontSize: 12.5 }), td(r[1], { fontSize: 12.5 }), td(r[2], { fontSize: 12.5 }), td(r[3], { align: 'center', bold: true, color: RED, fontSize: 12.5 })]),
+  ], { x: M, y: 1.55, w: CW, colW: [2.55, 4.45, 4.13, 1.0], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.05, objectName: 'models table' });
+  const modelNote = 'Utility: normalised utility on the MIMIC-IV development test split, one seed, preliminary ' + c('thiswork') + '. Every 95 % CI is above zero and the intervals overlap, so the order is not a ranking.';
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('Every model compared (1 of 2): baselines, the winner\'s method and sequence models', { placeholder: 'title' });
+  modelTable([
+    ['Logistic regression', 'One weighted sum of the current hour\'s predictors', 'No time modelling: the floor every model must beat', '0.08'],
+    ['Boosted trees ' + c('friedman'), 'Many small decision trees, each correcting the last', 'Non-linear thresholds, but sees one hour at a time', '0.10'],
+    ['Signatures + boosted trees ' + c('morrill'), 'Recent trajectories summarised as path signatures, then boosted trees', 'The PhysioNet 2019 winner\'s method; time enters through fixed summaries', '0.15'],
+    ['OSTA (earlier work)', 'Predictors grouped by organ, attention over time per organ, then across organs', 'The reference model; risk per organ', '0.23'],
+    ['Output fusion (earlier work)', 'OSTA plus small per-organ models trained on separate patients, added at the output', 'Independent per-organ second opinions fused at the end', '0.25'],
+    ['CNN-Transformer (earlier work) ' + c('vaswani'), 'Convolution finds 1 to 12 h patterns, then attention', 'No organ grouping', '0.24'],
+    ['Flat OSTA', 'OSTA with every predictor in one group', 'Removes only the organ grouping: the decisive test', '0.23'],
+    ['GRU-D ' + c('che'), 'Recurrent memory; values fade towards normal as they age', 'Models missing and stale data explicitly', '0.19'],
+    ['TCN ' + c('bai'), 'Stacked causal convolutions with a widening reach', 'No attention; fixed look-back', '0.17'],
+  ]);
+  T(s, modelNote, M, 6.3, CW, 0.4, { size: 11, color: GREY });
+  refFooter(s);
+
+  s = slide('BACKUP', 'BACKUP', 'Backup');
+  s.addText('Every model compared (2 of 2): channel encoders, self-supervised pretraining, ensemble', { placeholder: 'title' });
+  modelTable([
+    ['CNN to OSTA', 'A small convolution per channel over value, measured flag and age, then OSTA', 'Learns each signal\'s own pattern before organ grouping', '0.28'],
+    ['Event OSTA ' + c('horn'), 'Each hour attends to fresh vital-sign measurements of the last 24 h', 'Uses new measurements only, not carried-forward values', '0.21'],
+    ['Self-supervised CNN to OSTA ' + c('yeche21'), 'The same encoder first trained on unlabelled stays to forecast values and organ scores', 'Learns physiology before it sees a sepsis label', '0.29'],
+    ['Self-supervised CNN, flat head', 'The same pretrained encoder with one group', 'Its organ ablation; added as a declared exploratory pair', '0.21'],
+    ['Pooled encoder twins', 'Encoder pretrained on both databases', 'Adaptation across hospital systems', '0.23 / 0.20'],
+    ['Hazard head ' + c('gensheimer'), 'Risk at 1, 3, 6, 12 and 24 h as a survival curve', 'Uses when onset happens, not only whether', '0.18'],
+    ['Mean ensemble', 'Average of OSTA, CNN-Transformer and self-supervised CNN to OSTA', 'No learned weights', '0.28'],
+  ]);
+  T(s, 'Retired in earlier versions: gated and ungated attention and observer features, which did not differ from OSTA. ' + modelNote, M, 5.75, CW, 0.7, { size: 11, color: GREY });
+  refFooter(s);
   s = slide('BACKUP', 'BACKUP', 'Backup');
   s.addText('Cohorts, splits and the sealed holdout', { placeholder: 'title' });
   s.addTable([

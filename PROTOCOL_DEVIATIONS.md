@@ -13,6 +13,7 @@ Every departure from the prespecified V11 protocol (`run_protocol.json`, `protoc
 **Why the pair and not one model:** `ssl_cnn_osta` carries the organ-grouped head that the organ-structure rule did not support (`osta` validation utility 0.117 against `flat_osta` 0.283). `ssl_cnn_flat` is the same model with the same self-supervised site encoder and no organ grouping (test 0.208, validation 0.208). Training both separates the effect of pretraining from the effect of organ grouping.
 
 **How it will be reported (fixed now):**
+
 1. Both arms are labelled *exploratory, added after the development test split (deviation D1)* in every table and figure, and in the manuscript's methods.
 2. The primary full-cohort conclusions come from the rule-chosen arms and the baselines only. The pair cannot replace a rule-chosen arm in the primary comparison.
 3. Both arms use the primary loss (utility-weighted BCE) and the same settings as the other full-cohort arms: 3 seeds, the same splits, and no extra tuning.
