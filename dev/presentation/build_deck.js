@@ -462,30 +462,32 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
 
   // ===== 13 UTILITY =====
   s = slide('CONTENT', 'PRELIMINARY RESULTS', 'Preliminary results'); prelim(s);
-  s.addText('Result 3: positive utility on MIMIC-IV, where the challenge winner fell below zero on an unseen hospital', { placeholder: 'title' });
-  const labs = ['Winner, new patients, its 2 hospitals', 'Winner, unseen third hospital', 'Our causal OSTA, PhysioNet test', 'Our best model, MIMIC-IV development test'];
-  s.addChart(pres.ChartType.bar, [{ name: 'Normalised utility', labels: labs, values: [0.43, -0.12, 0.22, 0.18] }], {
-    x: M, y: 1.65, w: 7.4, h: 4.3, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 45, chartColors: [MID, MID, RED, RED],
+  s.addText('Result 3: on identical MIMIC-IV hours, all 21 models have positive utility, including the winner\'s method', { placeholder: 'title' });
+  const labs = ['Winner, published: its 2 hospitals', 'Winner, published: unseen hospital', 'Winner\'s method, rebuilt here', 'OSTA (this project)', 'GRU-D (chosen on validation)'];
+  s.addChart(pres.ChartType.bar, [{ name: 'Normalised utility', labels: labs, values: [0.43, -0.12, 0.15, 0.23, 0.19] }], {
+    x: M, y: 1.65, w: 7.4, h: 4.3, barDir: 'bar', barGrouping: 'clustered', barGapWidthPct: 40, chartColors: [MID, MID, '3A3A3A', RED, RED],
     showTitle: true, title: 'Normalised utility: 1 = perfect, 0 = never alarming, below 0 = worse than silence', titleFontSize: 12, titleColor: INK, titleFontFace: '+mn-lt',
     showValue: true, dataLabelPosition: 'outEnd', dataLabelFontSize: 12, dataLabelColor: INK, dataLabelFontBold: true, dataLabelFontFace: '+mn-lt', dataLabelFormatCode: '0.00',
     valAxisMinVal: -0.4, valAxisMaxVal: 0.6, valAxisMajorUnit: 0.2, valAxisLabelFontSize: 11, valAxisLabelColor: GREY, valAxisLabelFontFace: '+mn-lt', valAxisLabelFormatCode: '0.0',
     catAxisLabelFontSize: 12, catAxisLabelColor: INK, catAxisLabelFontFace: '+mn-lt', catAxisOrientation: 'maxMin', catAxisLabelPos: 'low', valGridLine: { color: 'E0E0E0', size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false, objectName: 'utility chart' });
-  s.addShape(pres.ShapeType.rect, { x: M + 0.3, y: 6.05, w: 0.25, h: 0.2, fill: { color: MID }, line: { color: MID, width: 0 }, objectName: 'legend swatch' });
-  T(s, 'Published challenge winner ' + c('reyna', 'morrill'), M + 0.62, 6.0, 3.3, 0.3, { size: 12, valign: 'middle' });
-  s.addShape(pres.ShapeType.rect, { x: M + 4.0, y: 6.05, w: 0.25, h: 0.2, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'legend swatch' });
-  T(s, 'This project, causal evaluation ' + c('thiswork'), M + 4.32, 6.0, 3.1, 0.3, { size: 12, valign: 'middle' });
+  s.addShape(pres.ShapeType.rect, { x: M + 0.1, y: 6.05, w: 0.25, h: 0.2, fill: { color: MID }, line: { color: MID, width: 0 }, objectName: 'legend swatch' });
+  T(s, 'Published ' + c('reyna', 'morrill'), M + 0.42, 6.0, 1.9, 0.3, { size: 12, valign: 'middle' });
+  s.addShape(pres.ShapeType.rect, { x: M + 2.3, y: 6.05, w: 0.25, h: 0.2, fill: { color: '3A3A3A' }, line: { color: '3A3A3A', width: 0 }, objectName: 'legend swatch' });
+  T(s, 'Winner\'s method, our pipeline', M + 2.62, 6.0, 2.5, 0.3, { size: 12, valign: 'middle' });
+  s.addShape(pres.ShapeType.rect, { x: M + 5.1, y: 6.05, w: 0.25, h: 0.2, fill: { color: RED }, line: { color: RED, width: 0 }, objectName: 'legend swatch' });
+  T(s, 'This project ' + c('thiswork'), M + 5.42, 6.0, 2.0, 0.3, { size: 12, valign: 'middle' });
   const px = M + 7.65, pw = CW - 7.65;
   box(s, px, 1.65, pw, 4.65, { fill: LIGHT, line: LIGHT });
   T(s, 'MIMIC-IV development test split', px + 0.2, 1.75, pw - 0.4, 0.35, { size: 14, bold: true });
-  T(s, '1,422 stays, 63,488 hours, 71 sepsis events', px + 0.2, 2.1, pw - 0.4, 0.3, { size: 12, color: GREY });
-  [['0.81', 'hourly AUROC, 3 seeds'], ['5 h', 'median warning before onset'], ['1 in 2', 'sepsis events caught at 0.5 false alarms a day'], ['0.08-0.27', '95 % CI of utility 0.18']].forEach((k, i) => {
-    const col = i % 2, row = Math.floor(i / 2), x = px + 0.2 + col * (pw - 0.4) / 2, y = 2.55 + row * 1.35;
-    T(s, k[0], x, y, (pw - 0.5) / 2, 0.6, { size: k[0].length > 6 ? 22 : 28, bold: true, color: RED });
-    T(s, k[1], x, y + 0.6, (pw - 0.6) / 2, 0.6, { size: 12 });
+  T(s, '1,422 stays, 71 sepsis events, identical hours', px + 0.2, 2.1, pw - 0.4, 0.3, { size: 12, color: GREY });
+  [['21 / 21', 'models with utility above zero, every 95 % CI above zero'], ['0.08-0.29', 'utility range across all models'], ['0.23', 'OSTA, 95 % CI 0.13 to 0.34'], ['0.15', 'winner\'s method, 95 % CI 0.06 to 0.22']].forEach((k, i) => {
+    const col = i % 2, row = Math.floor(i / 2), x = px + 0.2 + col * (pw - 0.4) / 2, y = 2.5 + row * 1.3;
+    T(s, k[0], x, y, (pw - 0.5) / 2, 0.55, { size: k[0].length > 6 ? 22 : 28, bold: true, color: RED });
+    T(s, k[1], x, y + 0.55, (pw - 0.6) / 2, 0.7, { size: 11.5 });
   });
-  T(s, 'On 10,000-stay samples all neural models reach AUROC 0.80 to 0.81: the full cohort will separate them. The winner\'s method is being replicated on MIMIC-IV now.', px + 0.2, 5.25, pw - 0.4, 1.0, { size: 12, color: GREY });
+  T(s, 'Rules fixed in advance, applied on validation: organ grouping did not beat the same model without it; GRU-D, TCN and flat OSTA shortlisted. Validation and test rankings disagree, so the full cohort decides.', px + 0.2, 5.15, pw - 0.4, 1.1, { size: 11.5, color: GREY });
   refFooter(s);
-  s.addNotes('1 min. Grey is the published winner: 0.43 on new patients from the hospitals it trained on, minus 0.12 on a hospital it had never seen. Red is this project. The point is not that 0.18 is high; it is positive, with its confidence interval above zero, on raw data scored causally. Say the caveats: preliminary, development split, holdout sealed.');
+  s.addNotes('1 min. Grey is the published winner: 0.43 on its own hospitals, minus 0.12 on an unseen one. Dark grey is the winner\'s own method rebuilt in our causal pipeline on MIMIC-IV: 0.15. Red is this project: OSTA 0.23, and GRU-D, the model the prespecified rule chose on validation, 0.19. All 21 models have positive utility with confidence intervals above zero. The organ grouping did not beat the same model without it at this sample size; that is reported as found. Say: preliminary, one run, development split.');
 
   // ===== 14 CONTRIBUTION + NEXT =====
   pres.addSection({ title: 'Contribution and next steps' });
@@ -608,8 +610,8 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   refFooter(s);
 
   s = slide('BACKUP', 'BACKUP', 'Backup');
-  s.addText('On 10,000 stays every model overfits within three epochs', { placeholder: 'title' });
-  [['1 to 3', 'epochs to the best validation score, while training loss keeps falling'], ['175', 'septic stays per training split, against 300 to 655 predictors'], ['0.80 to 0.81', 'AUROC of OSTA, CNN-Transformer, output fusion: differences below seed noise (SD 0.012)']].forEach((k, i) => {
+  s.addText('On 10,000 stays models overfit fast and the validation split is too small to rank them', { placeholder: 'title' });
+  [['1 to 3', 'epochs to the best validation score, while training loss keeps falling'], ['175', 'septic stays per training split, against 300 to 655 predictors'], ['0.12 vs 0.28', 'validation utility of OSTA and flat OSTA, which tie on test (0.23): validation and test rankings disagree']].forEach((k, i) => {
     const x = M + i * 4.1; T(s, k[0], x, 1.8, 3.9, 0.8, { size: 36, bold: true, color: RED }); T(s, k[1], x, 2.65, 3.8, 1.1, { size: 14 }); });
   list(s, ['Response: full cohort (about nine times more sepsis cases), self-supervised pretraining on unlabelled stays ' + c('yeche21') + ', loss chosen by utility ' + c('yeche23') + ', three seeds.', 'All figures: ' + 'this work, preliminary ' + c('thiswork') + '.'], M, 4.1, CW, 2.0, { size: 14 });
   refFooter(s);

@@ -163,22 +163,27 @@ children.push(table(['Channel', 'Before audit', 'After audit'], [
 children.push(gap());
 
 children.push(H2('4.4 Preliminary results on the development split'));
-children.push(P('The following are preliminary results on the development test split of the 10,000-stay samples (one to three seeds). The sealed holdout has not been opened and nothing has been tuned on test data. Full results will appear in the manuscript in preparation.'));
+children.push(P('The following are preliminary results from the prespecified comparison on the MIMIC-IV development test split of the 10,000-stay sample (one run). Every model was scored on identical hours with the official PhysioNet utility scorer. The sealed holdout has not been opened and nothing was tuned on test data. Full results will appear in the manuscript in preparation.'));
 children.push(table(['Measure', 'MIMIC-IV development test split'], [
   ['Test split', '1,422 stays, 63,488 hours, 71 sepsis events; 0.65 % of hours positive'],
-  ['Hourly AUROC', '0.81 (three seeds, SD 0.012) for OSTA and the CNN-Transformer; 0.80 output fusion; 0.78 logistic regression; 0.76 boosted trees'],
-  ['Hourly AUPRC', '0.03 to 0.04 at 0.65 % prevalence (chance 0.0065)'],
-  ['Sensitivity at 0.5 false alarms per patient-day', 'about one sepsis event in two'],
-  ['Median warning before onset', '5 hours'],
-  ['Normalised utility', 'best model 0.18 (95 % CI 0.08 to 0.27); OSTA 0.12'],
+  ['Models compared', '21: sixteen architectures, loss comparators (cross-entropy and time-to-onset weighted) and a mean ensemble'],
+  ['Normalised utility', 'all 21 models above zero, every 95 % CI above zero; range 0.08 to 0.29'],
+  ['OSTA-Transformer', '0.23 (95 % CI 0.13 to 0.34)'],
+  ['Winner\'s method rebuilt in this pipeline', '0.15 (95 % CI 0.06 to 0.22)'],
+  ['Highest point estimates', 'self-supervised CNN encoder with OSTA head 0.29 (0.17 to 0.39); CNN with OSTA head 0.28; mean ensemble 0.28'],
+  ['Model chosen by the validation rule', 'GRU-D, 0.19 (0.08 to 0.29)'],
+  ['Logistic regression', '0.08 (0.01 to 0.16)'],
+  ['Hourly AUROC', '0.72 to 0.84 across models'],
   ['Reference points', 'PhysioNet 2019 winner: 0.43 on new patients from its training hospitals, -0.12 on the hidden hospital; our causal OSTA on PhysioNet: 0.22'],
 ], [3200, 5800]));
 children.push(gap());
-children.push(P('The utility on MIMIC-IV is modest but clearly positive on a database built from raw tables with every hour scored causally, whereas the best competition entry fell below zero as soon as it left its training hospitals. On eICU the development-split AUROC is 0.67 to 0.69 and the utility is not yet distinguishable from zero; eICU has the weaker antibiotic-only label and, before the audit, the poorest coverage, and it is the focus of the full-cohort, leave-hospital-out and label-harmonisation work planned below. The candidate\'s replication of the winner\'s own method on both databases is in progress.'));
+children.push(P('On a database built from raw tables with every hour scored causally, every model keeps a positive utility, including the competition winner\'s own method, whereas the published winner fell below zero as soon as it left its training hospitals. The architectures differ more in point estimate than their overlapping intervals can support at this sample size. Transfer is the open problem: MIMIC-IV models scored on eICU development patients give utilities of -0.03 to 0.04 with intervals that include zero (hourly AUROC 0.58 to 0.68). eICU has the weaker antibiotic-only label and is the focus of the native eICU results (running at the time of writing), the full cohort, leave-hospital-out evaluation and label harmonisation.'));
 
-children.push(H2('4.5 Overfitting and the architecture comparison'));
-children.push(P('Training records show that every rich-feature neural model reaches its best validation score within one to three epochs while the training loss keeps falling: a training split contains about 175 septic stays, too few for 300 to 650 predictors. The AUROCs of OSTA, the CNN-Transformer, output fusion and the gated variants differ by less than the seed-to-seed noise, and OSTA with and without attention gates gives identical results because the chosen checkpoint is the first epoch either way. The conclusion is that on this sample size nothing separates the architectures, and that the next lever is data: the full cohort (about nine times more sepsis cases), self-supervised pretraining on unlabelled stays, and a training loss chosen by utility.'));
-children.push(P('The prespecified comparison of sixteen models, three losses and the organ-structure ablation, with self-supervised pretraining and the winner\'s method, is running at the time of writing; its shortlist, chosen by the validation rule, goes to the full-cohort run.'));
+children.push(H2('4.5 Overfitting and the prespecified decisions'));
+children.push(P('Training records show that every rich-feature neural model reaches its best validation score within one to three epochs while the training loss keeps falling: a training split contains about 175 septic stays, too few for 300 to 650 predictors. The validation split is also too small to rank models reliably: OSTA and OSTA without organ grouping tie on test (0.23 each) but score 0.12 and 0.28 on validation, and the validation leaders (GRU-D 0.29, TCN 0.29) are mid-table on test.'));
+children.push(P('The decision rules fixed before any result were applied on validation only. Organ structure is not supported at this sample size: OSTA did not beat its flat counterpart on validation, and this is reported as found. The loss comparison is undecided (cross-entropy ranked first for OSTA, the utility-weighted loss for the self-supervised model, the time-to-onset loss last for both). The shortlist for the full cohort is GRU-D, the temporal CNN and flat OSTA, plus the baselines and the winner\'s method; any further model added to it will be declared as a deviation. The next lever is data: the full cohort has about nine times more sepsis cases and runs with three seeds.'));
+
+
 
 children.push(H2('4.6 Publications and dissemination'));
 children.push(P('Three manuscripts were submitted during the period (Section 5). The main study on MIMIC-IV and eICU is being written up for submission in 2027 once the full-cohort and sealed-holdout results are available. The candidate presents the work at the SCEBE Research Degree Conference on 20 October 2026 (15-minute talk and questions).'));
@@ -231,12 +236,13 @@ children.push(gap());
 children.push(H2('7.1 Risks and mitigations'));
 children.push(bullet([R('Compute time. ', { bold: true }), R('The full cohort is about nine times the current sample; Colab runs of 12 to 16 hours per experiment are at the limit. Mitigation: a dedicated cloud GPU machine for the full-cohort runs, with the same resumable pipeline.')]));
 children.push(bullet([R('Label heterogeneity. ', { bold: true }), R('eICU\'s antibiotic-only suspicion is weaker than MIMIC-IV\'s. Mitigation: report transfer under both definitions and a harmonised antibiotic-only sensitivity analysis.')]));
-children.push(bullet([R('Small-sample overfitting. ', { bold: true }), R('Mitigation: scale, self-supervised pretraining, three seeds, and a shortlist chosen on validation rather than test.')]));
+children.push(bullet([R('Small-sample overfitting. ', { bold: true }), R('Mitigation: scale, self-supervised pretraining, three seeds, and a shortlist chosen on validation rather than test; the full cohort also gives a validation split large enough to rank models.')]));
 children.push(bullet([R('Ethics lead time for the prospective phase. ', { bold: true }), R('Mitigation: start the ethics and data-governance applications in early 2027 and build on contacts made during the qualitative study to secure a clinical partner.')]));
+
 
 // 8 Conclusion
 children.push(H1('8. Conclusion'));
-children.push(P('The period turned a set of promising but leaky results into an honest, transferable research programme. The candidate audited and retired the earlier models, built a causal pipeline across two raw ICU databases with one shared definition of sepsis and a clinician-defined predictor set, moved evaluation to clinical utility with a sealed holdout, and produced preliminary evidence that a causally scored warning keeps positive utility on MIMIC-IV where the best published competition entry collapsed on an unseen hospital. Three manuscripts were submitted. The next period scales the evaluation to the full cohort, opens the holdout once, brings in the clinicians who would receive the alarm, and prepares the prospective test on hospital patients that the whole programme points towards.'));
+children.push(P('The period turned a set of promising but leaky results into an honest, transferable research programme. The candidate audited and retired the earlier models, built a causal pipeline across two raw ICU databases with one shared definition of sepsis and a clinician-defined predictor set, moved evaluation to clinical utility with a sealed holdout, and produced preliminary evidence that, on identical MIMIC-IV hours, all 21 models compared, including the competition winner\'s own method, keep a positive utility, while transfer to a second hospital system remains the open problem. Three manuscripts were submitted. The next period scales the evaluation to the full cohort, opens the holdout once, brings in the clinicians who would receive the alarm, and prepares the prospective test on hospital patients that the whole programme points towards.'));
 
 // ---------- document ----------
 const { Header, Footer, PageNumber } = require('docx');
