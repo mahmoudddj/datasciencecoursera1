@@ -21,3 +21,21 @@ Every departure from the prespecified V11 protocol (`run_protocol.json`, `protoc
 5. The 10,000-stay development test numbers for these two arms are not an unbiased estimate, because they prompted the choice. The unbiased estimate is the sealed holdout, opened once after the protocol is frozen.
 
 **Design item to settle before the full-cohort run (not a further deviation):** the unlabelled pretraining corpus is currently "raw stays not in the labelled cohort, protected patients excluded". At full scale nearly every eligible stay is in the cohort, so this corpus shrinks. Other stays of validation and test patients are also not excluded. The full-cohort build will define the corpus before any full-cohort result exists. The definition will be non-cohort stays plus training-split stays (inputs only, no labels), excluding every stay of a validation, test or protected patient.
+
+## Earlier disclosures (development notebooks `_6` to `_10`, before protocol v11-1.0)
+
+These decisions were taken after interim development results had been seen. They are disclosed here and in each run's `PRIOR_TEST_EXPOSURE` text. None tuned a model on test results.
+
+- **E1. Calibration fix (`_7`, 17 Oct 2026).**
+  - **Trigger:** implausible eICU results in run `bd4f8ab28e59f7e2`, with AUROC 0.31–0.39 and calibration slopes of about −3.
+  - **Cause:** a negative Platt slope fitted on the small eICU calibration split had reversed every ranking.
+  - **Change:** a non-positive fitted slope now falls back to intercept-only recalibration, and the fitted slope and the fallback are recorded. This corrects a monotonicity bug; it is not tuning.
+- **E2. Three seeds (`_8`, 17 Oct 2026).**
+  - **Trigger:** decided after viewing run `ed26e1692aa04d2c`, to measure seed-to-seed variation.
+  - **Outcome:** it lowered the headline MIMIC-IV estimate (hourly AUROC 0.819 with one seed, about 0.81 over three).
+- **E3. Original OSTA loss restored (`_9`, 17–18 Oct 2026).**
+  - **Trigger:** V10 had trained OSTA with plain cross-entropy instead of its purpose-built loss. This was an implementation departure, noticed after interim results.
+  - **Change:** the original loss was ported, verified equal to the original code on 20 random batches, and compared directly with cross-entropy. It gave no gain and was retired in V11.
+- **E4. Extraction and predictor changes (`_9`, `_10`, 18–19 Oct 2026).**
+  - **Trigger:** a coverage audit of run `ed26e1692aa04d2c` (for example, eICU temperature 5 % and blood pressure 21 % of hours). The changes fix how data are read, and the predictor classes were added for clinical completeness. Performance was not the reason for either.
+  - **Changes:** eICU nurse-charted vital signs, admission weight, the MIMIC-IV item corrections, carry-forward rules, comorbidities, and every candidate predictor class (655 shared predictors).

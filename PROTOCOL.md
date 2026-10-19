@@ -1,8 +1,16 @@
 # Study protocol: early warning of sepsis that holds across hospital systems
 
-**Candidate:** Mahmoud Essam Elrggal · **Second supervisor:** Dr Kia Dashtipour
+**Candidate:** Mahmoud Essam Elrggal · **Director of Studies:** Prof. Ahmed Al Dubai · **Second supervisor:** Dr Kia Dashtipour
 **Protocol version:** v11-1.0 (the `protocol_v11` value written into every run's `run_protocol.json`)
-**This document:** consolidated 19 Oct 2026 from the decisions recorded in the notebooks between 16 and 19 Oct 2026, before any result they govern existed. Its git commit is its timestamp. Departures are recorded in `PROTOCOL_DEVIATIONS.md`, never by editing this file silently. Items marked **TO FREEZE** must be fixed and committed here before the full-cohort run starts.
+
+**About this document:**
+
+- **Consolidated:** 19 Oct 2026, from the decisions recorded in the notebooks between 16 and 19 Oct 2026.
+- **Checked against:** the code embedded in `Sepsis_V11_Improved_MIMIC_eICU_11_architectures.ipynb`. File and line references point to `dev/work/mods/` and `dev/work/cells/`.
+- **Timestamp:** the git commit of this file.
+- **Departures:** recorded in `PROTOCOL_DEVIATIONS.md`; this file is never edited silently.
+- **TO FREEZE:** items so marked must be decided and committed here before the full-cohort run starts.
+- **Status of results:** all results quoted here are preliminary development-split results; the sealed holdout has not been opened.
 
 ---
 
@@ -12,7 +20,7 @@ Using only what a clinician could have known at each hour, can a model warn of s
 
 - **RQ1, predictors.** Which clinically defined predictors carry signal without leaking the label or the clinician's own suspicion?
 - **RQ2, architecture.** Does organ-system structure, or self-supervised pretraining, improve utility over simpler sequence models and the published competition winner's method?
-- **RQ3, transfer and trust.** Does utility survive transfer between two hospital systems, and would intensive-care and infectious-disease consultants act on the alarm?
+- **RQ3, transfer and trust.** Does utility survive transfer between two hospital systems, and would infectious-disease and critical-care consultants act on the alarm?
 
 ## 2. Design
 
@@ -20,190 +28,314 @@ Mixed methods, in three phases.
 
 | Phase | What | Status |
 |---|---|---|
-| 1. Quantitative, retrospective | Model development and evaluation on two open ICU databases (this protocol) | Stage 1 complete on MIMIC-IV; eICU running |
-| 2. Qualitative | Online interviews and round-table discussions with 20 infectious-disease and critical-care consultants from different hospitals, on trust, alarm burden and action thresholds | In progress; described in its own protocol |
+| 1. Quantitative, retrospective | Model development and evaluation on open ICU databases (this protocol) | Stage 1 complete on MIMIC-IV; eICU running |
+| 2. Qualitative | Online interviews and round-table discussions with 20 infectious-disease and critical-care consultants from different hospitals: trust, alarm burden, action thresholds | In progress; described in its own protocol |
 | 3. Prospective (future) | Silent test on hospital patients: live scoring, alerts logged but not shown, compared with outcomes | Needs separate ethics, data-governance and hospital agreements |
 
 Phase 1 runs in two stages:
 
-- **Stage 1, comparison:** a prespecified comparison on a fixed random sample of 10,000 candidate stays per database, with one seed. Rules fixed in advance choose the models and the loss.
-- **Stage 2, full cohort:** the shortlisted models on all eligible stays, with three seeds. The sealed holdout is opened once at the end.
+- **Stage 1, comparison:** the prespecified comparison on a fixed random sample of 10,000 candidate stays per database, with one seed. Rules fixed in advance choose the models and the loss for stage 2.
+- **Stage 2, full cohort:** the chosen models on all eligible stays, with three seeds. The sealed holdout is opened once at the end.
+
+**Prior exposure:** development test-split results have been viewed repeatedly during development (runs `_6` to `_11`; Section 14). The development test split is therefore not an untouched test. The unbiased estimate is the sealed holdout. Every run in full mode records this in `PRIOR_TEST_EXPOSURE`.
 
 ## 3. Data
 
 | Source | Version | Role |
 |---|---|---|
-| MIMIC-IV | 3.1 (Beth Israel Deaconess, Boston; ~94,000 ICU stays) | Development and transfer target |
-| eICU-CRD | 2.0 (208 US hospitals; 200,859 unit stays) | Development and transfer target; leave-hospital-out in stage 2 |
-| PhysioNet/CinC Challenge 2019 | public training set (40,336 stays) | Historical comparison only (leakage audit, causal rebuild of the earlier models) |
+| MIMIC-IV | 3.1 (Beth Israel Deaconess Medical Center, Boston) | Development; transfer target |
+| eICU-CRD | 2.0 (208 US hospitals) | Development; transfer target; leave-hospital-out in stage 2 |
+| PhysioNet/CinC Challenge 2019 | Public training set | Earlier work and the causal OSTA baseline (Section 14); legacy external validation (Notebook B) |
 
 **Governance:**
 
-- All access is credentialed under the PhysioNet data use agreements.
+- Access is credentialed under the PhysioNet data use agreements.
 - Patient-level data stay in the candidate's Google Drive and Colab runtime.
-- No patient-level data are sent to any external service, AI services included; only aggregate results leave the runtime.
+- No code sends patient-level data to any external service; only aggregate results leave the runtime.
 
 ## 4. Cohort, label and prediction target
 
-- **Label:** Sepsis-3 onset as implemented by the YAIB benchmark (`sep3_alt`, through the pinned `ricu` code). Onset is the time of suspected infection paired with a SOFA increase of 2 or more.
-- **Suspected infection:** antibiotics with cultures in MIMIC-IV; antibiotics only in eICU, which records no cultures in the same form.
-- **Cohort:** the YAIB sepsis cohort definition and exclusions, unchanged.
-- **Stage 1 sample:** 10,000 candidate stays per database, drawn at random (seed 42). The sample was prespecified on 16 Oct 2026, and the same samples and splits were used from `_8` to `_11`.
-- **Target:** at every hour, will sepsis onset occur within the next 6 hours?
-- **Scored hours:** the first 120 hours of each stay. Step labels start at onset minus 6 h. An onset after the 120-hour window counts as non-septic.
-- **Post-onset hours:** scored by the utility function, as the official scorer does. They enter training only through the utility-weighted loss (Section 7).
+**Label:**
+
+- Sepsis-3 onset as implemented by the YAIB benchmark (`sep3_alt`), extracted with `ricu` through the embedded label worker (`v9_yaib_worker.py`, sha `3e5e87fd…`).
+- The pinned YAIB `abx_cont` callback is patched for empty batches by notebook cell 4c (`cells/fix_4c_abx_cont.py`; pinned sha `f88c1007…` → `b42caa98…`).
+- The repository copy of the worker carries a later interval-units fix that the `_11` notebook does not embed. It is unchanged so that the cohort key is kept; the run's logs showed the correct `1 hours` interval.
+
+**Suspected infection:**
+
+- MIMIC-IV: antibiotics paired with cultures.
+- eICU: antibiotics only (`si_mode='abx'`).
+
+**Cohort (YAIB exclusions, `pinned_yaib_sepsis.py:44-111`):** a stay is excluded for any of:
+
+- invalid length of stay, or length of stay under 6 h;
+- fewer than 4 hours with any measurement;
+- a gap of more than 12 h between measurements;
+- age under 18;
+- sepsis onset less than 6 h after ICU admission;
+- in eICU only, a hospital with zero sepsis prevalence (assessed within the sampled candidates).
+
+YAIB ends a septic stay's follow-up at onset + 6 h and caps every stay at 7 days.
+
+**Stage-1 sample:** 10,000 candidate stays per database, drawn at random with seed 42. The sample was prespecified on 16 Oct 2026 and is part of the cohort key; notebooks `_6` to `_11` use the same samples and splits.
+
+**Hourly grid and target:**
+
+- Hours run from 1 to min(120, follow-up).
+- Hour *h* is positive if onset falls in (*h*, *h* + 6].
+- An hour is **scored** if it is before onset and its 6-hour horizon is observed. Stays with no scored hour are dropped.
+- Because the label looks 6 h ahead, a stay whose onset falls between 120 and 126 h has positive hours inside the window and counts as septic. A stay with a later onset counts as non-septic.
+- Post-onset hours are kept in the data but are not scored hours. The utility function still scores them, as the official scorer does, and the primary loss uses the onset hour and the 3 hours after it (Section 8).
 
 ## 5. Splits and the sealed holdout
 
-1. **Protected holdout (20 % of patients):** a patient is protected if `sha256('sepsis-final-v1|' + patient id) mod 5 == 0`.
+1. **Protected holdout (20 % of patients).** A patient is protected if `int(sha256('sepsis-final-v1|' + pid).hexdigest()[:8], 16) mod 5 == 0`.
+   - `pid` is `'<miiv|eicu>|<subject_id or uniquepid>'` (`v10_protocol.py:8-9`).
    - The rule does not depend on outcomes and was fixed before any model existed.
    - Protected patients are excluded from every development step, including the unlabelled pretraining corpus.
-2. **Development patients** are split by patient, never by stay or hour, and stratified by whether the patient has a sepsis event:
-   - **Test:** 20 % of development patients.
-   - **Training pool:** the remaining 80 %, divided as:
-     - training, 60 % of the pool;
-     - observer-fit, 20 % (trains the small per-organ observer models used by output fusion; also used with training to fit input normalisation);
-     - validation, 10 %;
-     - calibration, 10 %.
+2. **Development patients** are split by patient, never by stay or hour (`v10_protocol.py:53-82`). Stratification uses whether the patient has any stay with a positive scored hour.
 
-   An assertion stops the run if any patient appears in two splits.
-3. **Final evaluation:**
-   - The holdout is opened once, after this protocol is frozen, with `RELEASE_FINAL_HOLDOUT=True`.
-   - Any prior exposure to test data is declared in `PRIOR_TEST_EXPOSURE` before release.
-   - Each database's protected patients are scored by models trained on the **other** database's development patients (cross-database test).
+   | Split | Share | Use |
+   |---|---|---|
+   | Test | 20 % of development patients | Reported for every arm; never used to choose |
+   | Training | 60 % of the remaining pool | Model fitting |
+   | Observer-fit | 20 % of the pool | Trains the frozen observer bank (Section 7); with training, fits input normalisation |
+   | Validation | 10 % of the pool | Early stopping; the decision rules (Section 10) |
+   | Calibration | 10 % of the pool | Platt scaling and both alarm thresholds |
+
+   An assertion stops the run if any patient appears in two splits. Each split must contain both classes.
+3. **Final evaluation** (`RELEASE_FINAL_HOLDOUT=True`, full mode only; smoke mode cannot release):
+   - Models are trained on all development patients of one database, re-partitioned 60/20/10/10 as above.
+   - They are tested on the **other** database's protected patients (cross-database test).
+   - `PRIOR_TEST_EXPOSURE` must be non-empty before release.
+   - **TO FREEZE: unlabelled data at final release.** As written, the "site" self-supervised encoder pretrains on the unlabelled stays of the *test* database in final mode (`v11_train.py:329`). These stays are non-protected and carry no labels, but this is unsupervised adaptation to the target hospital system. Before release, either keep it and declare it as transductive adaptation, or switch the site encoder to the training database's corpus.
 
 ## 6. Predictors
 
-There are 655 predictors, including a "measured?" mask and a "how old?" age (in days) for each measured channel.
+There are **659 predictors**: the V10.5 set of 655 plus the two prophylaxis features and their masks (`v9_data.py:41-42, 1166-1167`). Some are always missing in eICU because eICU does not record them: prophylaxis and the earlier-admission history. They include 257 "measured?" masks and 94 "how old?" age channels.
 
-**Causality:**
+**Availability and causality** (`v9_data.py:383-457`):
 
-- Every value is used only from the hour it was charted, or, for results, when it became available.
-- Values are carried forward with their age, never interpolated from the future.
-- Every neural architecture passes a future-perturbation test: changing future inputs cannot change past outputs.
+- **When a value becomes usable:**
+  - MIMIC-IV: at the later of its chart time and store time; a value with no store time is dropped.
+  - eICU laboratory results: at the later of the result offset and the revision offset.
+  - eICU nurse and respiratory charting: at the entry offset.
+  - eICU monitor vital signs: at the observation offset.
+- Values from up to 24 h before ICU admission are used.
+- Every V11 neural architecture passes a future-perturbation test: changing future inputs cannot change past outputs.
 
-**Classes:**
+**Carry-forward and expiry** (`v9_data.py:87, 937-1068, 1143`):
 
-- vital signs and laboratory values, with deltas from the previous value and from baseline;
-- full SOFA and its components, with change from the best value so far;
-- KDIGO acute kidney injury stage (48-hour creatinine window);
-- vasopressor noradrenaline-equivalent dose;
-- ventilation and oxygen therapy (including high-flow and non-invasive), sedation and delirium scores;
-- urine output rate and fluid balance;
-- devices and procedures (renal replacement, bronchoscopy, drains), nutrition, and selected drug exposures (proton-pump inhibitors, insulin, anticoagulants);
-- comorbidities;
-- admission context: prior admissions, prior ICU stays in the same admission, admission source, and, in MIMIC-IV only, positive cultures and antibiotics from earlier admissions, strictly before the current one;
-- NEWS2;
-- prophylactic antibiotics (MIMIC-IV only), surgical and medical, by guideline rule:
-  - **Surgical:** a prophylaxis agent with perioperative timing, given for 24 h or less (48 h after cardiac surgery), with no culture in the Seymour window (72 h before to 24 h after) and no escalation within 72 h.
-  - **Medical:** the agent and dose pattern of PJP, SBP, neutropenia or transplant prophylaxis.
+- Vital signs, laboratory values and charted states are carried forward for 24 h, then become missing.
+- GCS and its components, weight and height never expire.
+- An intubated patient's verbal GCS is reset to unknown.
+- Vasopressor and inotrope flags need a record in the preceding hour.
+- The noradrenaline-equivalent dose sums each drug's latest rate, up to 6 h old.
+- After expiry the mask is 0 and the age channel keeps counting.
+
+**Predictor classes:**
+
+- **Vital signs and monitoring:** heart rate; cuff and arterial pressures; respiratory rate; oxygen saturation; temperature; end-tidal CO2; CVP; PA mean; cardiac output; ScvO2; ventilator settings (FiO2, PEEP, tidal and minute volume, peak and plateau pressure); oxygen flow; RASS; pain score.
+- **Trend and extreme statistics:** for vital signs, the slope, variance, skew and count of fresh measurements over 3 and 6 h, and 24-hour extremes (`v10_features.py:53-62`).
+- **Laboratory values:** chemistry, full blood count with differential, coagulation, lactate, blood gases, procalcitonin, troponin, BNP, ferritin, D-dimer, LDH, lipase, ammonia, amylase, ESR, and urine dipstick results.
+- **Laboratory deltas:** for 12 laboratory values, the change from the previous result and from the first result in the stay. Unknown if the latest result is more than 48 h old (`v9_data.py:29, 1018-1030`).
+- **Scores and derived values:**
+  - full SOFA and its components, with change from the best value so far;
+  - qSOFA, SIRS and NEWS2, counting criteria met among measured values;
+  - shock index; P/F and S/F ratios; NLR; BMI; net fluid balance; ICU length of stay;
+  - KDIGO stage. The 0.3 mg/dL creatinine rise uses a 48-hour window; the creatinine ratio uses the lowest value in the previous 7 days; the urine criterion gives stage 1 only; documented renal replacement gives stage 3 (`v9_data.py:1032-1050`).
+- **Organ support and treatment:**
+  - vasopressor dose (noradrenaline equivalents) and inotropes;
+  - intubation and cumulative airway hours; high-flow oxygen and non-invasive ventilation;
+  - renal replacement; bronchoscopy;
+  - fluids and transfusion; parenteral and enteral nutrition;
+  - drug classes, each recorded in the last 24 h: immunosuppressants, chemotherapy, corticosteroids, stress-dose hydrocortisone, beta-blockers, antipyretics, sedatives, opioids, diuretics, proton-pump inhibitors, insulin and anticoagulants.
+- **Devices** (flagged from first documentation onward): central, arterial and dialysis lines; urinary catheters; drains.
+- **Context and history:**
+  - hours in hospital before ICU; admission source; ICU type;
+  - prior ICU stays in the same admission;
+  - the eICU admitting diagnosis (infection-related or operative).
+  - **MIMIC-IV only** (missing in eICU): prior admissions in the last year; days since last discharge; admission from a nursing facility; positive cultures in the last year and antibiotics in the last 90 days, strictly before the current admission (`v9_data.py:741-828`).
+  - **Comorbidities (17):** in MIMIC-IV from ICD codes of earlier admissions discharged before ICU entry; in eICU from past-history and diagnosis entries at their entry times.
+- **Prophylactic antibiotics** (MIMIC-IV only; `v11_data.py:30-160`):
+  - **Surgical:** a prophylaxis agent given between 8 h before and 1 h after a surgical timestamp, for 24 h or less (48 h if any cardiac or vascular surgical service is recorded in the admission). A once-daily order with no stop time also qualifies.
+    - Surgical timestamps: OR, PACU, recovery and procedure transfers; surgical-service transfers; and hour 0 of any admission type containing "surgical".
+  - **Medical:** pneumocystis, SBP, neutropenia or transplant prophylaxis by agent and dose pattern, including antifungal and antiviral agents.
+  - **Both** also require no culture in the Seymour window (72 h before to 24 h after the dose) and no escalation within 72 h.
 
 **Never used as predictors:**
 
-- empirical or culture-directed antibiotics and cultures of the current admission (they define the label);
-- race, ethnicity and insurance (subgroup fairness analysis only);
+- empirical or culture-directed antibiotics and the cultures of the current admission (they define the label);
+- race, ethnicity and insurance;
 - code status;
-- clinical notes (a separate later phase).
+- clinical notes.
 
-**Sensitivity sets:**
+**Feature sets** (`main_14_v11.py`, `main_15_v11.py`):
 
-- **raw:** core vital signs and laboratory values only;
-- **no proxies:** without hydrocortisone, imaging orders and prophylaxis, which reflect the clinician's suspicion.
+| Set | Content | Arms |
+|---|---|---|
+| Rich (primary) | All 659 predictors | All arms |
+| Raw | 267 columns: the 83 specified measurement channels plus GCS, weight, age, sex, vasopressor and inotrope flags and urine output, with masks and ages | OSTA, logistic regression, boosted trees |
+| No proxies | The rich set without hydrocortisone, imaging orders and the two prophylaxis features (653 columns), which may encode the team's existing suspicion | OSTA only |
+
+The eICU admitting-diagnosis features stay in the no-proxy set.
 
 ## 7. Models
 
-All models are scored on identical hours and splits.
+All models are scored on identical hours and splits. Groups of predictors follow the feature registry, which assigns every predictor to one of 14 groups:
+
+- the six SOFA organ systems: respiratory, cardiovascular, renal, hepatic, hematologic and neurologic;
+- inflammatory, metabolic, systemic composite and demographic;
+- infection risk, treatment, admission and comorbidity.
 
 | Group | Model | What it is |
 |---|---|---|
-| Baselines | Logistic regression | Linear model on the hourly predictor vector |
-| | Boosted trees | Histogram gradient boosting (learning rate 0.05, 31 leaves, L2 1.0) with patient-grouped early stopping on validation, up to 1,000 iterations |
-| Literature benchmark | Signature boosted trees | The PhysioNet 2019 winner's method (path-signature features + gradient boosting), rebuilt in this pipeline |
-| Earlier models of this PhD | OSTA-Transformer | Organ-system-aware temporal attention: predictors grouped by organ system, per-organ encoders, cross-organ attention, per-organ risk |
-| | Output fusion | OSTA plus a bank of small per-organ-group observer networks (trained on the separate observer-fit split), whose risk estimates are added to OSTA's output through a learned linear layer |
-| | CNN–Transformer | Convolutional front end followed by a transformer |
+| Baselines | Logistic regression | L2 (C = 1, lbfgs, 1,000 iterations) on the hourly predictor vector |
+| | Boosted trees | Histogram gradient boosting: learning rate 0.05, 31 leaves, L2 1.0. Up to 1,000 iterations, checked every 50 against validation AUPRC with patience 5, then refit at the best count |
+| Literature benchmark | Signature boosted trees | The PhysioNet 2019 winner's approach. Depth-2 path signatures of time plus 7 fast vital signs over trailing 6- and 24-h windows, appended to all predictors, then the same boosted trees. Not LightGBM, and without the winner's full augmentations (`v11_train.py:80-109`) |
+| Earlier models of this PhD | OSTA-Transformer | Per-group encoders (d 32) with temporal attention; cross-organ attention; a global transformer (d 128, 4 heads, 2 + 2 layers, causal). Output = global head + 0.3 × attention-weighted per-group risk logits |
+| | Output fusion | OSTA plus the frozen observer bank (below), whose outputs are added to OSTA's logit through a bias-free linear layer |
+| | CNN–Transformer | Multiscale causal CNN (dilations 1, 2, 4; LayerNorm) followed by a causal transformer (d 128, 2 layers) |
 | New supervised | Flat OSTA | OSTA with all predictors in one group: the organ-structure ablation |
-| | GRU-D | Recurrent network with learned decay towards the mean as measurements age |
-| | TCN | Causal dilated temporal convolution network |
-| | CNN→OSTA | Per-channel causal CNN encoder over value, mask and age, then an OSTA head |
-| | Event OSTA | Attention from each hour to fresh observations of the fast vital-sign channels within 24 h, then an OSTA head |
-| Self-supervised | SSL-CNN→OSTA / →flat | The same per-channel encoder pretrained without labels, then an OSTA head or a flat head |
-| | Pooled twins | The same, with an encoder pretrained on both databases (reported as adaptation) |
-| | Hazard SSL-CNN→OSTA | Discrete-time survival head (1, 3, 6, 12, 24 h); the 6-hour risk is 1 − S(6 h) |
-| Secondary | Mean ensemble | Unweighted mean of OSTA, CNN–Transformer and SSL-CNN→OSTA |
+| | GRU-D | Recurrent network (hidden 128) with learned decay of carried values towards the mean as their age grows, and of the hidden state |
+| | TCN | Causal dilated temporal convolution network: width 96, kernel 3, dilations 1 to 16 |
+| | CNN→OSTA | Depthwise per-channel causal CNN over value, mask and age (kernel 3, dilations 1, 2, 4; 15-h receptive field; 2 latents per channel), concatenated with all predictors, then OSTA |
+| | Event OSTA | Attention from each hour to fresh observations of 7 fast vital signs within a 24-h lookback (plus a sentinel key), then OSTA |
+| Self-supervised | SSL-CNN→OSTA / →flat | The CNN→OSTA encoder pretrained without labels (below), then fine-tuned (not frozen) with an OSTA head or a flat head |
+| | Pooled twins | The same, with the encoder pretrained on both databases' corpora; reported as adaptation |
+| | Hazard SSL-CNN→OSTA | Discrete-time survival head (bins ending at 1, 3, 6, 12 and 24 h), trained by survival likelihood on all observed pre-onset hours and censored at the last observed hour. Reported 6-h risk = 1 − S(6 h). Ignores the loss setting (`v11_train.py:65-77`) |
+| Secondary | Mean ensemble | Unweighted mean of the Platt-calibrated risks of OSTA, CNN–Transformer and SSL-CNN→OSTA (primary-loss runs). Thresholds re-chosen on calibration; no validation, transfer, conformal or stress rows |
 
-**Self-supervised pretraining:**
+**Observer bank** (`v9_models.py:52-104`, `v9_train.py:125-146`):
 
-- **Corpus:** stays not in the labelled cohort, protected patients excluded, capped at 75,000 per database. No label of any kind is read.
+- Seven per-hour networks (one hidden layer of 32): respiratory, cardiovascular, hepatic, hematologic, renal, inflammatory and neurologic.
+- Each reads all predictors of its group and is active only when one of its evidence channels is observed.
+- They are trained with cross-entropy on the observer-fit split for 10 epochs and then frozen.
+- Their outputs (logit × active, active, coverage × active) feed output fusion.
+
+**Self-supervised pretraining** (`v11_train.py:112-181`, `v11_data.py:170-198`):
+
+- **Corpus:** raw stays of at least 6 h that are not in the labelled sample and whose patient is not protected, randomly capped at 75,000 per database (seed 42). No label of any kind is read.
+  - As implemented at stage 1, this includes YAIB-ineligible stays, stays outside the 10,000 sample, and other stays of validation and test patients. Stage 2 changes this (Section 11).
 - **Tasks:**
-  - the next fresh value of each channel;
+  - the value of each channel at *t* + 1, scored where that channel is freshly measured at *t* + 1;
   - whether each channel is measured within 6 h;
   - the six SOFA components at +6, +12 and +24 h;
   - any SOFA worsening within 6, 12 and 24 h.
-- **Length:** 5 epochs.
+- **Losses:** smooth-L1 for the value and organ tasks; cross-entropy for the measurement and worsening tasks.
+- **Training:** AdamW at 3e-4 for 5 epochs. Every tenth corpus stay is held out to choose the checkpoint. One encoder per target database and seed.
 
-Retired after stage-1 predecessors (`_8`, `_9`): the observer outputs used as input features (observer features) or as gates on OSTA's cross-organ attention (gated and ungated attention), the 80 %-label control, and the original OSTA loss.
+Retired after the earlier stages (Section 14): observer features, gated and ungated attention guidance, the 80 %-label control, and the original OSTA loss (still selectable in the code).
 
 ## 8. Losses and training
 
-- **Primary loss, utility-weighted binary cross-entropy:**
-  - Each positive hour is weighted by the PhysioNet reward gap (1.0 at 6 h before onset rising to 2.0 at 3 h after), normalised to mean 1.
-  - The three hours after onset are added as weighted training positives.
-  - Evaluation hours are unchanged.
-- **Comparator losses** (OSTA and SSL-CNN→OSTA only): plain binary cross-entropy, and temporal label smoothing (Yèche et al. 2023; linear ramp, τ = 12 h).
-- **Neural training:**
-  - AdamW, learning rate 3e-4, weight decay 1e-4;
-  - dropout 0.2, batch 32, up to 30 epochs;
-  - early stopping on validation AUPRC with patience 5.
-- **Seeds:** stage 1 uses one seed (42); stage 2 uses three (42, 7, 123).
+**Primary loss, utility-weighted binary cross-entropy** (`v11_train.py:42-57`):
+
+- Positive hours are weighted by the PhysioNet reward gap, rising linearly from 1.0 at 6 h before onset to 2.0 at 3 h after.
+- The onset hour and the 3 hours after it are added as weighted training positives (4 hours).
+- Positive weights are normalised to mean 1 within each mini-batch.
+- Evaluation hours are unchanged.
+
+**Comparator losses** (OSTA and SSL-CNN→OSTA only):
+
+- plain binary cross-entropy;
+- one-sided temporal label smoothing (Yèche et al. 2023): positive hours stay at 1, and septic hours 6 to 18 h before onset get a soft target falling linearly from 0.5 to 0 (τ = 12 h).
+
+**Neural training:**
+
+- AdamW, learning rate 3e-4, weight decay 1e-4;
+- dropout 0.2, batch 32, gradient-norm clip 1.0;
+- up to 30 epochs, with early stopping on validation AUPRC (uncalibrated, scored hours) with patience 5; the best epoch is restored.
+
+**Normalisation:**
+
+- z-scores from all hours of the training and observer-fit stays;
+- masks unscaled; ages divided by 24 (days);
+- values clipped to ±20, and missing values set to 0.
+
+**Seeds:** stage 1 uses one seed (42); stage 2 uses three (42, 7, 123).
 
 ## 9. Evaluation
 
-**Primary measure:** PhysioNet 2019 normalised utility, computed with the official scorer (unchanged).
+**Calibration:**
 
-- The alarm fires when calibrated risk is at or above a threshold.
-- The threshold is the first maximum of a utility sweep on the **calibration** split, then applied once to test.
+- Platt scaling on up to 250,000 scored calibration hours. A non-positive fitted slope falls back to intercept-only recalibration (disclosure E1).
+- Brier score and ECE (10 equal-width bins).
+- Calibration slope and intercept from a diagnostic logistic refit on test.
 
-**Principal panel** (all with patient-cluster bootstrap 95 % CIs, 200 resamples):
+**Two thresholds, both chosen on the calibration split:**
 
-- hourly AUROC and AUPRC;
-- sensitivity for sepsis events at a budget of 0.5 false alarms per patient-day (6 h alarm cooldown);
-- median warning time before onset;
-- false alarms per patient-day;
-- calibration: Platt scaling fitted on the calibration split, Brier score, ECE and calibration slope.
+| Threshold | How it is chosen | What it drives |
+|---|---|---|
+| Utility threshold (`v10_train.py:123-133`) | First maximum of the normalised utility over 60 quantiles (50 % to 99.9 %) of calibrated risk on all calibration hours. The alarm fires every hour that risk is at or above it, with no cooldown | Normalised utility only |
+| Budget threshold (`v9_train.py:252-261`) | Over 101 quantiles, the highest event sensitivity with at most 0.5 false alarms per patient-day (ties go to the higher threshold) | Every event metric: sensitivity, false alarms per patient-day, warning time, antibiotic lead time, trajectory-rich subset, transfer event metrics |
+
+**Normalised utility:**
+
+- Uses the official `compute_prediction_utility` (PhysioNet commit `467c49b`), run per stay on the first 120 h.
+- Step labels start at onset − 6 h.
+- Results are summed and normalised as (observed − no alarms) / (perfect − no alarms).
+
+**Event metrics** (`v9_train.py:238-271`):
+
+- Alarms have a 6-hour cooldown.
+- An event is detected by an alarm 0 to 6 h before onset; every other alarm is a false alarm.
+- Patient-days are counted from scored hours.
+- Warning time is measured from the earliest timely alarm.
+
+**Uncertainty:**
+
+- Patient-cluster bootstrap 95 % intervals (200 resamples) for AUPRC, Brier score and normalised utility.
+- Hospital-cluster intervals for AUPRC and Brier when there are at least 5 hospitals.
+- Paired bootstrap differences against OSTA for AUPRC.
+- AUROC and the event metrics are reported as point estimates.
 
 **Additional analyses:**
 
-- **Lead time against the first antibiotic order:** both databases; evaluation metadata only, never a predictor.
-- **Transfer rows:** each database's model scored on the other database's development patients. The holdout stays sealed.
-- **Conformal secondary alarm policy:** abstention on out-of-distribution hours, with a distribution-free hourly false-positive bound (α = 0.02).
-- **Trajectory-rich subset:** hours with dense monitoring.
-- **Data-stress conditions** (OSTA-family arms): missing all, missing half, incorrect, conflicting, 6 h stale, 2 h delayed.
-- **Paired bootstrap differences** against OSTA for every arm.
+- **Lead time against the first antibiotic:** the reference is the first systemic antibiotic within onset ± 24 h (evaluation metadata only). Lead = antibiotic time − first timely alarm. Also reported: the fraction of septic stays alarmed before the antibiotic.
+- **Transfer rows:** all unprotected patients of the other database, scored with the source model's normaliser, Platt parameters and both thresholds. Patient- and hospital-cluster intervals.
+- **Conformal secondary policy** (`v11_train.py:262-284`):
+  - The out-of-distribution score of an hour is the fraction of its observed channels with |z| > 3.5.
+  - Hours above the 98th percentile of calibration scores (α = 0.02) abstain, with risk set to 0.
+  - The alarm threshold bounds the hourly false-positive rate on negative calibration hours at 0.5/24.
+- **Trajectory-rich subset:** hours with at least 3 fresh measurements each of heart rate, MAP, respiratory rate and oxygen saturation in the previous 6 h, scored at the budget threshold.
+- **Observer-stress conditions** (output fusion only): the observer-bank outputs are perturbed as missing all, missing half, incorrect, conflicting, 6 h stale and 2 h delayed (`v9_models.py:106-121`).
 - **Sensitivity analyses:** the raw and no-proxy feature sets.
+- **Secondary analysis notebook** (definitions fixed 17 Oct 2026):
+  - bedside-score comparators on the same hours (qSOFA, SIRS, SOFA proxy);
+  - onset-anchored AUROC at 6, 4 and 2 h;
+  - patient-level AUROC;
+  - seed ensemble.
+- **Planned, not yet implemented (TO FREEZE before stage 2):**
+  - subgroup fairness analysis by sex and age, and by race, ethnicity and insurance, which would be extracted for analysis only, never as predictors;
+  - eICU leave-hospital-out evaluation.
 
-Test results are reported for every arm. They are never used to choose anything (see `PROTOCOL_DEVIATIONS.md` for the one declared exception).
+Test results are reported for every arm and are never used to choose anything. The one declared exception is D1 in `PROTOCOL_DEVIATIONS.md`.
 
 ## 10. Decision rules (fixed before any stage-1 result)
 
-All rules use the **validation** split only. The ranking statistic is the rank-average of validation utility and validation AUPRC.
+**As implemented** (`team_summary_v11.py:26-34`):
+
+1. Within each target database, every rich-feature arm is ranked on validation utility and on validation AUPRC, across all arms including baselines and loss variants.
+2. The two ranks are averaged.
 
 | Rule | Decision |
 |---|---|
-| Loss | The loss with the best rank-average among the three is used in stage 2 |
-| Organ structure | OSTA's organ structure is kept only if OSTA ranks above flat OSTA |
-| Shortlist | The top 2–3 new arms go to stage 2, with OSTA, CNN–Transformer, boosted trees and logistic regression |
+| Loss | For OSTA and SSL-CNN→OSTA, the loss variant with the best average rank. The stage-2 loss follows the rule across both databases |
+| Organ structure | Kept only if OSTA's average rank is strictly better than flat OSTA's |
+| Shortlist | The top three of the new arms (flat OSTA, GRU-D, TCN, CNN→OSTA, event OSTA, the self-supervised arms, the hazard arm and signature boosted trees), plus OSTA, CNN–Transformer, boosted trees and logistic regression |
 
 **Stage-1 outcome on MIMIC-IV** (run `4cd752bef2ccbd42`; development split; preliminary):
 
-| Rule | Outcome |
+| Item | Outcome |
 |---|---|
 | Organ structure | Not supported (validation utility: flat OSTA 0.283, OSTA 0.117) |
-| Loss | No single winner. Plain cross-entropy ranked first for OSTA, utility-weighted for SSL-CNN→OSTA, and temporal label smoothing last for both. **TO FREEZE:** the stage-2 loss, decided by the same rule once eICU is complete |
+| Loss | No single winner. Plain cross-entropy ranked first for OSTA, utility-weighted for SSL-CNN→OSTA, and temporal label smoothing last for both. **TO FREEZE:** the stage-2 loss, once eICU is complete |
 | Shortlist | GRU-D, TCN and flat OSTA |
+| Test results (normalised utility) | All 21 arms above zero, with every 95 % interval above zero; range 0.08 to 0.29. OSTA 0.23 (0.13 to 0.34); signature boosted trees 0.15 (0.06 to 0.22) |
 | Declared deviation D1 | SSL-CNN→OSTA and SSL-CNN→flat added as an exploratory pair |
 
-**Stage-1 outcome on eICU:** pending (run in progress).
+**Stage-1 outcome on eICU:** pending (run in progress). The MIMIC-IV-trained models scored on eICU development patients gave utilities of −0.03 to +0.04, with intervals including zero.
 
 ## 11. Stage 2, full cohort
 
@@ -211,31 +343,106 @@ All rules use the **validation** split only. The ranking statistic is the rank-a
 - **Arms (TO FREEZE):**
   - the union of the MIMIC-IV and eICU shortlists;
   - OSTA, CNN–Transformer, boosted trees and logistic regression;
-  - the signature boosted trees benchmark;
+  - signature boosted trees;
   - the D1 pair, labelled exploratory.
 - **Loss (TO FREEZE):** decided by Section 10 across both databases.
 - **Pretraining corpus (TO FREEZE):**
   - non-cohort stays plus training-split stays (inputs only, no labels);
   - excluding every stay of a validation, test or protected patient.
-- **eICU leave-hospital-out evaluation** (TO FREEZE: hospital grouping and the minimum events per hospital).
+- **Final-release encoder (TO FREEZE):** Section 5.3.
+- **eICU leave-hospital-out (TO FREEZE):** hospital grouping and the minimum events per hospital.
 - **Then:**
   1. freeze this protocol (commit);
   2. declare `PRIOR_TEST_EXPOSURE`;
   3. open the holdout once;
   4. report every prespecified arm and analysis, whatever its result.
+- **Reporting standards:** TRIPOD+AI for reporting and PROBAST+AI for the risk-of-bias assessment.
 
 ## 12. Reproducibility
 
-- Each notebook embeds its code with SHA-256 checks and runs with **Run all** only. No manual edits between runs.
-- Every stage is cached under a key built from code, data and configuration: `RAW_STAGE_KEY`, `SUPP_KEY`, `DATA_KEY`, `SSL_KEY` and `RUN_KEY`. A changed input produces a new key; nothing stale is reused. `FORCE_*` settings stay False.
-- Each arm writes `completed.json`. Every run writes `run_protocol.json` with the configuration, the feature list and the rules above.
-- Engineering self-tests run before training. Stage 1 `_11` has 212 checks, including causality, split leakage and scorer agreement.
-- A synthetic fixture run must pass before any notebook is released.
+- Each notebook embeds its code with SHA-256 checks and runs with **Run all** only. No manual or AI-assistant edits are made between runs.
+- Stages are cached under keys built from code, data and configuration: `COHORT_KEY`, `RAW_STAGE_KEY`, `SUPP_KEY`, `DATA_KEY`, `SSL_KEY` and `RUN_KEY`.
+  - A changed input produces a new key.
+  - A per-run `contract.json` refuses a changed contract.
+  - `FORCE_*` settings stay False.
+- Each arm writes `completed.json`. Every run writes `run_protocol.json` with the configuration, the feature list and the rules.
+- `_11` runs 212 engineering self-tests before training, covering causality, split leakage, scorer agreement and the loss definitions. The repository copy has one more.
+- A synthetic fixture run of the whole notebook must pass before any notebook is released.
+- Only one heavy notebook runs on the project Drive at a time.
 
-## 13. Version history (short)
+## 13. Legacy external validation (Notebook B)
 
-| Version | Change |
+Notebook B applies the PhysioNet 2019-trained models, frozen, with no fitting on the target data, to the full 120-hour step-labelled trajectories of MIMIC-IV and eICU development patients. Stays with onset before 7 h are excluded.
+
+| Model | Original training recipe |
 |---|---|
-| V8–V9 | Leakage audit of the earlier pipeline; earlier OSTA and CNN–Transformer results retired; causal rebuild on PhysioNet 2019 (OSTA utility 0.22) |
-| V10.3–V10.5 | Raw-table extraction for MIMIC-IV and eICU, one label, extraction audit, 655 predictors |
-| V11 (this protocol) | Prophylaxis predictors, self-supervised pretraining, new architectures, loss comparison, transfer rows, conformal policy; raw-stage query fix (v10.6) and AKI window fix |
+| Causal OSTA v5 | 3 seeds, 50 epochs, patience 10, batch 256, learning rate 5e-4, cosine schedule |
+| Paper-1 CNN–Transformer | 1 seed, 30 epochs, patience 7 |
+
+- **Original split:** 17.5 % test and 12.5 % validation.
+- **Original choices:** checkpoint by validation patient-level AUROC every 2 epochs; threshold by validation utility over 0.05 to 0.95.
+- **Modes:** `import_original` (the original output folders; reproduces their predictions to 1e-5), `frozen`, or a clearly labelled `reproduce`.
+- **Status:** not yet run on real data; it awaits the original model folders.
+
+## 14. Development history: how the work reached this protocol
+
+The models and the pipeline were built in three stages. Each stage was triggered by a finding from the one before. All numbers are causal; results from the earlier leaky pipeline are never reported.
+
+### 14.1 Stage 1: earlier work on PhysioNet 2019 (to March 2026)
+
+| Model | What led to it | What it is | Outcome |
+|---|---|---|---|
+| CNN–Transformer (Paper 1) | First architecture | Convolution over short local trends, then transformer attention across the stay | Trained with look-ahead leakage; withdrawn; manuscript withheld |
+| OSTA-Transformer (v2) | The CNN–Transformer treated every variable alike and could not explain itself | Predictors grouped by organ system (as in SOFA), per-organ temporal attention, cross-organ attention, a risk per organ | Trained with look-ahead leakage; withdrawn; manuscript withheld |
+| OSTA v5, causal | The leakage audit found post-onset hours labelled positive, values used before they were available, and label-defining treatments among the inputs | The same architecture on a causal pipeline, three-seed ensemble. Purpose-built loss: focal loss (γ 2, α 0.75/0.25), time weights exp(−0.3 × hours before onset) and 1.5 from onset on, an organ-consistency term (weight 0.1), an organ-diversity term (weight 0.05) | PhysioNet 2019 test: hourly AUROC 0.797, patient AUROC 0.807, normalised utility 0.221 (0.299 at the conformal threshold). The honest PhysioNet baseline |
+
+### 14.2 Stage 2: V10 on MIMIC-IV and eICU (October 2026)
+
+**Design (Notebook A).** Eight arms on identical hours:
+
+- OSTA;
+- the observer bank, used in four ways:
+  - as extra inputs (observer features);
+  - added at the output (output fusion);
+  - steering OSTA's cross-organ attention through learned gates (gated guidance);
+  - the same steering always on, as a control for the gate (ungated guidance);
+- CNN–Transformer;
+- L2 logistic regression;
+- histogram gradient-boosted trees.
+
+Controls:
+
+- raw values only, to test whether feature engineering adds anything;
+- OSTA trained on the observer-fit patients as well (80 % label budget), to test whether any observer gain is only extra labels.
+
+The protocol stated that gated guidance must not be assumed to win.
+
+| Notebook | Purpose | Finding |
+|---|---|---|
+| `_1` to `_4` | Labels and cohorts for both databases; smoke runs | Repaired: an interval-units bug in the label worker, the YAIB `abx_cont` empty-batch defect, and eICU ionized-calcium units. A mixed demo/full MIMIC-IV folder was detected and replaced |
+| `_5` | Timing test (local disk copy, 500 stays per batch) | About 20 times faster per stay than reading from Drive |
+| `_6` | First interim run, 10,000-stay samples, 1 seed | MIMIC-IV plausible (OSTA hourly AUROC 0.82). eICU implausible (AUROC 0.31–0.39) |
+| `_7` | Calibration fix | A negative Platt slope fitted on the small eICU calibration split had reversed the ranking. Non-positive slopes now fall back to intercept-only recalibration (E1) |
+| `_8` | Three seeds (E2) | MIMIC-IV hourly AUROC about 0.81 for the OSTA family. Gated − OSTA AUPRC +0.002 (95 % CI −0.001 to 0.005). Raw values matched engineered features. The extra-label control did not help |
+| `_9` (V10.3) | Extraction audit, carry-forward rules, comorbidities, original OSTA loss restored (E3), utility added | eICU coverage fixed (temperature 5 % → 94 %, blood pressure 21 % → 99.5 %). The original loss was no better than cross-entropy. Neural models peaked within 1–3 epochs, so the gated, ungated and OSTA checkpoints were identical |
+| `_10` (V10.4–V10.5) | Every candidate predictor class (655 shared predictors) | The raw scan stalled on a date join; fixed (v10.6) |
+| `_11` (V11) | The prespecified comparison in this protocol | Sections 10 and 11; an AKI boundary crash was fixed on the first real run |
+
+**Secondary analysis** (run `ed26e1692aa04d2c`): hourly OSTA exceeded qSOFA on MIMIC-IV by +0.28 AUROC (95 % CI 0.21 to 0.35). In eICU, onset-anchored, the models were not better than qSOFA or SIRS.
+
+### 14.3 Stage 3: V11 (this protocol)
+
+The findings of stage 2 shaped stage 3:
+
+- **No integration of organ evidence beat OSTA.** The observer features, the gated and ungated guidance and the extra-label control were retired, and output fusion was kept.
+- **Models overfitted within a few epochs.** The response combines three things:
+  - testing the organ hypothesis directly (flat OSTA);
+  - adding models built for irregular ICU data (GRU-D, TCN, the winner's method);
+  - using scarce labels better (self-supervised pretraining, per-channel encoders, event attention, the hazard head), with a loss aligned to the utility score.
+- **The original OSTA loss gave no gain.** It was retired.
+
+## 15. Known code notes (no effect on stage-1 results; to correct before stage 2)
+
+- The `utility.json` scope text says that post-onset hours are never trained on, and that an onset after the window counts as non-septic. Under the V11 primary loss and the 6-hour look-ahead, Sections 4 and 8 are the correct statements.
+- The secondary analysis notebook still names the V10 arm list.
+- The `_11` notebook embeds the earlier label worker (Section 4); the repository copy carries the interval-units fix.

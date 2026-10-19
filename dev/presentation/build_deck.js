@@ -350,7 +350,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     ['Raw records', 'MIMIC-IV and eICU', 'two hospital systems make transfer real'],
     ['Harmonise', 'same concept, unit and clock', 'compare like with like'],
     ['One label', 'Sepsis-3 onset hour ' + c('seymour16'), 'results comparable'],
-    ['Hourly features', '655, each used only from the hour recorded', 'no information from the future'],
+    ['Hourly features', '659, each used only from the hour recorded', 'no information from the future'],
     ['Models', '16 compared on identical hours', 'architecture is a hypothesis'],
     ['Evaluate', 'utility, false alarms per day, transfer, sealed holdout', 'what would help patients'],
   ];
@@ -498,7 +498,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   s.addText('An honest, transferable test of sepsis warnings, and the path to hospital patients', { placeholder: 'title' });
   T(s, 'Contribution so far', M, 1.6, 6, 0.35, { size: 15, bold: true, color: RED });
   const con = [
-    [I.lock, 'Causal, cross-database pipeline', 'one sepsis definition, two hospital systems, 655 clinically defined predictors ' + c('thiswork')],
+    [I.lock, 'Causal, cross-database pipeline', 'one sepsis definition, two hospital systems, 659 clinically defined predictors ' + c('thiswork')],
     [I.scale, 'Evaluation by clinical utility', 'false alarms per day, warning time, transfer, sealed holdout ' + c('reyna')],
     [I.search, 'Three findings', 'leakage inflates scores; data harmonisation drives transfer; small samples overfit'],
     [I.book, 'Three manuscripts submitted in 2026', 'AMR diagnostics review ' + c('amr') + '; sepsis-onset cohort study ' + c('temporal') + '; thermography meta-analysis ' + c('thermo')],
@@ -579,23 +579,23 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     [td('Challenge-prepared tables ' + c('reyna')), td('Raw MIMIC-IV and eICU', { bold: true }), td('Transfer across hospital systems is tested for real')],
     [td('Each study its own definition ' + c('moor21')), td('One Sepsis-3 definition on both databases ' + c('yaib', 'ricu'), { bold: true }), td('Results comparable')],
     [td('Values carried forward; post-onset hours positive'), td('Each value used from the hour recorded, expires after 24 h; post-onset hours excluded', { bold: true }), td('No information from the future ' + c('kapoor'))],
-    [td('40 to 125 variables'), td('655 clinically defined predictors', { bold: true }), td('The whole clinical picture')],
+    [td('40 to 125 variables'), td('659 clinically defined predictors', { bold: true }), td('The whole clinical picture')],
     [td('Antibiotics as predictors'), td('Label-defining antibiotics excluded; prophylaxis kept by rule ' + c('bratzler'), { bold: true }), td('Avoids predicting the label from itself')],
     [td('AUROC on one split'), td('Utility, false alarms per day, warning time, calibration, sealed holdout', { bold: true }), td('What would help patients ' + c('shah'))],
   ], { x: M, y: 1.65, w: CW, colW: [3.4, 5.2, 3.53], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.07, objectName: 'choices table' });
   refFooter(s);
 
   s = slide('BACKUP', 'BACKUP', 'Backup');
-  s.addText('The 655 predictors, each with a measured flag and an age', { placeholder: 'title' });
+  s.addText('The 659 predictors, each with a measured flag and an age', { placeholder: 'title' });
   const cats = [
     ['Vital signs and monitoring', 'heart rate, cuff and arterial pressures, respiratory rate, oxygen saturation, temperature, end-tidal CO2, CVP, cardiac output, pain and sedation scores'],
     ['Laboratory and blood gas', 'chemistry, full blood count with differential, coagulation, lactate, procalcitonin, troponin, BNP, ferritin, D-dimer, ammonia, urinalysis, blood gases'],
     ['Scores and derived', 'SOFA per organ ' + c('vincent') + ', qSOFA, NEWS2 ' + c('rcp') + ', shock index, P/F and S/F ratios, changes from previous and baseline, 24 h extremes'],
     ['Organ support', 'vasopressor dose (noradrenaline equivalents), ventilation settings, oxygen flow, renal replacement, urine output and AKI stage ' + c('kdigo')],
     ['Fluids, drugs, devices', 'crystalloids, transfusions, nutrition, central and arterial lines, catheters, drains; steroids, immunosuppressants, chemotherapy, sedatives, opioids'],
-    ['Context and history', 'admission source, ICU type, hours before ICU, prior admissions, prior positive cultures and antibiotics, 17 comorbidities, imaging orders'],
+    ['Context and history', 'admission source, ICU type, hours before ICU, prior admissions, prior positive cultures and antibiotics (MIMIC-IV only), 17 comorbidities, imaging orders'],
     ['Prophylactic antibiotics', 'surgical prophylaxis by agent, timing, duration, no culture or escalation ' + c('bratzler') + '; medical prophylaxis by agent and dose'],
-    ['Never predictors', 'label-defining antibiotics and cultures; race, ethnicity, insurance (fairness analysis only); anything after the prediction hour'],
+    ['Never predictors', 'label-defining antibiotics and cultures; race, ethnicity, insurance (reserved for a planned fairness analysis); anything after the prediction hour'],
   ];
   cats.forEach((k, i) => { const col = i % 2, row = Math.floor(i / 2), x = M + col * 6.15, y = 1.65 + row * 1.2;
     box(s, x, y, 5.95, 1.08, { fill: i === 7 ? PINK : LIGHT, line: i === 7 ? PINK : LIGHT });
@@ -686,7 +686,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
 
   s = slide('BACKUP', 'BACKUP', 'Backup');
   s.addText('On 10,000 stays models overfit fast and the validation split is too small to rank them', { placeholder: 'title' });
-  [['1 to 3', 'epochs to the best validation score, while training loss keeps falling'], ['175', 'septic stays per training split, against 300 to 655 predictors'], ['0.12 vs 0.28', 'validation utility of OSTA and flat OSTA, which tie on test (0.23): validation and test rankings disagree']].forEach((k, i) => {
+  [['1 to 3', 'epochs to the best validation score, while training loss keeps falling'], ['175', 'septic stays per training split, against 300 to 659 predictors'], ['0.12 vs 0.28', 'validation utility of OSTA and flat OSTA, which tie on test (0.23): validation and test rankings disagree']].forEach((k, i) => {
     const x = M + i * 4.1; T(s, k[0], x, 1.8, 3.9, 0.8, { size: 36, bold: true, color: RED }); T(s, k[1], x, 2.65, 3.8, 1.1, { size: 14 }); });
   list(s, ['Response: full cohort (about nine times more sepsis cases), self-supervised pretraining on unlabelled stays ' + c('yeche21') + ', loss chosen by utility ' + c('yeche23') + ', three seeds.', 'All figures: ' + 'this work, preliminary ' + c('thiswork') + '.'], M, 4.1, CW, 2.0, { size: 14 });
   refFooter(s);
