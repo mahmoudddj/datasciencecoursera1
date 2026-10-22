@@ -331,22 +331,37 @@ Test results are reported for every arm and are never used to choose anything. T
 | Item | Outcome |
 |---|---|
 | Organ structure | Not supported (validation utility: flat OSTA 0.283, OSTA 0.117) |
-| Loss | No single winner. Plain cross-entropy ranked first for OSTA, utility-weighted for SSL-CNN→OSTA, and temporal label smoothing last for both. **TO FREEZE:** the stage-2 loss, once eICU is complete |
+| Loss | No single winner on MIMIC-IV alone. Plain cross-entropy ranked first for OSTA, utility-weighted for SSL-CNN→OSTA, and temporal label smoothing last for both. See the cross-database reading below |
 | Shortlist | GRU-D, TCN and flat OSTA |
 | Test results (normalised utility) | All 21 arms above zero, with every 95 % interval above zero; range 0.08 to 0.29. OSTA 0.23 (0.13 to 0.34); signature boosted trees 0.15 (0.06 to 0.22) |
 | Declared deviation D1 | SSL-CNN→OSTA and SSL-CNN→flat added as an exploratory pair |
 
-**Stage-1 outcome on eICU:** pending (run in progress). The MIMIC-IV-trained models scored on eICU development patients gave utilities of −0.03 to +0.04, with intervals including zero.
+**Stage-1 outcome on eICU** (same run, completed 22 Oct 2026; development split; 888 test stays, 45 events; preliminary; digest in `dev/results/run_4cd752bef2ccbd42_summary.md`):
+
+| Item | Outcome |
+|---|---|
+| Organ structure | Not supported (validation rank: flat OSTA 2.5, OSTA 15.5; validation utility flat OSTA 0.039, OSTA 0.010) |
+| Loss | Plain cross-entropy ranked first for both OSTA and SSL-CNN→OSTA; temporal label smoothing second; utility-weighted last |
+| Shortlist | GRU-D, flat OSTA and SSL-CNN→flat (pooled encoder) |
+| Test results (normalised utility) | Point estimates −0.001 to 0.075 (CNN–Transformer 0.075, GRU-D 0.066, TCN 0.043); upper 95 % limits up to 0.16; lower limits to be read from `team_summary_performance.csv` (the notebook display truncated the column). At the false-alarm budget OSTA, OSTA@bce and OSTA@tls raised no alarm. Hourly AUROC 0.53–0.68 |
+| Transfer | MIMIC-IV models on eICU patients −0.03 to +0.04 (logistic −0.15), the same band as eICU's own models; eICU models on MIMIC-IV patients −0.00 to +0.03, most OSTA variants silent |
+| D1 pair | Neither `ssl_cnn_osta` nor `ssl_cnn_flat` was chosen by the rule on eICU; D1 stands as written |
+
+**Cross-database reading of the rules (for the stage-2 freeze):**
+
+- Organ structure: not supported on either database. Flat OSTA goes forward; OSTA stays only as a fixed baseline.
+- Loss: plain cross-entropy ranked first in three of the four comparisons and the utility-weighted loss in one; temporal label smoothing never ranked first. Reading the rule "across both databases" by rank average, the stage-2 loss is plain cross-entropy. **TO FREEZE:** the candidate confirms this reading (or records a deviation) before the full-cohort run.
+- Shortlist union: GRU-D, TCN, flat OSTA, SSL-CNN→flat (pooled).
 
 ## 11. Stage 2, full cohort
 
 - **Data:** all eligible stays in both databases (`FULL_SAMPLE_STAYS_PER_DATASET=None`); the same split rules; three seeds.
 - **Arms (TO FREEZE):**
-  - the union of the MIMIC-IV and eICU shortlists;
+  - the union of the MIMIC-IV and eICU shortlists: GRU-D, TCN, flat OSTA, SSL-CNN→flat (pooled encoder);
   - OSTA, CNN–Transformer, boosted trees and logistic regression;
   - signature boosted trees;
   - the D1 pair, labelled exploratory.
-- **Loss (TO FREEZE):** decided by Section 10 across both databases.
+- **Loss (TO FREEZE):** decided by Section 10 across both databases; the rule's reading is plain cross-entropy (three of four comparisons).
 - **Pretraining corpus (TO FREEZE):**
   - non-cohort stays plus training-split stays (inputs only, no labels);
   - excluding every stay of a validation, test or protected patient.

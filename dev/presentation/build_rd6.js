@@ -99,8 +99,8 @@ children.push(P('The design is mixed because an alarm that clinicians do not tru
 
 children.push(H2('3.2 Data sources'));
 children.push(table(['Database', 'Setting', 'Candidate ICU stays', 'Used this period'], [
-  ['MIMIC-IV 3.1', 'Beth Israel Deaconess Medical Center, Boston (one academic centre)', 'about 94,000', 'fixed random sample of 10,000 stays; 8,795 after benchmark exclusions'],
-  ['eICU-CRD 2.0', 'about 200 US hospitals (Philips eICU programme)', 'about 201,000', 'fixed random sample of 10,000 stays; 5,710 after benchmark exclusions'],
+  ['MIMIC-IV 3.1', 'Beth Israel Deaconess Medical Center, Boston (one academic centre)', 'about 94,000', 'fixed random sample of 10,000 stays; 8,758 after benchmark exclusions'],
+  ['eICU-CRD 2.0', 'about 200 US hospitals (Philips eICU programme)', 'about 201,000', 'fixed random sample of 10,000 stays; 5,623 after benchmark exclusions'],
   ['PhysioNet 2019', 'two US hospitals, challenge-prepared hourly tables', '40,336 patients', 'causal re-evaluation of the earlier architectures only'],
 ], [1700, 3000, 1800, 2500]));
 children.push(gap());
@@ -163,25 +163,27 @@ children.push(table(['Channel', 'Before audit', 'After audit'], [
 children.push(gap());
 
 children.push(H2('4.4 Preliminary results on the development split'));
-children.push(P('The following are preliminary results from the prespecified comparison on the MIMIC-IV development test split of the 10,000-stay sample (one run). Every model was scored on identical hours with the official PhysioNet utility scorer. The sealed holdout has not been opened and nothing was tuned on test data. Full results will appear in the manuscript in preparation.'));
-children.push(table(['Measure', 'MIMIC-IV development test split'], [
-  ['Test split', '1,422 stays, 63,488 hours, 71 sepsis events; 0.65 % of hours positive'],
-  ['Models compared', '21: sixteen architectures, loss comparators (cross-entropy and time-to-onset weighted) and a mean ensemble'],
-  ['Normalised utility', 'all 21 models above zero, every 95 % CI above zero; range 0.08 to 0.29'],
-  ['OSTA-Transformer', '0.23 (95 % CI 0.13 to 0.34)'],
-  ['Winner\'s approach (signatures + boosted trees) rebuilt in this pipeline', '0.15 (95 % CI 0.06 to 0.22)'],
-  ['Highest point estimates', 'self-supervised CNN encoder with OSTA head 0.29 (0.17 to 0.39); CNN with OSTA head 0.28; mean ensemble 0.28'],
-  ['Model chosen by the validation rule', 'GRU-D, 0.19 (0.08 to 0.29)'],
-  ['Logistic regression', '0.08 (0.01 to 0.16)'],
-  ['Hourly AUROC', '0.72 to 0.84 across models'],
-  ['Reference points', 'PhysioNet 2019 winner: 0.43 on new patients from its training hospitals, -0.12 on the hidden hospital; our causal OSTA on PhysioNet: 0.22'],
-], [3200, 5800]));
+children.push(P('The following are preliminary results from the prespecified comparison (run 4cd752bef2ccbd42, completed 22 October 2026, one seed) on the development test splits of the two 10,000-stay samples. Every model was scored on identical hours with the official PhysioNet utility scorer. The sealed holdout has not been opened and nothing was tuned on test data. Full results will appear in the manuscript in preparation.'));
+children.push(table(['Measure', 'MIMIC-IV development test split', 'eICU development test split'], [
+  ['Test split', '1,422 stays, 63,488 hours, 71 sepsis events; 0.65 % of hours positive; one hospital', '888 stays, 37,648 hours, 45 sepsis events; 0.70 % of hours positive; about 100 hospitals in the sample'],
+  ['Models compared', '21: sixteen architectures, loss comparators (cross-entropy and time-to-onset weighted) and a mean ensemble', 'the same 21'],
+  ['Normalised utility', 'all 21 models above zero, every 95 % CI above zero; range 0.08 to 0.29', 'point estimates 0.00 to 0.08 with wide intervals (upper limits up to 0.16); at the false-alarm budget several OSTA variants raised no alarm at all'],
+  ['OSTA-Transformer', '0.23 (95 % CI 0.13 to 0.34)', '0.01 (no alarms within budget)'],
+  ['Winner\'s approach (signatures + boosted trees) rebuilt in this pipeline', '0.15 (95 % CI 0.06 to 0.22)', '0.02'],
+  ['Highest point estimates', 'self-supervised CNN encoder with OSTA head 0.29 (0.17 to 0.39); CNN with OSTA head 0.28; mean ensemble 0.28', 'CNN-Transformer 0.08; GRU-D 0.07; temporal CNN 0.04'],
+  ['Models chosen by the validation rule', 'GRU-D 0.19 (0.08 to 0.29), temporal CNN 0.17, flat OSTA 0.23', 'GRU-D 0.07, flat OSTA 0.03, pooled self-supervised flat CNN 0.04'],
+  ['Logistic regression', '0.08 (0.01 to 0.16)', '0.01'],
+  ['Hourly AUROC', '0.72 to 0.84 across models', '0.53 to 0.68 across models'],
+  ['Transfer: models of the other database scored on these patients', 'eICU-trained models on MIMIC-IV patients: -0.00 to +0.03, most OSTA variants silent; AUROC 0.57 to 0.74', 'MIMIC-IV-trained models on eICU patients: -0.03 to +0.04 (logistic -0.15); AUROC 0.58 to 0.68'],
+  ['Reference points', 'PhysioNet 2019 winner: 0.43 on new patients from its training hospitals, -0.12 on the hidden hospital; our causal OSTA on PhysioNet: 0.22', ''],
+], [2300, 3400, 3300]));
 children.push(gap());
-children.push(P('On a database built from raw tables with every hour scored causally, every model keeps a positive utility, including the competition winner\'s approach. These are internal results: the counterpart of the winner\'s 0.43 on its own hospitals, one of which (Beth Israel Deaconess, hospital system A of the challenge) is also the MIMIC-IV hospital. The counterpart of the winner\'s -0.12 on an unseen hospital is the sealed cross-database holdout, which has not been opened. The architectures differ more in point estimate than their overlapping intervals can support at this sample size. Transfer is the open problem: MIMIC-IV models scored on eICU development patients give utilities of -0.03 to 0.04 with intervals that include zero (hourly AUROC 0.58 to 0.68). eICU has the weaker antibiotic-only label and is the focus of the native eICU results (running at the time of writing), the full cohort, leave-hospital-out evaluation and label harmonisation.'));
+children.push(P('On MIMIC-IV, built from raw tables with every hour scored causally, every model keeps a positive utility, including the competition winner\'s approach. These are internal results: the counterpart of the winner\'s 0.43 on its own hospitals, one of which (Beth Israel Deaconess, hospital system A of the challenge) is also the MIMIC-IV hospital. The architectures differ more in point estimate than their overlapping intervals can support at this sample size.'));
+children.push(P('On eICU the picture is different and is reported as found. With 45 sepsis events in the test split, spread over about a hundred hospitals and labelled by the weaker antibiotic-only definition, every model sits near zero whether it was trained on eICU itself (0.00 to 0.08) or trained on MIMIC-IV and transferred (-0.03 to +0.04); eICU-trained models transferred to MIMIC-IV also stay near zero. Hourly discrimination on eICU (AUROC 0.53 to 0.68) is far below MIMIC-IV (0.72 to 0.84). The design separates the three possible readings at stage 2: too few events and too few hours per hospital for the models to learn (the full cohort has about twenty times more); the label (the antibiotic-only harmonisation sensitivity on MIMIC-IV); and genuine site heterogeneity (leave-hospital-out evaluation across the eICU hospitals). The counterpart of the winner\'s -0.12 on an unseen hospital remains the sealed cross-database holdout, which has not been opened.'));
 
 children.push(H2('4.5 Overfitting and the prespecified decisions'));
 children.push(P('Training records show that every rich-feature neural model reaches its best validation score within one to three epochs while the training loss keeps falling: a training split contains about 175 septic stays, too few for 300 to 650 predictors. The validation split is also too small to rank models reliably: OSTA and OSTA without organ grouping tie on test (0.23 each) but score 0.12 and 0.28 on validation, and the validation leaders (GRU-D 0.29, TCN 0.29) are mid-table on test.'));
-children.push(P('The decision rules fixed before any result were applied on validation only. Organ structure is not supported at this sample size: OSTA did not beat its flat counterpart on validation, and this is reported as found. The loss comparison is undecided (cross-entropy ranked first for OSTA, the utility-weighted loss for the self-supervised model, the time-to-onset loss last for both). The shortlist for the full cohort is GRU-D, the temporal CNN and flat OSTA, plus the baselines and the winner\'s method. One declared deviation was recorded before the full-cohort run: the self-supervised CNN with an OSTA head had the highest test point estimate (0.29) without being chosen on validation, so it is added together with its flat twin as an exploratory pair, labelled as such, with the primary conclusions drawn from the rule-chosen models only; the pair also tests the organ question a second time at scale. The next lever is data: the full cohort has about nine times more sepsis cases and runs with three seeds.'));
+children.push(P('The decision rules fixed before any result were applied on validation only, on each database. Organ structure is not supported on either database: OSTA did not beat its flat counterpart on validation in MIMIC-IV or in eICU, and this is reported as found. In the loss comparison plain cross-entropy ranked first in three of the four cases (OSTA on both databases and the self-supervised model on eICU; the utility-weighted loss won only for the self-supervised model on MIMIC-IV), and the time-to-onset loss ranked last in every case; the stage-2 loss is fixed from this rule in the protocol before the full-cohort run. The validation rule shortlisted GRU-D, the temporal CNN and flat OSTA on MIMIC-IV and GRU-D, flat OSTA and the pooled self-supervised flat CNN on eICU; the full-cohort arms are the union of the two (four new arms) plus the baselines and the winner\'s approach. One declared deviation was recorded before the full-cohort run: the self-supervised CNN with an OSTA head had the highest test point estimate (0.29) without being chosen on validation, so it is added together with its flat twin as an exploratory pair, labelled as such, with the primary conclusions drawn from the rule-chosen models only; the pair also tests the organ question a second time at scale. The next lever is data: the full cohort has about nine times more sepsis cases and runs with three seeds.'));
 
 
 

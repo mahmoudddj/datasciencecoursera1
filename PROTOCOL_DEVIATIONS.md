@@ -20,6 +20,8 @@ Every departure from the prespecified V11 protocol (`run_protocol.json`, `protoc
 4. The organ question at full scale is the paired bootstrap difference `ssl_cnn_osta` minus `ssl_cnn_flat`, reported next to `osta` minus `flat_osta`. Any keep-or-drop decision uses validation, as before.
 5. The 10,000-stay development test numbers for these two arms are not an unbiased estimate, because they prompted the choice. The unbiased estimate is the sealed holdout, opened once after the protocol is frozen.
 
+**Addendum, 22 Oct 2026 (eICU complete):** the eICU validation rule chose `grud`, `flat_osta` and `ssl_cnn_flat_pooled`. Neither D1 arm was chosen on eICU either (`ssl_cnn_osta` validation utility 0.000, test 0.007; `ssl_cnn_flat` validation 0.024, test 0.021). D1 stands exactly as written above; the full-cohort arm list is the union of the two shortlists, the baselines, signature boosted trees and the D1 pair.
+
 **Design item to settle before the full-cohort run (not a further deviation):** the unlabelled pretraining corpus is currently "raw stays not in the labelled cohort, protected patients excluded". At full scale nearly every eligible stay is in the cohort, so this corpus shrinks. Other stays of validation and test patients are also not excluded. The full-cohort build will define the corpus before any full-cohort result exists. The definition will be non-cohort stays plus training-split stays (inputs only, no labels), excluding every stay of a validation, test or protected patient.
 
 ## Earlier disclosures (development notebooks `_6` to `_10`, before protocol v11-1.0)

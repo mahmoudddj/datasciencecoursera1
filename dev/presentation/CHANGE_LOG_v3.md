@@ -27,3 +27,13 @@ Current deck: 15 talk slides + backups 16-30. BUILT 19 Oct 2026 with the user's 
 | 13 (verified 2) | _7: AUROC only (OSTA 0.82, no utility). _8: AUROC ~0.81 (3 seeds), no utility. _9: first utility: best 0.175 output fusion (CI 0.08-0.27), OSTA 0.12-0.13, AUROC 0.76-0.81; eICU rows are eICU-internal, utility ~0. _11 (current) has the highest causal MIMIC utilities (0.08-0.29). Only higher MIMIC-related numbers are the leaky March ones (AUROC 0.97, utility 0.56), never shown. Slide 13 design unchanged | none | none |
 | 14 | No change | none | none |
 | 15 | Replace the two audience questions with a take-home slide, title "What this work adds", crimson closing layout: one-sentence take-home band; the six choices compressed to one line each (common practice -> this project); bottom block "what we know now" in honest form (21 models positive at home; organ grouping not supported, reported as found; transfer open, consultants' study and sealed holdout next); "Thank you". The two questions move to a backup slide and stay in the script for the chair/RD6 | keep or drop the bottom block | Script slide 15 rewritten; backup table; timing plan unchanged |
+
+## Round 4 (22 Oct 2026): eICU arm complete
+
+| Slide | Change | Source |
+|---|---|---|
+| 13 | Right panel redrawn: the same eight models as the left panel, each as a MIMIC-IV-trained bar scored on eICU patients (logistic −0.15, boosted trees 0.01 with CI, winner's approach 0.02, temporal CNN 0.01, GRU-D 0.01 with CI, flat OSTA 0.03, OSTA 0.04, SSL CNN to OSTA 0.04), plus a pink band for eICU's own 21 models trained on eICU (0.00 to 0.08). Subtitle gives the eICU test split (888 stays, 45 events). Footer: away and at home coincide on eICU; the sealed holdout is the real test. Notes updated | run 4cd752bef2ccbd42, `dev/results/run_4cd752bef2ccbd42_summary.md` |
+| 14 | Findings line: all 21 above zero on MIMIC-IV, near zero on eICU at home or transferred. "Now" row: finish the eICU arm → fix the full-cohort arms from both shortlists | same |
+| 15 | Known-so-far block: MIMIC-IV positive, eICU near zero alike; organ grouping not supported on either database; full cohort added to the answers | same |
+| 23 | Cohort table and SSL corpus now use the run's own counts (8,758 / 5,623; 67,193 / 74,139) | team_summary_cohort |
+

@@ -517,34 +517,39 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   const ux = M + 7.5, uw = CW - 7.5;
   box(s, ux, 1.55, uw, 4.9, { line: RULE });
   T(s, 'Unseen hospital system', ux + 0.15, 1.62, uw - 0.3, 0.3, { size: 13, bold: true, color: RED });
-  T(s, 'the winner on a hidden third hospital; this project: MIMIC-IV models scored on eICU patients, development level', ux + 0.15, 1.9, uw - 0.3, 0.45, { size: 10, color: GREY });
-  const ax0 = ux + 1.8, aw = uw - 2.05, umin = -0.2, umax = 0.12, X = (u) => ax0 + (u - umin) / (umax - umin) * aw, ay = 5.0;
+  T(s, 'the winner on a hidden third hospital; this project: MIMIC-IV models scored on eICU patients (888 stays, 45 events), development level', ux + 0.15, 1.9, uw - 0.3, 0.45, { size: 10, color: GREY });
+  const ax0 = ux + 1.85, aw = uw - 2.1, umin = -0.2, umax = 0.12, X = (u) => ax0 + (u - umin) / (umax - umin) * aw, ay = 5.5;
   s.addShape(pres.ShapeType.line, { x: ax0, y: ay, w: aw, h: 0.001, line: { color: GREY, width: 0.75 }, objectName: 'axis' });
-  [-0.2, -0.1, 0, 0.1].forEach((u) => { s.addShape(pres.ShapeType.line, { x: X(u), y: ay, w: 0.001, h: 0.08, line: { color: GREY, width: 0.75 }, objectName: 'tick' }); T(s, u.toFixed(1), X(u) - 0.3, ay + 0.08, 0.6, 0.22, { size: 9.5, color: GREY, align: 'center' }); });
-  s.addShape(pres.ShapeType.line, { x: X(0), y: 2.5, w: 0.001, h: ay - 2.5, line: { color: RULE, width: 0.75, dashType: 'dash' }, objectName: 'zero line' });
+  [-0.2, -0.1, 0, 0.1].forEach((u) => { s.addShape(pres.ShapeType.line, { x: X(u), y: ay, w: 0.001, h: 0.08, line: { color: GREY, width: 0.75 }, objectName: 'tick' }); T(s, u.toFixed(1), X(u) - 0.3, ay + 0.06, 0.6, 0.22, { size: 9, color: GREY, align: 'center' }); });
+  s.addShape(pres.ShapeType.line, { x: X(0), y: 2.38, w: 0.001, h: ay - 2.38, line: { color: RULE, width: 0.75, dashType: 'dash' }, objectName: 'zero line' });
   const rowsU = [
     ['Winner, published', -0.12, null, null, 'D0D0D0', '-0.12'],
-    ['This project, 20 models', null, -0.03, 0.04, RED, '-0.03 to +0.04'],
-    ['GRU-D', 0.01, -0.04, 0.06, RED, '0.01'],
-    ['CNN to OSTA', 0.02, -0.01, 0.04, RED, '0.02'],
+    ['Logistic regression', -0.15, null, null, MID, '-0.15'],
     ['Boosted trees', 0.01, 0.00, 0.03, MID, '0.01'],
+    ['Winner\'s approach', 0.02, null, null, '3A3A3A', '0.02'],
+    ['Temporal CNN', 0.01, null, null, RED, '0.01'],
+    ['GRU-D', 0.01, -0.04, 0.06, RED, '0.01'],
+    ['Flat OSTA', 0.03, null, null, RED, '0.03'],
+    ['OSTA', 0.04, null, null, RED, '0.04'],
+    ['SSL CNN to OSTA', 0.04, null, null, RED, '0.04'],
+    ['eICU models at home (21)', null, 0.00, 0.08, 'F0A8A8', '0.00 to 0.08'],
   ];
   rowsU.forEach((r, i) => {
-    const y = 2.6 + i * 0.47;
-    T(s, r[0], ux + 0.15, y, 1.6, 0.3, { size: 10, bold: i < 2, valign: 'middle' });
+    const y = 2.42 + i * 0.3;
+    T(s, r[0], ux + 0.12, y, 1.7, 0.26, { size: 9.5, bold: i === 0 || i === 9, valign: 'middle' });
     if (r[1] !== null && r[2] === null) {
-      s.addShape(pres.ShapeType.rect, { x: Math.min(X(0), X(r[1])), y: y + 0.04, w: Math.abs(X(r[1]) - X(0)), h: 0.22, fill: { color: r[4] }, line: { color: r[4], width: 0 }, objectName: 'bar' });
+      s.addShape(pres.ShapeType.rect, { x: Math.min(X(0), X(r[1])), y: y + 0.04, w: Math.abs(X(r[1]) - X(0)), h: 0.18, fill: { color: r[4] }, line: { color: r[4], width: 0 }, objectName: 'bar' });
     } else if (r[1] === null) {
-      s.addShape(pres.ShapeType.rect, { x: X(r[2]), y: y + 0.04, w: X(r[3]) - X(r[2]), h: 0.22, fill: { color: r[4] }, line: { color: r[4], width: 0 }, objectName: 'range band' });
+      s.addShape(pres.ShapeType.rect, { x: X(r[2]), y: y + 0.04, w: X(r[3]) - X(r[2]), h: 0.18, fill: { color: r[4] }, line: { color: r[4], width: 0 }, objectName: 'range band' });
     } else {
-      s.addShape(pres.ShapeType.line, { x: X(r[2]), y: y + 0.15, w: X(r[3]) - X(r[2]), h: 0.001, line: { color: r[4], width: 1.5 }, objectName: 'ci' });
-      s.addShape(pres.ShapeType.rect, { x: X(r[1]) - 0.05, y: y + 0.1, w: 0.1, h: 0.1, fill: { color: r[4] }, line: { color: r[4], width: 0 }, objectName: 'point' });
+      s.addShape(pres.ShapeType.line, { x: X(r[2]), y: y + 0.13, w: X(r[3]) - X(r[2]), h: 0.001, line: { color: r[4], width: 1.5 }, objectName: 'ci' });
+      s.addShape(pres.ShapeType.rect, { x: X(r[1]) - 0.05, y: y + 0.08, w: 0.1, h: 0.1, fill: { color: r[4] }, line: { color: r[4], width: 0 }, objectName: 'point' });
     }
-    T(s, r[5], X(umax) + 0.02, y, 0.95, 0.3, { size: 9.5, bold: true, color: i === 0 ? INK : RED, valign: 'middle' });
+    T(s, r[5], X(umax) + 0.02, y, 0.8, 0.26, { size: 9, bold: true, color: i === 0 ? INK : RED, valign: 'middle' });
   });
-  T(s, 'Range of 20 models; every 95 % CI includes zero; logistic regression -0.15. Not below silence, where the winner was; not shown above it. The sealed holdout is the real test.', ux + 0.15, 5.45, uw - 0.3, 0.9, { size: 10, color: GREY });
+  T(s, 'MIMIC-IV models on eICU: -0.03 to +0.04 across 20 models, CIs include zero where computed. eICU\'s own models score 0.00 to 0.08 on the same 45 events: away and at home coincide there. The sealed holdout is the real test.', ux + 0.15, 5.82, uw - 0.3, 0.62, { size: 9.5, color: GREY });
   refFooter(s);
-  s.addNotes('1 min. Left, own hospital system: the winner at 0.36 official (0.43 on its own hospitals) and this project on MIMIC-IV, 0.08 to 0.29, all above zero, none shown best. Right, unseen hospital system: the winner at minus 0.12; this project, MIMIC-IV models on eICU patients, about zero with intervals including zero. Say it plainly: at home every model keeps a positive utility; away, we are not below silence but not above it either, and the sealed holdout decides. Organ grouping not supported on validation; rule-chosen shortlist GRU-D, TCN, flat OSTA.');
+  s.addNotes('1 min. Left, own hospital system: the winner at 0.36 official (0.43 on its own hospitals) and this project on MIMIC-IV, 0.08 to 0.29, all above zero, none shown best. Right, unseen hospital system: the winner at minus 0.12; this project, the same eight models trained on MIMIC-IV and scored on eICU patients, minus 0.15 (logistic) to plus 0.04, about zero. The pink band is eICU\'s own models trained on eICU itself: 0.00 to 0.08 on the same 45 events. Say it plainly: at home on MIMIC-IV every model keeps a positive utility; on eICU, away and at home coincide near zero, so the problem there is the sample and the label as much as transfer, and the full cohort and the sealed holdout decide. Organ grouping not supported on either database; shortlists GRU-D, TCN, flat OSTA (MIMIC-IV) and GRU-D, flat OSTA, pooled self-supervised flat CNN (eICU).');
 
   // ===== 14 CONTRIBUTION + NEXT =====
   pres.addSection({ title: 'Contribution and next steps' });
@@ -554,18 +559,18 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   const con = [
     [I.lock, 'Causal, cross-database pipeline', 'one sepsis definition, two hospital systems, 659 clinically defined predictors ' + c('thiswork')],
     [I.scale, 'Evaluation by clinical utility', 'false alarms per day, warning time, transfer, sealed holdout ' + c('reyna')],
-    [I.search, 'Three findings so far', 'harmonisation recovers the data; on honest data all 21 models stay above zero at home; small samples overfit, so no model is shown best'],
+    [I.search, 'Three findings so far', 'harmonisation recovers the data; all 21 above zero on MIMIC-IV, near zero on eICU at home or transferred; small samples overfit, none shown best'],
     [I.book, 'Three manuscripts submitted in 2026', 'AMR diagnostics review ' + c('amr') + '; sepsis-onset cohort study ' + c('temporal') + '; thermography meta-analysis ' + c('thermo')],
   ];
   con.forEach((k, i) => {
     const y = 2.05 + i * 0.98;
     tile(s, k[0], M, y + 0.05, 0.5, INK);
     T(s, k[1], M + 0.65, y, 5.4, 0.33, { size: 14, bold: true });
-    T(s, k[2], M + 0.65, y + 0.33, 5.6, 0.62, { size: 12.5, color: GREY });
+    T(s, k[2], M + 0.65, y + 0.33, 5.75, 0.62, { size: i === 2 ? 11.5 : 12.5, color: GREY });
   });
   T(s, 'Next steps', M + 6.55, 1.6, 5, 0.35, { size: 15, bold: true, color: RED });
   const nx = [
-    ['Now', 'Complete the qualitative study (20 infectious disease and critical care consultants); finish the eICU arm of the model comparison'],
+    ['Now', 'Complete the qualitative study (20 infectious disease and critical care consultants); fix the full-cohort arms from the MIMIC-IV and eICU shortlists'],
     ['Next', 'Full cohort (about 94,000 + 200,000 stays), three seeds, leave-hospital-out testing'],
     ['Then', 'Freeze the protocol; open the sealed holdout once; set the alarm policy with the qualitative findings'],
     ['Future', 'Silent test on hospital patients, then a clinician-facing pilot ' + c('kwong')],
@@ -595,7 +600,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
     T(s, r[1], M + 5.5, y, CW - 5.5, 0.34, { size: 11.5, bold: true, color: WHITE, valign: 'middle' });
   });
   T(s, 'Known so far', M, 5.25, 6, 0.3, { size: 12.5, bold: true, color: WHITE });
-  list(s, ['On honest, harmonised data, all 21 models keep a positive utility at home ' + c('thiswork') + '.', 'The project\'s own organ-grouping idea is not supported at this scale, and is reported as found.', 'Whether a warning travels to an unseen hospital system is the open question: the consultants\' study and the sealed holdout answer next.'], M, 5.58, CW - 3.2, 0.95, { size: 11.5, color: WHITE, psa: 3 });
+  list(s, ['On honest, harmonised data, all 21 models keep a positive utility on MIMIC-IV; on eICU, with 45 events, models trained there and models transferred sit near zero alike ' + c('thiswork') + '.', 'The project\'s own organ-grouping idea is not supported on either database, and is reported as found.', 'Whether a warning travels to an unseen hospital system is the open question: the full cohort, the consultants\' study and the sealed holdout answer next.'], M, 5.58, CW - 3.2, 0.95, { size: 11.5, color: WHITE, psa: 3 });
   T(s, 'Thank you', W - M - 3.0, 5.6, 3.0, 0.6, { size: 24, bold: true, color: WHITE, align: 'right' });
   refFooter(s, true);
   s.addNotes('1 min. One sentence of take-home, then the six things done differently, read as pairs, then what is known so far in three honest lines. Thank the audience and stop; the chair opens questions.');
@@ -734,10 +739,10 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: INK, val
   s.addText('Cohorts, splits and the sealed holdout', { placeholder: 'title' });
   s.addTable([
     [th('Database'), th('Candidate stays'), th('Sample so far'), th('After exclusions'), th('Sealed holdout')],
-    [td('MIMIC-IV 3.1 ' + c('johnson'), { bold: true }), td('about 94,000'), td('10,000'), td('8,795'), td('20 % of patients, deterministic hash')],
-    [td('eICU-CRD 2.0 ' + c('pollard'), { bold: true }), td('200,859'), td('10,000'), td('5,710'), td('20 % of patients, deterministic hash')],
+    [td('MIMIC-IV 3.1 ' + c('johnson'), { bold: true }), td('about 94,000'), td('10,000'), td('8,758'), td('20 % of patients, deterministic hash')],
+    [td('eICU-CRD 2.0 ' + c('pollard'), { bold: true }), td('200,859'), td('10,000'), td('5,623'), td('20 % of patients, deterministic hash')],
   ], { x: M, y: 1.65, w: CW, colW: [3.0, 2.1, 1.9, 2.0, 3.13], border: { type: 'solid', color: RULE, pt: 0.75 }, fontFace: 'Arial', margin: 0.07, objectName: 'cohort table' });
-  list(s, ['Labels: Sepsis-3 via YAIB / ricu ' + c('yaib', 'ricu') + '; onset within the next 6 h; hours after onset never scored as warnings; up to 120 h per stay.', 'The 10,000-stay samples are fixed random draws, identical in every run.', 'The holdout is opened once, after the protocol is frozen; nothing is tuned on it.', 'Unlabelled pretraining corpus: 67,455 MIMIC-IV and 75,000 eICU stays outside the cohort and the holdout.'], M, 3.4, CW, 2.9, { size: 14 });
+  list(s, ['Labels: Sepsis-3 via YAIB / ricu ' + c('yaib', 'ricu') + '; onset within the next 6 h; hours after onset never scored as warnings; up to 120 h per stay.', 'The 10,000-stay samples are fixed random draws, identical in every run.', 'The holdout is opened once, after the protocol is frozen; nothing is tuned on it.', 'Unlabelled pretraining corpus: 67,193 MIMIC-IV and 74,139 eICU stays outside the cohort and the holdout.'], M, 3.4, CW, 2.9, { size: 14 });
   refFooter(s);
 
   s = slide('BACKUP', 'BACKUP', 'Backup');
