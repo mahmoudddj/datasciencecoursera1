@@ -2,7 +2,9 @@
 # patients excluded, no label extraction of any kind. Features are built with the same code as the
 # labelled sample (same schema), in parallel, and reused afterwards. Capped per database in Section 1.
 CORPUS={}
-if DATA_SOURCE=='clinical':
+if STAGE_1B:
+    SSL_KEY='stage1b_no_pretraining';print('Stage 1b: no self-supervised arms, the unlabelled corpus is not built.')
+elif DATA_SOURCE=='clinical':
     SSL_KEY=signature({'raw_stage':RAW_STAGE_KEY,'code':signature({k:EMBEDDED_MODULES[k]['sha256'] for k in ['v9_data.py','v10_features.py','v11_data.py','feature_specs.json']}),
                        'cap':V11_SSL_MAX_STAYS_PER_DATASET,'seed':RANDOM_STATE,'max_hours':MAX_HOURS,'horizon':HORIZON_HOURS,
                        'excluded_cohort_stays':sorted(int(x) for x in INDEX.stay_id)})[:16]

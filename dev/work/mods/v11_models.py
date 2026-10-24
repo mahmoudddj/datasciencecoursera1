@@ -106,6 +106,37 @@ class FlatOSTA(nn.Module):
     def forward(self,x,mask,hours,guidance=None):
         out=self.core(x,mask,hours);self.last_core_output=out;return out['logits']
 
+HEAD_SOFA=['SOFA_Resp','SOFAproxy_Coag','SOFAproxy_Liver','SOFA_CV','SOFAproxy_CNS','SOFA_Renal']   # the six SOFA organs, in SOFA order
+HEAD_NAMES=['respiration','coagulation','liver','cardiovascular','cns','renal','any_organ']
+HEAD_HORIZONS=(6,12,24)
+
+class FlatOSTAHeads(nn.Module):
+    """Stage 1b (protocol 10b): the flat backbone (one group, unrestricted attention over all predictors)
+    with seven organ heads at the OUTPUT. Each head is a linear readout on the shared stay representation
+    (the input of the prediction head) and predicts whether that organ's SOFA component rises within 6, 12
+    and 24 h (the any_organ head: any component). The heads never feed back into the sepsis logits. The
+    head losses and the sepsis loss are combined by learned uncertainty weighting (Kendall et al. 2018):
+    one log-variance per task, so no auxiliary weight is chosen by hand."""
+    def __init__(self,features,small=False,dropout=.1):
+        super().__init__();self.arm='osta';self.last_gates=None;self.last_core_output=None;self.last_head_logits=None;self._global=None
+        self.core=osta_core(features,small,dropout,flat=True)
+        self.sofa=[features.index(f) for f in HEAD_SOFA if f in features];self.sofa_obs=[features.index(f+'_observed') for f in HEAD_SOFA if f in features]
+        self.sofa_names=[n for f,n in zip(HEAD_SOFA,HEAD_NAMES[:6]) if f in features]
+        self.n_heads=len(self.sofa)+1;d=32 if small else 128
+        self.heads=nn.Linear(d,self.n_heads*len(HEAD_HORIZONS))
+        self.log_var=nn.Parameter(torch.zeros(1+self.n_heads))   # task 0 = sepsis, then one per head
+        self.core.prediction_head[0].register_forward_hook(lambda m,i,o:setattr(self,'_global',i[0]))
+    @property
+    def head_names(self):return self.sofa_names+['any_organ']
+    def task_weights(self):
+        """exp(-log_var) per task: the learned relative weight of each loss (reported, never set by hand)."""
+        return torch.exp(-self.log_var).detach().cpu().numpy().tolist()
+    def forward(self,x,mask,hours,guidance=None):
+        out=self.core(x,mask,hours);self.last_core_output=out
+        b,t,_=x.shape
+        self.last_head_logits=self.heads(self._global).reshape(b,t,self.n_heads,len(HEAD_HORIZONS))
+        return out['logits']
+
 class GRUD(nn.Module):
     """GRU with learned decays. Input decay: each measured channel's carried value is pulled toward
     0 (the training mean after z-scoring) by exp(-relu(w)*age) when not freshly observed. Hidden
@@ -202,6 +233,7 @@ def make_model(arm,features,cfg):
     small=cfg['small_model'];dropout=cfg['dropout']
     if arm in ['osta','output_fusion','cnn']:raise ValueError('v9 arms are built by v9_models.ExperimentModel')
     if arm=='flat_osta':return FlatOSTA(features,small,dropout)
+    if arm=='flat_osta_heads':return FlatOSTAHeads(features,small,dropout)
     if arm=='grud':return GRUD(features,small,dropout)
     if arm=='tcn':return CausalTCN(features,small,dropout)
     if arm=='event_osta':return HourlyEventOSTA(features,small,dropout,cfg.get('event_lookback',24))

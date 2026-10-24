@@ -29,12 +29,12 @@ from v9_models import ObserverBank,ExperimentModel
 from v10_train import tabular_arrays,tabular_predict,utility_block,hospital_ci
 from v10_protocol import partition,protected_group
 from v10_evaluation import patient_utilities,normalized_from,utility_threshold_sweep
-from v11_models import make_model,Pretrainer,SSL_ARMS,measured_channels,FAST,HAZARD_EDGES
+from v11_models import make_model,Pretrainer,SSL_ARMS,measured_channels,FAST,HAZARD_EDGES,HEAD_HORIZONS
 from v9_data import signature,sha
 
 V9_ARMS=['osta','output_fusion','cnn']
 TABULAR=['logistic','boosted_tree','signature_boosted_tree']
-NEURAL_V11=['flat_osta','grud','tcn','cnn_osta','ssl_cnn_osta','ssl_cnn_flat','ssl_cnn_osta_pooled','ssl_cnn_flat_pooled','event_osta','hazard_ssl_cnn_osta']
+NEURAL_V11=['flat_osta','flat_osta_heads','grud','tcn','cnn_osta','ssl_cnn_osta','ssl_cnn_flat','ssl_cnn_osta_pooled','ssl_cnn_flat_pooled','event_osta','hazard_ssl_cnn_osta']
 ENSEMBLE_MEMBERS=['osta','cnn','ssl_cnn_osta']
 PROXY_FEATURES=['Med_Hydrocortisone_24h','Imaging_24h','Prophylaxis_Surgical_24h','Prophylaxis_Medical']
 
@@ -195,18 +195,22 @@ def train_neural(arm,model,train,val,bank,cfg,seed,path,device,loss):
         st=torch.load(last_path,map_location=device,weights_only=False);model.load_state_dict(st['model']);opt.load_state_dict(st['optimizer'])
         start=st['epoch']+1;best=st['best'];wait=st['wait'];history=st['history']
     ld=loader(train,cfg['batch'],True,seed);ld.batch_sampler.epoch=start
+    p_in=float(cfg.get('input_dropout',0.) or 0.);groups,n_groups=feature_groups(train.features) if p_in>0 else (None,0)
+    heads=getattr(model,'heads',None) is not None
     for ep in range(start,cfg['epochs']):
         if wait>=cfg['patience']:break
         seed_all(seed+ep);model.train();bank.eval();tot=0.;nb=0
         for b in ld:
             b=batch_to(b,device)
             with torch.no_grad():z=bank(b['x']) if arm in OSTA_FAMILY and arm!='osta' else None
-            logits=model(b['x'],b['mask'],b['hours'],z);on=onsets[b['idx']]
+            xin=input_dropout(b['x'],groups,n_groups,p_in) if p_in>0 else b['x']
+            logits=model(xin,b['mask'],b['hours'],z);on=onsets[b['idx']]
             if arm.startswith('hazard_'):l=hazard_nll(model.last_hazards,b,on)
             else:
                 target,w=targets_and_weights(b,on,loss,cfg['horizon'],cfg.get('tls_tau',12.))
                 if w.sum()==0:continue
                 l=(nn.functional.binary_cross_entropy_with_logits(logits,target,reduction='none')*w).sum()/w.sum()
+            if heads:l=uncertainty_weighted([l,heads_loss(model,b)],model.log_var)   # heads read the UNDROPPED targets from b['x']
             if not torch.isfinite(l):raise FloatingPointError(f'{arm}: nonfinite loss')
             opt.zero_grad();l.backward();nn.utils.clip_grad_norm_(model.parameters(),1.);opt.step();tot+=float(l.detach());nb+=1
         pred,_=predict(model,bank,val,cfg['batch'],device)
@@ -214,11 +218,149 @@ def train_neural(arm,model,train,val,bank,cfg,seed,path,device,loss):
         if not np.isfinite(score):raise ValueError('Validation target has fewer than two classes')
         if score>best:best=score;wait=0;atomic_torch(best_path,{'state':model.state_dict(),'epoch':ep,'val_AUPRC':best})
         else:wait+=1
-        history.append({'epoch':ep+1,'loss':tot/max(nb,1),'val_hourly_AUPRC':score})
+        history.append({'epoch':ep+1,'loss':tot/max(nb,1),'val_hourly_AUPRC':score,**({'task_weights':model.task_weights()} if heads else {})})
         atomic_torch(last_path,{'model':model.state_dict(),'optimizer':opt.state_dict(),'epoch':ep,'best':best,'wait':wait,'history':history})
         print(arm,loss,'epoch',ep+1,'loss',round(tot/max(nb,1),5),'validation AUPRC',round(score,5),flush=True)
     model.load_state_dict(torch.load(best_path,map_location=device,weights_only=False)['state'])
     atomic_json(path/'training_history.json',history);return model.eval()
+
+# ----------------------------------------------------------------------------- stage 1b (protocol 10b)
+def component_rise_targets(x,mask,sofa,sofa_obs,horizons=HEAD_HORIZONS):
+    """Per-organ targets for the organ heads: for each SOFA component k and horizon h, 1 if the component
+    is observed later within h hours at a HIGHER value than now (both observed), plus an any_organ target.
+    Returns (target (B,T,K+1,H), ok (B,T,K+1,H)); ok marks hours where the target is defined. Label-free:
+    built from the batch's own future values, as ssl_targets does, but kept per component."""
+    s=x[:,:,sofa];so=x[:,:,sofa_obs]>.5;b,t,k=s.shape;tg=[];oks=[]
+    for h in horizons:
+        m=torch.full_like(s,-1e9);mk=torch.zeros_like(so)
+        for j in range(1,h+1):
+            if t>j:
+                later=so[:,j:]&(mask[:,j:].unsqueeze(-1)>.5)
+                cand=torch.full_like(s,-1e9);cand[:,:-j]=torch.where(later,s[:,j:],torch.full_like(s[:,j:],-1e9))
+                m=torch.maximum(m,cand);mk[:,:-j]|=later
+        known=so&mk;rise=(m>s+1e-6)&known
+        anyk=known.any(-1,keepdim=True);anyr=(rise&known).any(-1,keepdim=True)
+        tg.append(torch.cat([rise.float(),anyr.float()],-1));oks.append(torch.cat([known,anyk],-1))
+    return torch.stack(tg,-1),torch.stack(oks,-1)
+
+def heads_loss(model,b):
+    """Mean BCE of the organ heads over defined, in-stay hours (the heads' own task loss)."""
+    tgt,ok=component_rise_targets(b['x'],b['mask'],model.sofa,model.sofa_obs)
+    okf=(ok&(b['mask'].unsqueeze(-1).unsqueeze(-1)>.5)).float()
+    if okf.sum()==0:return None
+    l=nn.functional.binary_cross_entropy_with_logits(model.last_head_logits,tgt,reduction='none')
+    return (l*okf).sum()/okf.sum()
+
+def uncertainty_weighted(losses,log_var):
+    """Kendall, Gal & Cipolla (2018) multi-task weighting: sum_i exp(-s_i) L_i + s_i, s_i learned."""
+    total=0.
+    for i,l in enumerate(losses):
+        if l is None:continue
+        total=total+torch.exp(-log_var[i])*l+log_var[i]
+    return total
+
+def feature_groups(features):
+    """Group id per feature column: a measured channel's value, _observed and _age columns share one id,
+    so input dropout hides the three together (protocol 10b, item C)."""
+    base={};ids=[]
+    for f in features:
+        bn=f[:-9] if f.endswith('_observed') else f[:-4] if f.endswith('_age') else f
+        ids.append(base.setdefault(bn,len(base)))
+    return torch.tensor(ids,dtype=torch.long),len(base)
+
+def input_dropout(x,groups,n_groups,p,generator=None):
+    """Hide whole predictor groups (value+flag+age together) with probability p per stay-hour. Training only.
+    Hidden columns become 0 = the normalised mean (flags 0 = not measured)."""
+    if p<=0:return x
+    keep=(torch.rand(x.shape[0],x.shape[1],n_groups,device=x.device,generator=generator)>=p).float()
+    return x*keep[:,:,groups.to(x.device)]
+
+def fresh_hours(store):
+    """Hours in which at least one measured channel was newly charted (age < 1 h), per stay-hour.
+    Policy item F (protocol 10b): alarms may be restricted to these hours."""
+    chans=measured_channels(store.features)
+    oi=[store.features.index(f+'_observed') for f in chans];ai=[store.features.index(f+'_age') for f in chans];rows=[]
+    for i in range(len(store)):
+        b=store[i];n=int(b['mask'].sum());x=b['x'][:n]
+        fresh=((x[:,oi]>.5)&(x[:,ai]*AGE_SCALE<1)).any(1) if oi else np.ones(n,bool)
+        rows.append(pd.DataFrame({'Patient_ID':store.index.Patient_ID.iloc[i],'Hour':b['hours'][:n],'fresh':fresh}))
+    return pd.concat(rows,ignore_index=True)
+
+def with_fresh(d,fresh):
+    """Attach the fresh flag to a prediction frame (missing hours count as not fresh)."""
+    if fresh is None or 'fresh' in d:return d
+    dd=d.assign(Patient_ID=d.Patient_ID.astype(str)).merge(fresh.assign(Patient_ID=fresh.Patient_ID.astype(str)),on=['Patient_ID','Hour'],how='left')
+    dd['fresh']=dd.fresh.fillna(False).astype(bool);dd['Patient_ID']=d.Patient_ID.to_numpy();return dd
+
+def alarm_fraction(d,threshold):
+    """Share of scored hours at or above the threshold: the alarm rate the quantile operating point carries over."""
+    return float(np.mean(d.risk.to_numpy()>=threshold))
+
+def quantile_threshold(d,fraction,min_hours=10000):
+    """Quantile operating point (protocol 10b, item E): the threshold that flags the same FRACTION of this
+    population's own hours. Label-free. Below min_hours the caller must fall back to the absolute threshold."""
+    r=d.risk.to_numpy(dtype=float)
+    if len(r)<min_hours:return None
+    if fraction<=0:return 1.0000001
+    return float(np.quantile(r,1-min(fraction,1.)))
+
+def operating_threshold(d,chosen,cfg,key='threshold',frac_key='alarm_fraction'):
+    """Absolute (V11) or quantile (10b) operating point for a scored population; records which was used."""
+    if cfg.get('operating_point','absolute')=='quantile' and frac_key in chosen:
+        q=quantile_threshold(d,chosen[frac_key],cfg.get('quantile_min_hours',10000))
+        if q is not None:return q,'quantile'
+    return chosen[key],'absolute'
+
+def alarm_records_v11(d,threshold,cooldown=6,horizon=6,persistence=1,fresh_only=False):
+    """v9 alarm_records with two policy options: persistence (risk at or above the threshold for this many
+    consecutive scored hours before an alarm) and fresh_only (alarms only in hours with new charting).
+    False alarms are still counted against every scored hour (at_risk_hours)."""
+    rows=[];use_fresh=fresh_only and 'fresh' in d
+    for pid,g in d.groupby('Patient_ID',sort=False,observed=True):
+        g=g.sort_values('Hour');onset=g.OnsetHour.iloc[0];last=-np.inf;false=0;leads=[];total=0;run=0;prev_h=None
+        fr=g.fresh.to_numpy() if use_fresh else np.ones(len(g),bool)
+        for h,p,f in zip(g.Hour,g.risk,fr):
+            run=(run+1 if (prev_h is not None and h-prev_h<=1.001 and p>=threshold) else (1 if p>=threshold else 0));prev_h=h
+            if p>=threshold and run>=persistence and f and h-last>=cooldown:
+                last=h;total+=1
+                if pd.notna(onset) and 0<onset-h<=horizon:leads.append(onset-h)
+                else:false+=1
+        evaluable=bool((g.y==1).any())
+        rows.append({'Patient_ID':pid,'Group_ID':g.Group_ID.iloc[0],'event_evaluable':evaluable,'detected':bool(leads),
+          'warning_hours':max(leads) if leads else np.nan,'false_alarms':false,'alarms':total,'at_risk_hours':len(g)})
+    return pd.DataFrame(rows)
+
+def evaluate_v11(d,threshold,cfg,persistence=1,fresh_only=False):
+    """v9 evaluate (hourly metrics unchanged) with the event metrics recomputed under the alarm policy."""
+    out,a,points=evaluate(d,threshold,cfg)
+    if persistence==1 and not fresh_only:return out,a,points
+    a=alarm_records_v11(d,threshold,cfg['alarm_cooldown'],cfg['horizon'],persistence,fresh_only);ev=a[a.event_evaluable]
+    out.update({'alarm_PPV':float((a.alarms-a.false_alarms).sum()/a.alarms.sum()) if a.alarms.sum() else np.nan,
+      'event_sensitivity':float(ev.detected.mean()) if len(ev) else np.nan,'missed_events':int((~ev.detected).sum()),
+      'false_alarms_per_patient_day':float(a.false_alarms.sum()/a.at_risk_hours.sum()*24),'detected_event_denominator':int(ev.detected.sum()),
+      'warning_hours_q25':float(ev.warning_hours.quantile(.25)) if ev.warning_hours.notna().any() else np.nan,
+      'warning_hours_q75':float(ev.warning_hours.quantile(.75)) if ev.warning_hours.notna().any() else np.nan,
+      'median_warning_hours_detected':float(ev.warning_hours.median()) if ev.warning_hours.notna().any() else np.nan})
+    return out,a,points
+
+def head_validation_auroc(model,store,cfg,device):
+    """Per-organ head AUROC on a store's in-stay hours for the 6 h target (protocol 10b, rule 2)."""
+    from sklearn.metrics import roc_auc_score
+    if getattr(model,'heads',None) is None:return {}
+    model.eval();bank_free=True;logit=[];tgt=[];okk=[]
+    with torch.no_grad():
+        for b in loader(store,cfg['batch']):
+            b=batch_to(b,device);model(b['x'],b['mask'],b['hours'],None)
+            t,ok=component_rise_targets(b['x'],b['mask'],model.sofa,model.sofa_obs)
+            m=(b['mask'].unsqueeze(-1).unsqueeze(-1)>.5)&ok
+            logit.append(model.last_head_logits.cpu().numpy());tgt.append(t.cpu().numpy());okk.append(m.cpu().numpy())
+    L=np.concatenate(logit);T=np.concatenate(tgt);K=np.concatenate(okk);out={}
+    for j,name in enumerate(model.head_names):
+        sel=K[:,:,j,0];y=T[:,:,j,0][sel];p=L[:,:,j,0][sel]
+        out['head_auroc_6h_'+name]=float(roc_auc_score(y,p)) if len(np.unique(y))==2 else np.nan
+    return out
+
+STAGE1B_GRID=[(op,pers,fresh) for op in ['absolute','quantile'] for pers in [1,2] for fresh in [False,True]]
 
 # ----------------------------------------------------------------------------- tabular
 def fit_tabular_v11(arm,train,val,cfg,seed,path):
@@ -328,15 +470,20 @@ def run_fold_v11(index,features,target,cfg,root,transfer_index=None,corpus=None)
         for pop in ['site','pooled']:
             parts=[corpus[target]] if pop=='site' else [corpus[k] for k in sorted(corpus)]
             ssl_stores[pop]=[SequenceStore(ix,features,norm,cfg['max_hours']) for ix in parts if ix is not None and len(ix)]
-    jobs=[(a,cfg['loss']) for a in cfg['arms']]+[(a,l) for a in cfg.get('loss_comparison_arms',[]) for l in cfg.get('comparison_losses',[]) if l!=cfg['loss']]
+    grid=[float(q) for q in (cfg.get('input_dropout_grid') or [0.])]
+    jobs=[(a,cfg['loss'],q) for a in cfg['arms'] for q in grid]+[(a,l,0.) for a in cfg.get('loss_comparison_arms',[]) for l in cfg.get('comparison_losses',[]) if l!=cfg['loss']]
+    stage1b=cfg.get('stage')=='1b'
+    fresh_val=fresh_hours(stores['val']) if stage1b or cfg.get('fresh_only') else None
+    fresh_test=fresh_hours(stores['test']) if cfg.get('fresh_only') else None
     for seed in cfg['seeds']:
         sd=root/f'seed_{seed}';sd.mkdir(exist_ok=True);seed_all(seed)
-        need_bank=any(a in OSTA_FAMILY and a!='osta' for a,_ in jobs)
+        need_bank=any(a in OSTA_FAMILY and a!='osta' for a,_,_ in jobs)
         bank=(train_observers(stores['observer_fit'],features,cfg,seed,sd/'observers.pt',device) if need_bank
               else ObserverBank(features,hidden=cfg['observer_hidden']).to(device).eval().requires_grad_(False))
         encoders={}
-        for arm,loss in jobs:
-            name=arm if loss==cfg['loss'] else f'{arm}@{loss}';path=sd/name;path.mkdir(exist_ok=True);done=path/'completed.json'
+        for arm,loss,idrop in jobs:
+            name=(arm if loss==cfg['loss'] else f'{arm}@{loss}')+(f'#id{idrop:g}' if idrop>0 else '');path=sd/name;path.mkdir(exist_ok=True);done=path/'completed.json'
+            cfgj={**cfg,'input_dropout':idrop}
             if done.is_file():results+=json.loads(done.read_text());print('Reuse',target,name);continue
             seed_all(seed);tab=arm in TABULAR
             if tab:
@@ -352,9 +499,10 @@ def run_fold_v11(index,features,target,cfg,root,transfer_index=None,corpus=None)
                         encoders[pop]=pretrain(ssl_stores[pop],features,cfg,seed,sd/f'ssl_encoder_{pop}.pt',device,pop)
                     enc=encoders[pop]
                 model=build_model(arm,features,bank,cfg,enc)
-                model=train_neural(arm,model,stores['train'],stores['val'],bank,cfg,seed,path,device,loss)
+                model=train_neural(arm,model,stores['train'],stores['val'],bank,cfgj,seed,path,device,loss)
                 def pred(store,condition='normal',all_hours=False):return predict(model,bank,store,cfg['batch'],device,condition,all_hours)
             cal,_=pred(stores['calib']);params=calibrate(cal);cal=apply_calibration(cal,params);chosen,sweep=select_threshold(cal,cfg)
+            chosen['alarm_fraction']=alarm_fraction(cal,chosen['threshold'])
             full_cal=pred(stores['calib'],all_hours=True)[0];full_test=pred(stores['test'],all_hours=True)[0]
             utility=utility_block(full_cal,full_test,params,cfg,seed,path)
             apply_calibration(full_test,params).to_parquet(path/'predictions_allhours.parquet',index=False)
@@ -362,17 +510,39 @@ def run_fold_v11(index,features,target,cfg,root,transfer_index=None,corpus=None)
             vp,_=pred(stores['val']);vcal=apply_calibration(vp,params);vfull=apply_calibration(pred(stores['val'],all_hours=True)[0],params)
             vthr,_=utility_threshold_sweep(apply_calibration(full_cal,params),np.unique(np.round(np.quantile(cal.risk,np.linspace(.5,.999,30)),6)))
             vutil=float(normalized_from(patient_utilities(vfull,vthr)))
-            atomic_json(path/'calibration_and_threshold.json',{'platt':params,'chosen':chosen,'validation_utility':vutil,'validation_AUPRC':validation_panel(vp,cfg)['val_AUPRC']})
+            chosen['utility_alarm_fraction']=alarm_fraction(apply_calibration(full_cal,params),utility['utility_threshold'])
+            heads_info={'task_weights':model.task_weights(),'head_names':model.head_names} if getattr(model,'heads',None) is not None else {}
+            atomic_json(path/'calibration_and_threshold.json',{'platt':params,'chosen':chosen,'validation_utility':vutil,'validation_AUPRC':validation_panel(vp,cfg)['val_AUPRC'],'input_dropout':idrop,**heads_info})
             pd.DataFrame(sweep).to_csv(path/'threshold_sweep.csv',index=False)
+            if stage1b:
+                # ---- Protocol 10b: validation-only grid; the test split is scored, written and SEALED (not returned). ----
+                vgrid=with_fresh(vcal,fresh_val);hauc=head_validation_auroc(model,stores['val'],cfg,device) if not tab else {}
+                base_row={'target':target,'seed':seed,'arm':name,'base_arm':arm,'loss':loss if not tab else 'n/a','scope':'stage1b_validation_split',
+                  'feature_count':len(features),'main_training_stays':len(stores['train']),'input_dropout':idrop,'validation_utility':vutil,
+                  'validation_AUPRC':validation_panel(vp,cfg)['val_AUPRC'],'alarm_fraction':chosen['alarm_fraction'],'absolute_threshold':chosen['threshold'],
+                  'task_weights':json.dumps(heads_info.get('task_weights')) if heads_info else '',**hauc}
+                records=[]
+                for op,pers,fresh in STAGE1B_GRID:
+                    thr,used=operating_threshold(vgrid,chosen,{**cfg,'operating_point':op})
+                    mv,_,_=evaluate_v11(vgrid,thr,cfg,pers,fresh)
+                    records.append({**base_row,'condition':'validation_grid','operating_point':op,'operating_point_used':used,'persistence':pers,'fresh_only':fresh,'threshold_used':thr,**mv})
+                d,_=pred(stores['test']);d=apply_calibration(d,params);m,alarms,points=evaluate(d,chosen['threshold'],cfg)
+                m.update(clustered_ci(d,cfg['bootstrap'],seed));m.update(utility);m.update(antibiotic_lead(d,chosen['threshold'],cfg))
+                sealed={'target':target,'seed':seed,'arm':name,'base_arm':arm,'loss':loss,'condition':'normal','scope':'stage1b_test_split_SEALED_until_stage2','input_dropout':idrop,**m}
+                d.to_parquet(path/'predictions_normal.parquet',index=False);atomic_json(path/'test_rows_sealed.json',[sealed])
+                results+=records;atomic_json(done,records);del model;gc.collect()
+                if torch.cuda.is_available():torch.cuda.empty_cache()
+                print('Completed (stage 1b, validation only)',target,name,flush=True);continue
             records=[]
             conditions=['normal']+(cfg['stress_conditions'] if (arm in OSTA_FAMILY and arm!='osta') else [])
             for condition in conditions:
-                d,gates=pred(stores['test'],condition);d=apply_calibration(d,params)
-                m,alarms,points=evaluate(d,chosen['threshold'],cfg)
+                d,gates=pred(stores['test'],condition);d=apply_calibration(d,params);d=with_fresh(d,fresh_test)
+                thr_t,op_used=operating_threshold(d,chosen,cfg)
+                m,alarms,points=evaluate_v11(d,thr_t,cfg,cfg.get('persistence',1),bool(cfg.get('fresh_only',False)));m.update({'operating_point_used':op_used,'persistence':cfg.get('persistence',1),'fresh_only':bool(cfg.get('fresh_only',False))})
                 if condition=='normal':
                     m.update(clustered_ci(d,cfg['bootstrap'],seed));m.update(hospital_ci(d,cfg['bootstrap'],seed));m.update(utility)
-                    m.update(antibiotic_lead(d,chosen['threshold'],cfg))
-                    m.update({'validation_utility':vutil,'validation_AUPRC':validation_panel(vp,cfg)['val_AUPRC']})
+                    m.update(antibiotic_lead(d,thr_t,cfg))
+                    m.update({'validation_utility':vutil,'validation_AUPRC':validation_panel(vp,cfg)['val_AUPRC'],'input_dropout':idrop,**heads_info})
                 row={'target':target,'seed':seed,'arm':name,'base_arm':arm,'loss':loss if not tab else 'n/a','condition':condition,'scope':mf.evaluation_scope.iloc[0],
                   'feature_count':len(features),'main_training_stays':len(stores['train']),**m}
                 records.append(row);d.to_parquet(path/f'predictions_{condition}.parquet',index=False)
@@ -386,10 +556,11 @@ def run_fold_v11(index,features,target,cfg,root,transfer_index=None,corpus=None)
                     if dd.y.nunique()==2:
                         md,_,_=evaluate(dd,chosen['threshold'],cfg);records.append({**{k:v for k,v in row.items() if k not in m},'condition':'trajectory_rich',**md})
             if other is not None:
-                dt,_=pred(other);dt=apply_calibration(dt,params);mt,at,pt_=evaluate(dt,chosen['threshold'],cfg)
+                dt,_=pred(other);dt=apply_calibration(dt,params);dt=with_fresh(dt,fresh_hours(other) if cfg.get('fresh_only') else None)
+                thr_o,op_o=operating_threshold(dt,chosen,cfg);mt,at,pt_=evaluate_v11(dt,thr_o,cfg,cfg.get('persistence',1),bool(cfg.get('fresh_only',False)));mt.update({'operating_point_used':op_o})
                 mt.update(clustered_ci(dt,cfg['bootstrap'],seed));mt.update(hospital_ci(dt,cfg['bootstrap'],seed))
                 mt.update(utility_block(full_cal,pred(other,all_hours=True)[0],params,cfg,seed,_mk(path/'transfer')))
-                mt.update(antibiotic_lead(dt,chosen['threshold'],cfg))
+                mt.update(antibiotic_lead(dt,thr_o,cfg))
                 ot=other.index.Dataset.iloc[0]
                 records.append({'target':f'{ot}_from_{target}','seed':seed,'arm':name,'base_arm':arm,'loss':loss if not tab else 'n/a','condition':'normal',
                     'scope':'development_transfer_other_database_dev_patients','feature_count':len(features),'main_training_stays':len(stores['train']),**mt})

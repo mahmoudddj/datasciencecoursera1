@@ -11,7 +11,8 @@ def run_v11_checks():
     from v9_train import AGE_SCALE,SequenceStore,fit_normalizer
     from v11_models import make_model,Pretrainer,measured_channels,HAZARD_EDGES
     from v11_train import (targets_and_weights,hazard_nll,SignatureStore,ssl_targets,ssl_loss,antibiotic_lead,conformal_policy,
-                           dense_hours,ood_scores,utility_gap_weight)
+                           dense_hours,ood_scores,utility_gap_weight,component_rise_targets,heads_loss,uncertainty_weighted,feature_groups,
+                           input_dropout,fresh_hours,with_fresh,alarm_fraction,quantile_threshold,operating_threshold,alarm_records_v11,evaluate_v11)
     from v11_data import SupplementExtractor,unlabelled_stays
     from v9_data import build_shards,build_sequence,normalize_events,RawExtractor
     from v10_protocol import protected_group
@@ -51,11 +52,26 @@ def run_v11_checks():
         # causality of every v11 arm on real feature layout
         cfg={'small_model':True,'dropout':0.,'cnn_depth':2,'event_lookback':24}
         xb=torch.stack([torch.tensor(store[i]['x']) for i in range(2)]);mb=torch.stack([torch.tensor(store[i]['mask']) for i in range(2)]);hb=torch.stack([torch.tensor(store[i]['hours']) for i in range(2)])
-        for arm in ['flat_osta','grud','tcn','cnn_osta','ssl_cnn_flat','event_osta','hazard_ssl_cnn_osta']:
+        for arm in ['flat_osta','flat_osta_heads','grud','tcn','cnn_osta','ssl_cnn_flat','event_osta','hazard_ssl_cnn_osta']:
             with contextlib.redirect_stdout(io.StringIO()):model=make_model(arm,FEATURES,cfg).eval()
             with torch.no_grad():
                 a=model(xb,mb,hb);x2=xb.clone();x2[:,10:]=torch.randn_like(x2[:,10:]);bq=model(x2,mb,hb)
             check(f'{arm}_future_invariance',float((a[:,:10]-bq[:,:10]).abs().max())<1e-5)
+        # ---- stage 1b (protocol 10b): organ heads, uncertainty weighting, input dropout, fresh hours ----
+        with contextlib.redirect_stdout(io.StringIO()):fh=make_model('flat_osta_heads',FEATURES,cfg).train()
+        lg=fh(xb,mb,hb);check('heads_shape_and_names',fh.last_head_logits.shape==(2,24,fh.n_heads,3) and fh.head_names[-1]=='any_organ' and len(fh.sofa)>=1)
+        tgt,ok=component_rise_targets(xb,mb,fh.sofa,fh.sofa_obs)
+        check('head_targets_shape_defined_only_when_known',tgt.shape==ok.shape==(2,24,fh.n_heads,3) and bool((tgt[~ok]==0).all()) and bool(ok[:,-1].eq(False).all()))
+        # a hand-built component series: rises at hour 3 only -> rise target true at hours 1-2 within 6 h, false at hour 3 (no later rise)
+        xs=torch.zeros(1,6,2);xs[0,:,0]=torch.tensor([1.,1.,2.,2.,2.,2.]);xs[0,:,1]=1.;ms=torch.ones(1,6)
+        t1,o1=component_rise_targets(xs,ms,[0],[1])
+        check('head_target_rise_logic',bool(t1[0,0,0,0]==1) and bool(t1[0,1,0,0]==1) and bool(t1[0,2,0,0]==0) and bool(o1[0,4,0,0]) and not bool(o1[0,5,0,0]) and bool(t1[0,0,1,0]==1))
+        hl=heads_loss(fh,{'x':xb,'mask':mb});tot=uncertainty_weighted([lg.mean(),hl],fh.log_var);tot.backward()
+        check('uncertainty_weighting_finite_and_learnable',torch.isfinite(tot) and fh.log_var.grad is not None and bool(torch.isfinite(fh.log_var.grad).all()) and len(fh.task_weights())==1+fh.n_heads)
+        g,ng=feature_groups(FEATURES);j=FEATURES.index('HR');check('feature_groups_triples',int(g[j])==int(g[FEATURES.index('HR_observed')])==int(g[FEATURES.index('HR_age')]) and ng<len(FEATURES))
+        torch.manual_seed(0);xd=input_dropout(xb,g,ng,.5);hidden=(xd[:,:,j]==0)&(xb[:,:,j]!=0)
+        check('input_dropout_hides_triples_jointly',bool(hidden.any()) and bool((xd[:,:,FEATURES.index('HR_observed')][hidden]==0).all()) and bool((xd[:,:,FEATURES.index('HR_age')][hidden]==0).all()) and bool(input_dropout(xb,g,ng,0.).equal(xb)))
+        frh=fresh_hours(store);check('fresh_hours_flag',set(frh.columns)=={'Patient_ID','Hour','fresh'} and frh.fresh.dtype==bool and frh.fresh.any())
         with contextlib.redirect_stdout(io.StringIO()):hm=make_model('hazard_ssl_cnn_osta',FEATURES,cfg).eval()
         with torch.no_grad():hm(xb,mb,hb)
         check('hazard_probabilities_bounded',bool((hm.last_hazards>0).all()) and bool((hm.last_hazards<1).all()))
@@ -68,6 +84,21 @@ def run_v11_checks():
         ood=pd.DataFrame({'Patient_ID':pred.Patient_ID,'Hour':pred.Hour,'ood':np.r_[np.zeros(19),[1.]]})
         tc,info=conformal_policy(pred,pred,ood,ood,cfgp,alpha=.1)
         check('conformal_abstains_outlier_and_bounds_threshold',info['conformal_abstained_fraction']>0 and tc.risk.iloc[-1]==0 and 0<info['conformal_threshold']<=1)
+        # ---- stage 1b alarm policy and quantile operating point on synthetic predictions ----
+        pp=pd.DataFrame({'Patient_ID':['a']*8,'Group_ID':['a']*8,'Hospital_ID':['h']*8,'Hour':list(range(1,9)),'y':[0]*8,
+            'risk':[.1,.6,.1,.6,.6,.6,.1,.6],'OnsetHour':[np.nan]*8,'fresh':[True,True,True,False,True,True,True,True]})
+        a1=alarm_records_v11(pp,.5,cooldown=1,horizon=6,persistence=1);a2=alarm_records_v11(pp,.5,cooldown=1,horizon=6,persistence=2)
+        a3=alarm_records_v11(pp,.5,cooldown=1,horizon=6,persistence=1,fresh_only=True);a4=alarm_records_v11(pp,.5,cooldown=1,horizon=6,persistence=2,fresh_only=True)
+        check('persistence_rule',int(a1.alarms[0])==5 and int(a2.alarms[0])==2)          # p=2: hours 5 and 6 only (hour 4 starts the run)
+        check('fresh_only_rule',int(a3.alarms[0])==4 and int(a4.alarms[0])==2 and int(a1.at_risk_hours[0])==8)
+        pa=pred.copy();check('evaluate_v11_identity_at_default_policy',evaluate_v11(pa,.5,cfgp)[0]['event_sensitivity']==evaluate_v11(pa,.5,cfgp,1,False)[0]['event_sensitivity'])
+        big=pd.DataFrame({'risk':np.linspace(0,1,20000)});fr=alarm_fraction(big,.9);qt=quantile_threshold(big,fr,min_hours=10000)
+        check('quantile_threshold_reproduces_alarm_fraction',abs(alarm_fraction(big,qt)-fr)<2e-4 and quantile_threshold(big.head(100),fr)is None and quantile_threshold(big,0.)>1)
+        thr_abs,used_abs=operating_threshold(big,{'threshold':.9,'alarm_fraction':fr},{'operating_point':'absolute'})
+        thr_q,used_q=operating_threshold(big,{'threshold':.9,'alarm_fraction':fr},{'operating_point':'quantile'})
+        thr_f,used_f=operating_threshold(big.head(50),{'threshold':.9,'alarm_fraction':fr},{'operating_point':'quantile'})
+        check('operating_point_selection_and_fallback',used_abs=='absolute' and thr_abs==.9 and used_q=='quantile' and abs(thr_q-.9)<1e-3 and used_f=='absolute')
+        wf=with_fresh(pp.drop(columns='fresh'),pp[['Patient_ID','Hour','fresh']]);check('with_fresh_merge',wf.fresh.tolist()==pp.fresh.tolist())
         # parallel == sequential shard building (same records, index, schema)
         from v9_data import build_shards as bs
     with tempfile.TemporaryDirectory() as td:

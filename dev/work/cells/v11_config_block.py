@@ -14,3 +14,11 @@ V11_DROPOUT = 0.2; V11_WEIGHT_DECAY = 1e-4         # one prespecified regularisa
 V11_TREE_MAX_ITERATIONS = 1000                     # boosted trees: patient-grouped early stopping on the validation split
 RUN_TRANSFER_EVALUATION = True                     # each database's model scored on the OTHER database's development patients (holdout sealed)
 RUN_NO_PROXY_SENSITIVITY = True                    # osta without hydrocortisone / imaging / prophylaxis (clinician-suspicion proxies)
+# ---- STAGE 1b (protocol section 10b, 24 Oct 2026; decided after the stage-1 results, blind to the test splits) ----
+STAGE_1B = True                                    # True: train only STAGE1B_ARMS x STAGE1B_INPUT_DROPOUT with plain BCE; report VALIDATION only; test rows sealed on disk
+STAGE1B_ARMS = ['flat_osta','flat_osta_heads']     # flat backbone vs flat backbone + seven organ heads (uncertainty-weighted)
+STAGE1B_INPUT_DROPOUT = [0.0,0.1,0.2]              # predictor groups (value+flag+age) hidden together during training
+STAGE1B_LOSS = 'bce'                               # the stage-2 loss by the section 10 rule (first in 3 of 4 validation comparisons)
+STAGE2_OPERATING_POINT = 'absolute'                # 'absolute' (V11) | 'quantile' (10b item E); set by rule 10b.2.3 for stage 2
+STAGE2_PERSISTENCE = 1; STAGE2_FRESH_ONLY = False  # alarm policy (10b item F); set by rule 10b.2.4 for stage 2
+
