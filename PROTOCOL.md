@@ -353,6 +353,39 @@ Test results are reported for every arm and are never used to choose anything. T
 - Loss: plain cross-entropy ranked first in three of the four comparisons and the utility-weighted loss in one; temporal label smoothing never ranked first. Reading the rule "across both databases" by rank average, the stage-2 loss is plain cross-entropy. **TO FREEZE:** the candidate confirms this reading (or records a deviation) before the full-cohort run.
 - Shortlist union: GRU-D, TCN, flat OSTA, SSL-CNN→flat (pooled).
 
+## 10b. Stage 1b: training recipe and alarm policy, decided on validation only (added 24 Oct 2026)
+
+**Status and disclosure.** This section was written after the stage-1 development results of run `4cd752bef2ccbd42` had been seen (Section 10) and before any stage-1b code ran. It is therefore not blind to stage 1, and it says so. It is blind to the test splits: no test-split number is computed, displayed or read during stage 1b, and the sealed holdout stays sealed. Everything below is chosen on the training and validation splits of the two prespecified 10,000-stay samples, by rules fixed here.
+
+**Why.** Stage 1 left three things undecided that stage 2 needs: (1) the project's own architecture, after the organ grouping was not supported on either database; (2) the alarm threshold, after an absolute probability threshold set on the calibration split left OSTA, OSTA@bce and OSTA@tls silent on the eICU test split (no alarm within the false-alarm budget); (3) the alarm policy, which the consultants' study will tune and which must exist before their answers can be used.
+
+### 10b.1 What is tried (the complete list; nothing is added during the stage)
+
+| Item | Options compared | Fixed settings |
+|---|---|---|
+| A. Backbone | `flat_osta` (reference) vs `flat_osta_heads`: the same flat backbone with fourteen organ heads at the output | d_global 128, 4 heads, 2 + 2 layers, dropout 0.2, batch 32, AdamW wd 1e-4, 30 epochs, early stopping on validation AUPRC (patience 5), seed 42, as in V11 |
+| B. Organ heads | Each head is a linear readout on the shared stay representation, trained jointly with the sepsis head on its own target: whether that organ's SOFA component worsens within 6, 12 and 24 h (the targets already defined for self-supervised pretraining, `ssl_targets`). Auxiliary loss weight 0.2, fixed. Heads never feed back into the sepsis risk | Six SOFA organs plus the eight other groups of the V11 mapping; groups with no SOFA target carry only the 6 h "any worsening" target |
+| C. Input dropout | 0 (reference), 0.1, 0.2: each predictor's value, measured flag and age channels are hidden together with that probability during training only | Applied to both backbones; 2 × 3 = 6 trainings per database |
+| D. Loss | Plain cross-entropy for every stage-1b training (Section 10 rule, three of four comparisons). No loss comparison in stage 1b | — |
+| E. Operating point | Absolute threshold (as implemented in V11) vs **quantile operating point**: the budget threshold is found on the calibration split as before, then carried to any scored population as an alarm rate, not a probability: the fraction of calibration hours at or above the threshold is computed, and on the scored population the alarm fires on the same fraction of its own hours (the same quantile of its own score distribution). The quantile is label-free, so it can be set on a new hospital's unlabelled hours | Budget 0.5 false alarms per patient-day on the calibration split, unchanged |
+| F. Alarm policy | Persistence 1 h (as now) vs 2 h; cooldown 6 h (as now, kept); fresh-information hours: alarms allowed in every hour (as now) vs only in hours in which at least one predictor was newly charted | Evaluated on validation only; false alarms per patient-day always counted over every hour of the day |
+
+Items E and F are evaluation settings applied to saved predictions; they need no retraining. The PhysioNet utility is always reported on the plain hourly predictions (no persistence, no cooldown, no fresh-hour rule) so that it stays comparable with the published score; the policy is judged on the clinical metrics (event sensitivity, false alarms per patient-day, warning time, antibiotic lead).
+
+### 10b.2 Decision rules (fixed now)
+
+1. **Backbone and input dropout.** Rank the six trainings per database by the Section 10 rule (rank-average of validation utility and validation AUPRC). The setting with the best average rank across both databases goes to stage 2 as "the project's model". `flat_osta_heads` is kept only if its best configuration is not ranked below the best `flat_osta` configuration on the cross-database average; otherwise the heads are reported as not supported and the stage-2 model is `flat_osta` with the chosen input dropout.
+2. **Organ heads as explanation.** Reported regardless of rule 1: per-organ validation AUROC of each head's 6 h target. A head with AUROC below 0.60 on both databases is reported as uninformative. This does not affect rule 1; it tells the consultants' study which organ readings can be trusted.
+3. **Operating point.** The quantile operating point replaces the absolute threshold for every event metric and every transfer row in stage 2 if, on the validation splits, it keeps the false-alarm rate within 0.5 per patient-day on both databases and raises no model to silence. Otherwise the absolute threshold stays and the silence is reported as found.
+4. **Policy.** Among the four policy combinations (persistence 1 or 2 h × all hours or fresh hours), the one with the highest validation event sensitivity at or under the budget, averaged over both databases, is the stage-2 default. Ties go to the simpler policy. The consultants' study may move the budget and the persistence; that change is recorded, dated, before the holdout opens.
+5. **No other change.** Predictor set, label, splits, calibration, bootstrap, horizon (6 h) and every other setting stay as in Section 1 to 9.
+
+### 10b.3 Outputs and audit trail
+
+- A validation-only summary table per database: arm × input dropout × operating point × policy, with validation utility, AUPRC, event sensitivity, false alarms per patient-day, warning time, and per-organ head AUROC.
+- The team summary code refuses to print any test-split row while `STAGE='1b'`; the test predictions are still written to disk, unread, so that the chosen configuration can later be reported on the development test split once, together with the stage-2 results, labelled "chosen on validation in stage 1b".
+- The outcome of rules 1 to 4 is appended to this section with the run key and date, and Section 11 is updated in the same commit. That commit is the stage-2 freeze candidate.
+
 ## 11. Stage 2, full cohort
 
 - **Data:** all eligible stays in both databases (`FULL_SAMPLE_STAYS_PER_DATASET=None`); the same split rules; three seeds.
@@ -361,7 +394,9 @@ Test results are reported for every arm and are never used to choose anything. T
   - OSTA, CNN–Transformer, boosted trees and logistic regression;
   - signature boosted trees;
   - the D1 pair, labelled exploratory.
-- **Loss (TO FREEZE):** decided by Section 10 across both databases; the rule's reading is plain cross-entropy (three of four comparisons).
+- **Loss (decided 24 Oct 2026):** plain cross-entropy for every arm, by the Section 10 rule (first in three of four validation comparisons). The utility-weighted loss is kept selectable and runs once as a prespecified secondary comparator on `ssl_cnn_osta` only, where it ranked first on MIMIC-IV validation; it cannot replace the primary.
+- **Project model (TO FREEZE by stage 1b, Section 10b):** `flat_osta` or `flat_osta_heads`, with the input-dropout setting chosen on validation; it replaces `flat_osta` in the arm list.
+- **Operating point and alarm policy (TO FREEZE by stage 1b):** quantile operating point and the policy chosen by rule 10b.2.4, unless rule 3 fails.
 - **Pretraining corpus (TO FREEZE):**
   - non-cohort stays plus training-split stays (inputs only, no labels);
   - excluding every stay of a validation, test or protected patient.
