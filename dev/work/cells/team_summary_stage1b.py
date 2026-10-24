@@ -26,7 +26,7 @@ if STAGE_1B:
     if hcols:
         H=ref[ref.base_arm.eq('flat_osta_heads')][['target','config']+hcols].drop_duplicates()
         print('RULE 2: per-organ head AUROC on validation (6 h target); < 0.60 on BOTH databases = uninformative');display(H.round(3))
-        uninformative=[c.replace('head_auroc_6h_','') for c in hcols if (H.groupby('target')[c].max()<.60).all()]
+        uninformative=[c.replace('head_auroc_6h_','') for c in hcols if (H.groupby('target')[c].max().fillna(0)<.60).all()]   # no defined target = uninformative
         print('[rule 2] uninformative heads:',uninformative or 'none');decision['uninformative_heads']=uninformative
         tw=ref[ref.base_arm.eq('flat_osta_heads')][['target','config','task_weights']].drop_duplicates();print('Learned task weights (sepsis first, then heads):');display(tw)
     # ---- Rule 3: quantile operating point (persistence 1, all hours) ----
@@ -34,7 +34,10 @@ if STAGE_1B:
     silent=lambda d:(d.false_alarms_per_patient_day.eq(0)&d.event_sensitivity.fillna(0).eq(0))
     q_ok=bool(len(q)) and bool((q.false_alarms_per_patient_day<=budget).all()) and not bool(silent(q).any()) and bool(q.operating_point_used.eq('quantile').all())
     a=G[G.operating_point.eq('absolute')&G.persistence.eq(1)&~G.fresh_only]
-    print('RULE 3 inputs: quantile vs absolute operating point (validation):');display(pd.concat([a.assign(point='absolute'),q.assign(point='quantile')])[['target','config','point','threshold_used','event_sensitivity','false_alarms_per_patient_day']].sort_values(['target','config','point']).round(3))
+    r3=pd.concat([a.assign(point='absolute'),q.assign(point='quantile')]);r3['silent']=silent(r3)
+    r3['silence_cause']=np.where(~r3.silent,'',np.where(r3.alarm_fraction.eq(0),'budget unattainable on the calibration split (chosen threshold never fires)','scale shift (fires on calibration, not here)'))
+    print('RULE 3 inputs: quantile vs absolute operating point (validation); alarm_fraction = share of calibration hours the chosen threshold flags:')
+    display(r3[['target','config','point','alarm_fraction','threshold_used','event_sensitivity','false_alarms_per_patient_day','silence_cause']].sort_values(['target','config','point']).round(3))
     print('[rule 3] quantile operating point '+('ADOPTED for stage 2' if q_ok else 'NOT adopted (budget exceeded, a model silent, or hours below the minimum); absolute threshold stays')+f' | silent models under absolute: {int(silent(a).sum())}, under quantile: {int(silent(q).sum()) if len(q) else "n/a"}')
     op='quantile' if q_ok else 'absolute';decision['operating_point']=op
     # ---- Rule 4: alarm policy for the chosen model and operating point ----
