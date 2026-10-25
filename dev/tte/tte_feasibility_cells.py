@@ -1,0 +1,242 @@
+# Source of the TTE feasibility notebook cells. Each cell is a string; build_tte_notebook.py assembles them and
+# the synthetic test executes them in order against tiny tables with the real column names.
+CELLS=[]
+CELLS.append(('markdown',r'''# Target trial emulation in MIMIC-IV 3.1 and eICU-CRD 2.0: feasibility counts
+
+This notebook reads the raw PhysioNet tables from Google Drive (or a local copy) and, for each candidate target trial, counts the eligible stays, the two treatment arms, the deaths per arm and the timing of the exposure. It writes one CSV of **aggregate** numbers. No patient-level data is printed, plotted or copied anywhere.
+
+Rules: the PhysioNet data use agreement applies; nothing patient-level leaves the Colab runtime; counts below 11 are shown as "<11".
+
+Run order: Section 1 (paths) → 2 (tables) → 3 (questions) → 4 (run). Each question is independent; a failing question reports its error and the others still run.'''))
+CELLS.append(('code',r'''# 1. Configuration and data location
+import os,re,json,time,glob
+from pathlib import Path
+MIMIC_ROOT = os.environ.get('TTE_MIMIC_ROOT','')     # folder that contains hosp/ and icu/   (leave '' to auto-locate on Drive)
+EICU_ROOT  = os.environ.get('TTE_EICU_ROOT','')      # folder that contains patient.csv(.gz)
+OUTPUT_DIR = os.environ.get('TTE_OUTPUT_DIR','')     # where the aggregate CSV goes (default: <Drive>/tte_feasibility)
+DUCKDB_MEMORY = '12GB'; DUCKDB_THREADS = max(2,(os.cpu_count() or 2)-1)
+SCAN_LABEVENTS = True          # MIMIC labevents is ~2.5 GB gz: needed for the haemoglobin and creatinine questions only
+SMALL_CELL = 11                # counts below this are masked in the output
+IN_COLAB = Path('/content').is_dir()
+if IN_COLAB and not MIMIC_ROOT:
+    try:
+        from google.colab import drive; drive.mount('/content/drive')
+    except Exception as e:print('Drive mount skipped:',e)
+def _find(pattern,roots):
+    for r in roots:
+        for hit in glob.glob(str(Path(r)/'**'/pattern),recursive=True):
+            if 'demo' in hit.lower():continue
+            return str(Path(hit).parent)
+    return ''
+ROOTS=['/content/local_raw','/content/drive/MyDrive','/content/drive/.shortcut-targets-by-id']
+if not MIMIC_ROOT:
+    hit=_find('icustays.csv*',ROOTS);MIMIC_ROOT=str(Path(hit).parent) if hit else ''
+if not EICU_ROOT:EICU_ROOT=_find('patient.csv*',ROOTS)
+if not OUTPUT_DIR:OUTPUT_DIR='/content/drive/MyDrive/tte_feasibility' if IN_COLAB else str(Path.cwd()/'tte_feasibility')
+Path(OUTPUT_DIR).mkdir(parents=True,exist_ok=True)
+print('MIMIC root:',MIMIC_ROOT or 'NOT FOUND');print('eICU root :',EICU_ROOT or 'NOT FOUND');print('output    :',OUTPUT_DIR)
+assert MIMIC_ROOT or EICU_ROOT,'Set TTE_MIMIC_ROOT / TTE_EICU_ROOT or fix the Drive paths'
+'''))
+CELLS.append(('code',r'''# 2. Tables as DuckDB views (CSV or CSV.GZ read directly; nothing is copied)
+import duckdb,pandas as pd,numpy as np
+con=duckdb.connect();con.execute(f"SET memory_limit='{DUCKDB_MEMORY}'");con.execute(f"SET threads={DUCKDB_THREADS}")
+con.execute("SET preserve_insertion_order=false")
+def _path(root,rel):
+    for ext in ['.csv.gz','.csv','.CSV.gz','.CSV']:
+        p=Path(root)/(rel+ext)
+        if p.is_file():return str(p)
+    raise FileNotFoundError(rel)
+VIEWS=set()
+def view(ds,name,rel=None):
+    """Register <ds>_<name> as a view over the raw file once; returns the view name."""
+    v=f'{ds}_{name}'
+    if v in VIEWS:return v
+    root=MIMIC_ROOT if ds=='m' else EICU_ROOT
+    p=_path(root,rel or name)
+    con.execute(f"CREATE OR REPLACE VIEW {v} AS SELECT * FROM read_csv('{p}',header=true,all_varchar=false,ignore_errors=true,sample_size=200000)")
+    VIEWS.add(v);return v
+def q(sql):return con.execute(sql).df()
+def base_m():
+    """MIMIC: one row per ICU stay with hospital mortality."""
+    view('m','icustays','icu/icustays');view('m','admissions','hosp/admissions');view('m','patients','hosp/patients')
+    con.execute("""CREATE OR REPLACE VIEW m_base AS
+      SELECT i.stay_id,i.hadm_id,i.subject_id,i.intime,i.outtime,p.anchor_age AS age,p.gender,a.hospital_expire_flag AS died,
+             date_diff('hour',i.intime,i.outtime) AS los_h
+      FROM m_icustays i JOIN m_admissions a USING(hadm_id) JOIN m_patients p ON p.subject_id=i.subject_id""")
+def base_e():
+    """eICU: one row per ICU stay with hospital mortality (offsets are minutes from ICU admission)."""
+    view('e','patient')
+    con.execute("""CREATE OR REPLACE VIEW e_base AS
+      SELECT patientunitstayid AS stay_id,uniquepid,hospitalid,TRY_CAST(age AS INTEGER) AS age,gender,
+             CASE WHEN lower(hospitaldischargestatus)='expired' THEN 1 WHEN hospitaldischargestatus IS NULL THEN NULL ELSE 0 END AS died,
+             unitdischargeoffset/60.0 AS los_h FROM e_patient""")
+def ditems():
+    view('m','d_items','icu/d_items');return 'm_d_items'
+print('DuckDB',duckdb.__version__,'| ready')
+'''))
+CELLS.append(('code',r'''# 3. Candidate target trials. Each entry returns a per-stay frame: stay_id, eligible (0/1), arm ('A'|'B'|None), t_h (hours from
+#    time zero to the exposure), died (0/1), plus hospitalid for eICU. SQL only; the frame never leaves the runtime.
+VASO_M="lower(d.label) IN ('norepinephrine','vasopressin','phenylephrine','epinephrine','dopamine')"
+VASO_E="(lower(drugname) LIKE '%norepinephrine%' OR lower(drugname) LIKE '%levophed%' OR lower(drugname) LIKE '%vasopressin%' OR lower(drugname) LIKE '%phenylephrine%' OR lower(drugname) LIKE '%neosynephrine%' OR lower(drugname) LIKE '%epinephrine%' OR lower(drugname) LIKE '%dopamine%')"
+ABX=['vancomycin','piperacillin','cefepime','meropenem','ceftriaxone','levofloxacin','ciprofloxacin','metronidazole','azithromycin','ampicillin','cefazolin','linezolid','gentamicin','ceftazidime','imipenem','ertapenem','daptomycin','aztreonam','clindamycin','doxycycline']
+ABX_LIKE=lambda col:'('+' OR '.join(f"lower({col}) LIKE '%{a}%'" for a in ABX)+')'
+QUESTIONS={}
+def question(qid,title,emulates,contrast):
+    def deco(f):QUESTIONS[qid]={'title':title,'emulates':emulates,'contrast':contrast,'fn':f};return f
+    return deco
+
+@question('Q1','Early versus delayed vasopressor start in the first 48 h of ICU','CENSER (early norepinephrine), Permpikul 2019','A: first vasopressor within 6 h of ICU admission; B: 6 to 48 h; time zero = ICU admission; outcome hospital death')
+def q1(ds):
+    if ds=='m':
+        base_m();view('m','inputevents','icu/inputevents');d=ditems()
+        return q(f"""WITH v AS (SELECT e.stay_id,min(date_diff('minute',b.intime,e.starttime))/60.0 AS t_h FROM m_inputevents e JOIN {d} d USING(itemid) JOIN m_base b USING(stay_id) WHERE {VASO_M} GROUP BY e.stay_id)
+          SELECT b.stay_id,CASE WHEN v.t_h BETWEEN 0 AND 48 THEN 1 ELSE 0 END AS eligible,CASE WHEN v.t_h BETWEEN 0 AND 6 THEN 'A' WHEN v.t_h>6 AND v.t_h<=48 THEN 'B' END AS arm,v.t_h,b.died FROM m_base b LEFT JOIN v USING(stay_id)""")
+    base_e();view('e','infusiondrug')
+    return q(f"""WITH v AS (SELECT patientunitstayid AS stay_id,min(infusionoffset)/60.0 AS t_h FROM e_infusiondrug WHERE {VASO_E} GROUP BY 1)
+      SELECT b.stay_id,b.hospitalid,CASE WHEN v.t_h BETWEEN 0 AND 48 THEN 1 ELSE 0 END AS eligible,CASE WHEN v.t_h BETWEEN 0 AND 6 THEN 'A' WHEN v.t_h>6 AND v.t_h<=48 THEN 'B' END AS arm,v.t_h,b.died FROM e_base b LEFT JOIN v USING(stay_id)""")
+
+@question('Q2','Balanced crystalloid versus saline as the first resuscitation fluid','SMART (Semler 2018), BaSICS, PLUS','A: first crystalloid in the first 24 h is lactated Ringer or Plasma-Lyte; B: 0.9 % saline; time zero = first crystalloid; outcome hospital death (and MAKE30 where creatinine allows)')
+def q2(ds):
+    if ds=='m':
+        base_m();view('m','inputevents','icu/inputevents');d=ditems()
+        return q(f"""WITH f AS (SELECT e.stay_id,e.starttime,CASE WHEN lower(d.label) LIKE '%nacl 0.9%' THEN 'B' WHEN lower(d.label) LIKE '%lactated%' OR lower(d.label)='lr' OR lower(d.label) LIKE '%plasma%lyte%' THEN 'A' END AS arm,
+                         date_diff('minute',b.intime,e.starttime)/60.0 AS t_h,row_number() OVER (PARTITION BY e.stay_id ORDER BY e.starttime) AS rn
+                       FROM m_inputevents e JOIN {d} d USING(itemid) JOIN m_base b USING(stay_id)
+                       WHERE (lower(d.label) LIKE '%nacl 0.9%' OR lower(d.label) LIKE '%lactated%' OR lower(d.label)='lr' OR lower(d.label) LIKE '%plasma%lyte%') AND COALESCE(e.amount,0)>=250)
+          SELECT b.stay_id,CASE WHEN f.rn=1 AND f.t_h BETWEEN 0 AND 24 THEN 1 ELSE 0 END AS eligible,CASE WHEN f.rn=1 AND f.t_h BETWEEN 0 AND 24 THEN f.arm END AS arm,f.t_h,b.died FROM m_base b LEFT JOIN f ON f.stay_id=b.stay_id AND f.rn=1""")
+    base_e();view('e','infusiondrug');view('e','intakeoutput')
+    return q("""WITH f AS (SELECT stay_id,t_h,arm,row_number() OVER (PARTITION BY stay_id ORDER BY t_h) AS rn FROM (
+                 SELECT patientunitstayid AS stay_id,infusionoffset/60.0 AS t_h,CASE WHEN lower(drugname) LIKE '%normal saline%' OR lower(drugname) LIKE '%0.9%' OR lower(drugname) LIKE '%nacl%' THEN 'B' WHEN lower(drugname) LIKE '%lactated%' OR lower(drugname) LIKE '% lr%' OR lower(drugname) LIKE '%plasma%lyte%' THEN 'A' END AS arm FROM e_infusiondrug
+                 UNION ALL SELECT patientunitstayid,intakeoutputoffset/60.0,CASE WHEN lower(celllabel) LIKE '%normal saline%' OR lower(celllabel) LIKE '%0.9%' OR lower(celllabel) LIKE '%nacl%' THEN 'B' WHEN lower(celllabel) LIKE '%lactated%' OR lower(celllabel) LIKE '% lr%' OR lower(celllabel) LIKE '%plasma%lyte%' THEN 'A' END FROM e_intakeoutput WHERE COALESCE(cellvaluenumeric,0)>=250) WHERE arm IS NOT NULL)
+      SELECT b.stay_id,b.hospitalid,CASE WHEN f.rn=1 AND f.t_h BETWEEN 0 AND 24 THEN 1 ELSE 0 END AS eligible,CASE WHEN f.rn=1 AND f.t_h BETWEEN 0 AND 24 THEN f.arm END AS arm,f.t_h,b.died FROM e_base b LEFT JOIN f ON f.stay_id=b.stay_id AND f.rn=1""")
+
+@question('Q3','Hydrocortisone versus none in vasopressor-dependent shock','ADRENAL (Venkatesh 2018), APROCCHSS','A: IV hydrocortisone started within 24 h of the first vasopressor; B: no hydrocortisone in the first 72 h; time zero = first vasopressor; outcome hospital death')
+def q3(ds):
+    if ds=='m':
+        base_m();view('m','inputevents','icu/inputevents');view('m','prescriptions','hosp/prescriptions');d=ditems()
+        return q(f"""WITH v AS (SELECT e.stay_id,min(e.starttime) AS t0 FROM m_inputevents e JOIN {d} d USING(itemid) WHERE {VASO_M} GROUP BY e.stay_id),
+          h AS (SELECT b.stay_id,min(date_diff('minute',v.t0,p.starttime))/60.0 AS t_h FROM m_prescriptions p JOIN m_base b USING(hadm_id) JOIN v USING(stay_id) WHERE lower(p.drug) LIKE '%hydrocortisone%' AND (p.route IS NULL OR lower(p.route) LIKE '%iv%') AND p.starttime>=v.t0-INTERVAL 6 HOUR GROUP BY b.stay_id)
+          SELECT b.stay_id,CASE WHEN v.t0 IS NOT NULL THEN 1 ELSE 0 END AS eligible,CASE WHEN v.t0 IS NULL THEN NULL WHEN h.t_h BETWEEN -6 AND 24 THEN 'A' WHEN h.t_h IS NULL OR h.t_h>72 THEN 'B' END AS arm,h.t_h,b.died FROM m_base b LEFT JOIN v USING(stay_id) LEFT JOIN h USING(stay_id)""")
+    base_e();view('e','infusiondrug');view('e','medication')
+    return q(f"""WITH v AS (SELECT patientunitstayid AS stay_id,min(infusionoffset) AS t0 FROM e_infusiondrug WHERE {VASO_E} GROUP BY 1),
+      h AS (SELECT m.patientunitstayid AS stay_id,min(m.drugstartoffset-v.t0)/60.0 AS t_h FROM e_medication m JOIN v ON v.stay_id=m.patientunitstayid WHERE (lower(m.drugname) LIKE '%hydrocortisone%' OR lower(m.drugname) LIKE '%solu-cortef%') AND (m.routeadmin IS NULL OR lower(m.routeadmin) LIKE '%iv%') AND COALESCE(m.drugordercancelled,'No')<>'Yes' GROUP BY 1)
+      SELECT b.stay_id,b.hospitalid,CASE WHEN v.t0 IS NOT NULL THEN 1 ELSE 0 END AS eligible,CASE WHEN v.t0 IS NULL THEN NULL WHEN h.t_h BETWEEN -6 AND 24 THEN 'A' WHEN h.t_h IS NULL OR h.t_h>72 THEN 'B' END AS arm,h.t_h,b.died FROM e_base b LEFT JOIN v USING(stay_id) LEFT JOIN h USING(stay_id)""")
+
+@question('Q4','Dexmedetomidine versus propofol as the first sedative in ventilated patients','SPICE III (Shehabi 2019), MENDS2','A: dexmedetomidine first within 24 h of ventilation; B: propofol first; time zero = first sedative; outcome hospital death, ventilator-free days where recorded')
+def q4(ds):
+    if ds=='m':
+        base_m();view('m','inputevents','icu/inputevents');view('m','procedureevents','icu/procedureevents');d=ditems()
+        return q(f"""WITH vent AS (SELECT p.stay_id,min(p.starttime) AS t0 FROM m_procedureevents p JOIN {d} d USING(itemid) WHERE lower(d.label) LIKE '%invasive ventilation%' GROUP BY 1),
+          s AS (SELECT e.stay_id,e.starttime,CASE WHEN lower(d.label) LIKE '%dexmedetomidine%' THEN 'A' WHEN lower(d.label) LIKE '%propofol%' THEN 'B' END AS arm,row_number() OVER (PARTITION BY e.stay_id ORDER BY e.starttime) AS rn FROM m_inputevents e JOIN {d} d USING(itemid) WHERE lower(d.label) LIKE '%dexmedetomidine%' OR lower(d.label) LIKE '%propofol%')
+          SELECT b.stay_id,CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND date_diff('minute',vent.t0,s.starttime)/60.0 BETWEEN -2 AND 24 THEN 1 ELSE 0 END AS eligible,
+                 CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND date_diff('minute',vent.t0,s.starttime)/60.0 BETWEEN -2 AND 24 THEN s.arm END AS arm,date_diff('minute',vent.t0,s.starttime)/60.0 AS t_h,b.died
+          FROM m_base b LEFT JOIN vent USING(stay_id) LEFT JOIN s ON s.stay_id=b.stay_id AND s.rn=1""")
+    base_e();view('e','infusiondrug');view('e','treatment')
+    return q("""WITH vent AS (SELECT patientunitstayid AS stay_id,min(treatmentoffset) AS t0 FROM e_treatment WHERE lower(treatmentstring) LIKE '%mechanical ventilation%' GROUP BY 1),
+      s AS (SELECT patientunitstayid AS stay_id,infusionoffset AS t,CASE WHEN lower(drugname) LIKE '%dexmedetomidine%' OR lower(drugname) LIKE '%precedex%' THEN 'A' WHEN lower(drugname) LIKE '%propofol%' OR lower(drugname) LIKE '%diprivan%' THEN 'B' END AS arm,row_number() OVER (PARTITION BY patientunitstayid ORDER BY infusionoffset) AS rn FROM e_infusiondrug WHERE lower(drugname) LIKE '%dexmedetomidine%' OR lower(drugname) LIKE '%precedex%' OR lower(drugname) LIKE '%propofol%' OR lower(drugname) LIKE '%diprivan%')
+      SELECT b.stay_id,b.hospitalid,CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND (s.t-vent.t0)/60.0 BETWEEN -2 AND 24 THEN 1 ELSE 0 END AS eligible,CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND (s.t-vent.t0)/60.0 BETWEEN -2 AND 24 THEN s.arm END AS arm,(s.t-vent.t0)/60.0 AS t_h,b.died
+      FROM e_base b LEFT JOIN vent USING(stay_id) LEFT JOIN s ON s.stay_id=b.stay_id AND s.rn=1""")
+
+@question('Q5','Proton-pump inhibitor versus H2-receptor antagonist for stress-ulcer prophylaxis in ventilated patients','PEPTIC (2020), SUP-ICU, REVISE (2024)','A: PPI started within 24 h of ventilation; B: H2RA started within 24 h; time zero = ventilation start; outcomes hospital death and GI bleeding codes')
+def q5(ds):
+    if ds=='m':
+        base_m();view('m','prescriptions','hosp/prescriptions');view('m','procedureevents','icu/procedureevents');d=ditems()
+        return q(f"""WITH vent AS (SELECT p.stay_id,min(p.starttime) AS t0 FROM m_procedureevents p JOIN {d} d USING(itemid) WHERE lower(d.label) LIKE '%invasive ventilation%' GROUP BY 1),
+          s AS (SELECT b.stay_id,p.starttime,CASE WHEN lower(p.drug) LIKE '%prazole%' THEN 'A' WHEN lower(p.drug) LIKE '%famotidine%' OR lower(p.drug) LIKE '%ranitidine%' THEN 'B' END AS arm,row_number() OVER (PARTITION BY b.stay_id ORDER BY p.starttime) AS rn
+                FROM m_prescriptions p JOIN m_base b USING(hadm_id) WHERE lower(p.drug) LIKE '%prazole%' OR lower(p.drug) LIKE '%famotidine%' OR lower(p.drug) LIKE '%ranitidine%')
+          SELECT b.stay_id,CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND date_diff('minute',vent.t0,s.starttime)/60.0 BETWEEN -24 AND 24 THEN 1 ELSE 0 END AS eligible,
+                 CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND date_diff('minute',vent.t0,s.starttime)/60.0 BETWEEN -24 AND 24 THEN s.arm END AS arm,date_diff('minute',vent.t0,s.starttime)/60.0 AS t_h,b.died
+          FROM m_base b LEFT JOIN vent USING(stay_id) LEFT JOIN s ON s.stay_id=b.stay_id AND s.rn=1""")
+    base_e();view('e','medication');view('e','treatment')
+    return q("""WITH vent AS (SELECT patientunitstayid AS stay_id,min(treatmentoffset) AS t0 FROM e_treatment WHERE lower(treatmentstring) LIKE '%mechanical ventilation%' GROUP BY 1),
+      s AS (SELECT patientunitstayid AS stay_id,drugstartoffset AS t,CASE WHEN lower(drugname) LIKE '%prazole%' OR lower(drugname) LIKE '%protonix%' OR lower(drugname) LIKE '%nexium%' THEN 'A' WHEN lower(drugname) LIKE '%famotidine%' OR lower(drugname) LIKE '%pepcid%' OR lower(drugname) LIKE '%ranitidine%' THEN 'B' END AS arm,row_number() OVER (PARTITION BY patientunitstayid ORDER BY drugstartoffset) AS rn FROM e_medication WHERE COALESCE(drugordercancelled,'No')<>'Yes' AND (lower(drugname) LIKE '%prazole%' OR lower(drugname) LIKE '%protonix%' OR lower(drugname) LIKE '%nexium%' OR lower(drugname) LIKE '%famotidine%' OR lower(drugname) LIKE '%pepcid%' OR lower(drugname) LIKE '%ranitidine%'))
+      SELECT b.stay_id,b.hospitalid,CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND (s.t-vent.t0)/60.0 BETWEEN -24 AND 24 THEN 1 ELSE 0 END AS eligible,CASE WHEN vent.t0 IS NOT NULL AND s.rn=1 AND (s.t-vent.t0)/60.0 BETWEEN -24 AND 24 THEN s.arm END AS arm,(s.t-vent.t0)/60.0 AS t_h,b.died
+      FROM e_base b LEFT JOIN vent USING(stay_id) LEFT JOIN s ON s.stay_id=b.stay_id AND s.rn=1""")
+
+@question('Q6','Restrictive versus liberal red-cell transfusion threshold','TRICC (1999), TRISS (2014), TRICS','A: first transfusion given at haemoglobin below 7 g/dL; B: first transfusion at 7 to 9 g/dL; time zero = first transfusion; outcome hospital death. Feasibility also counts untransfused stays with haemoglobin under 9 as the no-transfusion comparator')
+def q6(ds):
+    if ds=='m':
+        if not SCAN_LABEVENTS:raise RuntimeError('SCAN_LABEVENTS is False')
+        base_m();view('m','inputevents','icu/inputevents');view('m','labevents','hosp/labevents');d=ditems()
+        return q(f"""WITH tx AS (SELECT e.stay_id,min(e.starttime) AS t0 FROM m_inputevents e JOIN {d} d USING(itemid) WHERE lower(d.label) LIKE '%packed red blood cells%' OR lower(d.label) LIKE '%prbc%' GROUP BY 1),
+          hb AS (SELECT l.hadm_id,l.charttime,l.valuenum FROM m_labevents l WHERE l.itemid IN (51222,50811) AND l.valuenum IS NOT NULL),
+          pre AS (SELECT b.stay_id,arg_max(hb.valuenum,hb.charttime) AS hb_pre FROM m_base b JOIN tx USING(stay_id) JOIN hb ON hb.hadm_id=b.hadm_id AND hb.charttime<=tx.t0 AND hb.charttime>=tx.t0-INTERVAL 24 HOUR GROUP BY 1),
+          lowhb AS (SELECT b.stay_id,min(hb.valuenum) AS hb_min FROM m_base b JOIN hb ON hb.hadm_id=b.hadm_id AND hb.charttime BETWEEN b.intime AND b.outtime GROUP BY 1)
+          SELECT b.stay_id,CASE WHEN pre.hb_pre<9 OR (tx.t0 IS NULL AND lowhb.hb_min<9) THEN 1 ELSE 0 END AS eligible,CASE WHEN pre.hb_pre<7 THEN 'A' WHEN pre.hb_pre>=7 AND pre.hb_pre<9 THEN 'B' END AS arm,date_diff('minute',b.intime,tx.t0)/60.0 AS t_h,b.died
+          FROM m_base b LEFT JOIN tx USING(stay_id) LEFT JOIN pre USING(stay_id) LEFT JOIN lowhb USING(stay_id)""")
+    base_e();view('e','treatment');view('e','lab')
+    return q("""WITH tx AS (SELECT patientunitstayid AS stay_id,min(treatmentoffset) AS t0 FROM e_treatment WHERE lower(treatmentstring) LIKE '%packed red blood cell%' OR lower(treatmentstring) LIKE '%prbc%' GROUP BY 1),
+      hb AS (SELECT patientunitstayid AS stay_id,labresultoffset AS t,labresult AS v FROM e_lab WHERE lower(labname) IN ('hgb','hemoglobin') AND labresult IS NOT NULL),
+      pre AS (SELECT tx.stay_id,arg_max(hb.v,hb.t) AS hb_pre FROM tx JOIN hb ON hb.stay_id=tx.stay_id AND hb.t<=tx.t0 AND hb.t>=tx.t0-1440 GROUP BY 1),
+      lowhb AS (SELECT stay_id,min(v) AS hb_min FROM hb GROUP BY 1)
+      SELECT b.stay_id,b.hospitalid,CASE WHEN pre.hb_pre<9 OR (tx.t0 IS NULL AND lowhb.hb_min<9) THEN 1 ELSE 0 END AS eligible,CASE WHEN pre.hb_pre<7 THEN 'A' WHEN pre.hb_pre>=7 AND pre.hb_pre<9 THEN 'B' END AS arm,tx.t0/60.0 AS t_h,b.died
+      FROM e_base b LEFT JOIN tx USING(stay_id) LEFT JOIN pre USING(stay_id) LEFT JOIN lowhb USING(stay_id)""")
+
+@question('Q7','Early versus delayed renal replacement therapy in acute kidney injury','STARRT-AKI (2020), AKIKI, IDEAL-ICU','A: RRT started within 24 h of creatinine doubling (KDIGO stage 2 proxy); B: no RRT in the first 72 h after doubling; time zero = creatinine doubling; outcome 90-day or hospital death')
+def q7(ds):
+    if ds=='m':
+        if not SCAN_LABEVENTS:raise RuntimeError('SCAN_LABEVENTS is False')
+        base_m();view('m','procedureevents','icu/procedureevents');view('m','labevents','hosp/labevents');d=ditems()
+        return q(f"""WITH cr AS (SELECT b.stay_id,l.charttime,l.valuenum AS v,min(l.valuenum) OVER (PARTITION BY b.stay_id ORDER BY l.charttime ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS base_v
+                       FROM m_base b JOIN m_labevents l ON l.hadm_id=b.hadm_id AND l.charttime BETWEEN b.intime AND b.outtime WHERE l.itemid=50912 AND l.valuenum IS NOT NULL),
+          aki AS (SELECT stay_id,min(charttime) AS t0 FROM cr WHERE v>=2*base_v AND base_v>0 GROUP BY 1),
+          rrt AS (SELECT p.stay_id,min(p.starttime) AS t_rrt FROM m_procedureevents p JOIN {d} d USING(itemid) WHERE lower(d.label) LIKE '%crrt%' OR lower(d.label) LIKE '%cvvh%' OR lower(d.label) LIKE '%dialysis%' OR lower(d.label) LIKE '%hemodialysis%' GROUP BY 1)
+          SELECT b.stay_id,CASE WHEN aki.t0 IS NOT NULL THEN 1 ELSE 0 END AS eligible,CASE WHEN aki.t0 IS NULL THEN NULL WHEN date_diff('minute',aki.t0,rrt.t_rrt)/60.0 BETWEEN -6 AND 24 THEN 'A' WHEN rrt.t_rrt IS NULL OR date_diff('minute',aki.t0,rrt.t_rrt)/60.0>72 THEN 'B' END AS arm,date_diff('minute',aki.t0,rrt.t_rrt)/60.0 AS t_h,b.died
+          FROM m_base b LEFT JOIN aki USING(stay_id) LEFT JOIN rrt USING(stay_id)""")
+    base_e();view('e','treatment');view('e','lab')
+    return q("""WITH cr AS (SELECT patientunitstayid AS stay_id,labresultoffset AS t,labresult AS v,min(labresult) OVER (PARTITION BY patientunitstayid ORDER BY labresultoffset ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS base_v FROM e_lab WHERE lower(labname)='creatinine' AND labresult IS NOT NULL),
+      aki AS (SELECT stay_id,min(t) AS t0 FROM cr WHERE v>=2*base_v AND base_v>0 GROUP BY 1),
+      rrt AS (SELECT patientunitstayid AS stay_id,min(treatmentoffset) AS t_rrt FROM e_treatment WHERE lower(treatmentstring) LIKE '%dialysis%' OR lower(treatmentstring) LIKE '%c v v h%' OR lower(treatmentstring) LIKE '%cvvh%' OR lower(treatmentstring) LIKE '%hemofiltration%' GROUP BY 1)
+      SELECT b.stay_id,b.hospitalid,CASE WHEN aki.t0 IS NOT NULL THEN 1 ELSE 0 END AS eligible,CASE WHEN aki.t0 IS NULL THEN NULL WHEN (rrt.t_rrt-aki.t0)/60.0 BETWEEN -6 AND 24 THEN 'A' WHEN rrt.t_rrt IS NULL OR (rrt.t_rrt-aki.t0)/60.0>72 THEN 'B' END AS arm,(rrt.t_rrt-aki.t0)/60.0 AS t_h,b.died
+      FROM e_base b LEFT JOIN aki USING(stay_id) LEFT JOIN rrt USING(stay_id)""")
+
+@question('Q8','Antibiotics within 1 h versus 1 to 6 h of the first culture in the ICU','Surviving Sepsis Campaign 1-h bundle; no completed RCT (the question the guidelines could not test)','A: first IV antibiotic within 1 h of the first culture draw; B: 1 to 6 h; time zero = culture draw; outcome hospital death. The classic immortal-time case for cloning-censoring-weighting')
+def q8(ds):
+    if ds=='m':
+        base_m();view('m','microbiologyevents','hosp/microbiologyevents');view('m','prescriptions','hosp/prescriptions')
+        return q(f"""WITH cx AS (SELECT b.stay_id,min(m.charttime) AS t0 FROM m_microbiologyevents m JOIN m_base b USING(hadm_id) WHERE m.charttime BETWEEN b.intime AND b.outtime AND m.spec_type_desc IS NOT NULL GROUP BY 1),
+          ab AS (SELECT b.stay_id,min(p.starttime) AS t_ab FROM m_prescriptions p JOIN m_base b USING(hadm_id) JOIN cx USING(stay_id) WHERE {ABX_LIKE('p.drug')} AND (p.route IS NULL OR lower(p.route) LIKE '%iv%') AND p.starttime>=cx.t0-INTERVAL 1 HOUR GROUP BY 1)
+          SELECT b.stay_id,CASE WHEN cx.t0 IS NOT NULL THEN 1 ELSE 0 END AS eligible,CASE WHEN cx.t0 IS NULL THEN NULL WHEN date_diff('minute',cx.t0,ab.t_ab)/60.0 BETWEEN -1 AND 1 THEN 'A' WHEN date_diff('minute',cx.t0,ab.t_ab)/60.0>1 AND date_diff('minute',cx.t0,ab.t_ab)/60.0<=6 THEN 'B' END AS arm,date_diff('minute',cx.t0,ab.t_ab)/60.0 AS t_h,b.died
+          FROM m_base b LEFT JOIN cx USING(stay_id) LEFT JOIN ab USING(stay_id)""")
+    base_e();view('e','microlab','microLab');view('e','medication')
+    return q(f"""WITH cx AS (SELECT patientunitstayid AS stay_id,min(culturetakenoffset) AS t0 FROM e_microlab GROUP BY 1),
+      ab AS (SELECT m.patientunitstayid AS stay_id,min(m.drugstartoffset) AS t_ab FROM e_medication m JOIN cx ON cx.stay_id=m.patientunitstayid WHERE {ABX_LIKE('m.drugname')} AND COALESCE(m.drugordercancelled,'No')<>'Yes' AND m.drugstartoffset>=cx.t0-60 GROUP BY 1)
+      SELECT b.stay_id,b.hospitalid,CASE WHEN cx.t0 IS NOT NULL THEN 1 ELSE 0 END AS eligible,CASE WHEN cx.t0 IS NULL THEN NULL WHEN (ab.t_ab-cx.t0)/60.0 BETWEEN -1 AND 1 THEN 'A' WHEN (ab.t_ab-cx.t0)/60.0>1 AND (ab.t_ab-cx.t0)/60.0<=6 THEN 'B' END AS arm,(ab.t_ab-cx.t0)/60.0 AS t_h,b.died
+      FROM e_base b LEFT JOIN cx USING(stay_id) LEFT JOIN ab USING(stay_id)""")
+print(len(QUESTIONS),'candidate target trials registered')
+'''))
+CELLS.append(('code',r'''# 4. Run every question on every available database; aggregate only
+def mask(n):return '<11' if 0<n<SMALL_CELL else int(n)
+def summarise(df,ds):
+    e=df[df.eligible.eq(1)];a=e[e.arm.eq('A')];b=e[e.arm.eq('B')]
+    out={'stays_total':len(df),'eligible':len(e),'arm_A':len(a),'arm_B':len(b),'deaths_A':int(a.died.fillna(0).sum()),'deaths_B':int(b.died.fillna(0).sum()),
+         'mortality_A':round(a.died.mean(),3) if len(a) else np.nan,'mortality_B':round(b.died.mean(),3) if len(b) else np.nan,
+         'median_t_h_A':round(a.t_h.median(),1) if len(a) else np.nan,'median_t_h_B':round(b.t_h.median(),1) if len(b) else np.nan,
+         'hospitals_with_both_arms':int(e.groupby('hospitalid').arm.nunique().ge(2).sum()) if 'hospitalid' in e else 1}
+    n=min(out['arm_A'],out['arm_B']);d=min(out['deaths_A'],out['deaths_B'])
+    out['verdict']='feasible' if (n>=500 and d>=50) else 'marginal' if (n>=200 and d>=20) else 'underpowered'
+    for k in ['eligible','arm_A','arm_B','deaths_A','deaths_B']:out[k]=mask(out[k])
+    return out
+rows=[]
+for qid,qq in QUESTIONS.items():
+    for ds,name in [('m','MIMIC-IV'),('e','eICU')]:
+        if (ds=='m' and not MIMIC_ROOT) or (ds=='e' and not EICU_ROOT):continue
+        t=time.time()
+        try:
+            df=qq['fn'](ds);res=summarise(df,ds);res['error']=''
+        except Exception as ex:res={'verdict':'error','error':f'{type(ex).__name__}: {str(ex)[:160]}'}
+        rows.append({'question':qid,'title':qq['title'],'database':name,'emulates':qq['emulates'],'contrast':qq['contrast'],**res,'seconds':round(time.time()-t)})
+        print(qid,name,res.get('verdict'),res.get('error',''),f"{round(time.time()-t)} s",flush=True)
+FEAS=pd.DataFrame(rows);FEAS.to_csv(Path(OUTPUT_DIR)/'tte_feasibility_counts.csv',index=False)
+show=['question','database','eligible','arm_A','arm_B','deaths_A','deaths_B','mortality_A','mortality_B','median_t_h_A','median_t_h_B','hospitals_with_both_arms','verdict']
+display(FEAS[[c for c in show if c in FEAS]])
+print('Saved aggregate table:',Path(OUTPUT_DIR)/'tte_feasibility_counts.csv')
+'''))
+CELLS.append(('markdown',r'''## Reading the table
+
+- **eligible / arm_A / arm_B**: stays that meet the time-zero definition and fall into each strategy under the feasibility proxy. The proxies are deliberately simple (fixed windows from ICU admission, ventilation start, first vasopressor, first culture, creatinine doubling). The emulation itself will define time zero and the strategies more carefully; these counts say whether there is enough of each.
+- **deaths per arm**: hospital death in the raw tables. A verdict of *feasible* needs at least 500 stays and 50 deaths in the smaller arm, *marginal* 200 and 20. These are rules of thumb for a mortality outcome with inverse-probability weighting, not power calculations.
+- **median_t_h**: hours from time zero to the exposure. Arms that start at the same time as time zero (A) against arms that start later (B) are the signature of immortal time; the emulation has to handle it by cloning and censoring, or by sequential trials, never by comparing survivors.
+- **hospitals_with_both_arms** (eICU): how many hospitals contribute to both strategies. Hospital-level practice variation is the basis for the instrumental-variable sensitivity analyses.
+
+Nothing in this notebook estimates an effect. It only says which trials can be emulated with these data.'''))
