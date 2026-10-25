@@ -43,10 +43,10 @@ if STAGE_1B:
     # ---- Rule 4: alarm policy for the chosen model and operating point ----
     P=G[G.config.eq(project_model)&G.operating_point.eq(op)].copy()
     agg=P.groupby(['persistence','fresh_only']).agg(sens=('event_sensitivity','mean'),fa=('false_alarms_per_patient_day','max'),warn=('median_warning_hours_detected','mean')).reset_index()
-    print('RULE 4 inputs (chosen model, chosen operating point; mean sensitivity over databases, max false alarms per patient-day):');display(agg.round(3))
+    print('RULE 4 inputs (chosen model, chosen operating point; mean sensitivity over databases, max false alarms per patient-day, mean median warning hours):');display(agg.round(3))
     ok=agg[agg.fa<=budget]
     if len(ok):
-        ok=ok.sort_values(['sens','persistence','fresh_only'],ascending=[False,True,True]);pol=ok.iloc[0]
+        ok=ok.sort_values(['sens','warn','persistence','fresh_only'],ascending=[False,False,True,True],na_position='last');pol=ok.iloc[0]   # sensitivity, then warning time, then simplicity
     else:pol=agg.sort_values(['fa']).iloc[0];print('[rule 4] no policy met the budget on both databases; the lowest-burden policy is recorded and reported as found')
     print(f'[rule 4] stage-2 policy: persistence {int(pol.persistence)} h, '+('fresh-information hours only' if bool(pol.fresh_only) else 'all hours')+f' | mean sensitivity {pol.sens:.3f}, max FA/patient-day {pol.fa:.3f}')
     decision.update(persistence=int(pol.persistence),fresh_only=bool(pol.fresh_only))
