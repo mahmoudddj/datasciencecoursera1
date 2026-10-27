@@ -16,7 +16,7 @@ def embed(raw):
 # --- cell 3: embedded modules ---
 s3=src(3).splitlines();k=[i for i,l in enumerate(s3) if l.startswith('EMBEDDED_MODULES = ')][0]
 emb=ast.literal_eval(s3[k][len('EMBEDDED_MODULES = '):])
-for n in ['v11_models.py','v11_train.py','v11_tests.py']:emb[n]=embed((M/n).read_bytes())
+for n in ['v11_models.py','v11_train.py','v11_tests.py','v9_locate_raw.py']:emb[n]=embed((M/n).read_bytes())   # locator: unreadable Drive shortcuts are skipped, not fatal
 s3[k]='EMBEDDED_MODULES = '+repr(emb);setsrc(3,'\n'.join(s3))
 # --- cell 2: configuration ---
 c=src(2)

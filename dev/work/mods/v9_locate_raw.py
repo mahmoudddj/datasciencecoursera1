@@ -154,7 +154,13 @@ def recover_raw_sources(previous=None):
                 selected[ds] = Path(row['real_path'])
                 print(f'{ds}: recovered from {origin} -> {selected[ds]}')
                 break
-            if Path(candidate).is_dir():
+            try:
+                candidate_is_dir = Path(candidate).is_dir()
+            except OSError as exc:   # e.g. a Drive shortcut whose target this account cannot open (EPERM)
+                report['access_errors'].append({'path': str(candidate), 'error': str(exc)})
+                print(f'{ds}: skipped unreadable candidate ({origin}): {candidate} -> {exc.strerror or exc}')
+                candidate_is_dir = False
+            if candidate_is_dir:
                 scan_queue.append((Path(candidate), {ds}, origin))
 
     def scan(top, wanted, origin):
