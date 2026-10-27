@@ -189,8 +189,10 @@ def recover_raw_sources(previous=None):
                     row = inspect(ds, root, origin)
                     if row.get('usable'):
                         found_here.add(ds)
-                children = [p for p in entries if p.is_dir() and p.name not in
-                            {'.git', '__pycache__', 'node_modules', '.ipynb_checkpoints'}]
+                skip_names = {'.git', '__pycache__', 'node_modules', '.ipynb_checkpoints', 'pip_cache', 'runtime', 'yaib_logs',
+                              'ricu_import_status_v9', 'cohorts_v9', 'raw_stage_v10', 'validation_v10', 'pipeline_logs_v10', 'tools'}
+                children = [p for p in entries if p.is_dir() and p.name not in skip_names
+                            and not p.name.startswith(('renv_cache', 'validation_', 'yaib_py', 'YAIB'))]   # project caches never hold raw tables
                 if depth >= int(MAX_SEARCH_DEPTH):
                     if children:
                         report['depth_cutoffs'].append(str(root))
