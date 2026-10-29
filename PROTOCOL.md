@@ -395,6 +395,43 @@ Items E and F are evaluation settings applied to saved predictions; they need no
 - The team summary code refuses to print any test-split row while `STAGE='1b'`; the test predictions are still written to disk, unread, so that the chosen configuration can later be reported on the development test split once, together with the stage-2 results, labelled "chosen on validation in stage 1b".
 - The outcome of rules 1 to 4 is appended to this section with the run key and date, and Section 11 is updated in the same commit. That commit is the stage-2 freeze candidate.
 
+## 10c. Pathophysiology study and the arrived-septic patients (added 29 Oct 2026)
+
+**Decision (project partner and candidate, 29 Oct 2026).** The patients who arrive in the ICU already septic are the majority of septic ICU patients. The stage-1 cohort excludes them (YAIB exclusion 7: onset before the sixth ICU hour) and so learns sepsis physiology from the minority who become septic later. Two consequences follow for stage 2, and one study precedes it. None of this is driven by a test-split result; it is driven by clinical reasoning and by the event counts of Section 10 (45 eICU events).
+
+### 10c.1 The pathophysiology study (notebook `_13_pathophysiology`; descriptive; before the freeze)
+
+**Purpose.** To describe, in both databases, which physiological patterns precede and accompany sepsis, which of them are shared across the two hospital systems, and which are artefacts of practice (how often things are measured). The output shapes the stage-2 predictor sets by a procedure fixed here; it estimates no model.
+
+**Who is in it (training-split and non-cohort patients only; never validation, test or protected patients):**
+
+- *Incident* (ICU-acquired): cohort stays with onset at or after the sixth ICU hour, training and observer-fit splits.
+- *Arrived septic* (prevalent): sampled candidate stays excluded by YAIB exclusion 7 (onset before the sixth ICU hour, including onset before ICU admission), whose hourly features already exist in the unlabelled corpus and whose onset exists in the label batches. No label extraction is repeated.
+- *Controls*: cohort stays with no onset, training and observer-fit splits.
+
+**What is measured.** For a fixed list of physiological channels (vital signs, blood gas, haematology, chemistry, lactate, inflammatory markers, urine output; and the six SOFA components), only *fresh* measurements (age under 1 h) are used for values, so that carry-forward and imputation do not manufacture trajectories. Measurement frequency per stay-hour is reported separately as the practice signal.
+
+**Alignments.** Hours relative to onset (incident: −24 to +6; arrived septic: onset to +24) and hours since ICU admission (all groups: 1 to 30), in 4-hour bins: median, quartiles, number of stays with a fresh value, measurement rate.
+
+**Comparisons (Cliff's delta on fresh values, with 95 % bootstrap intervals by stay):**
+
+1. Incident versus controls, by hour since admission: the baseline difference of patients who will become septic.
+2. Incident in the 12 h before onset versus controls at matched hours: the pre-onset signal.
+3. Arrived septic versus incident, both in the 12 h after onset: whether the two routes to sepsis look alike once sepsis is present.
+4. Arrived septic in the first 12 ICU hours versus incident in the 12 h before onset: whether early-arrived sepsis resembles impending sepsis.
+5. Rate of change: per-stay slope of fresh values over the 12 h before onset (incident), the first 12 h (arrived septic) and hours 7 to 18 (controls).
+
+**Cross-database rule (fixed now).** A channel's pattern is *shared* when its delta has the same sign and |delta| ≥ 0.147 in both databases; *strong shared* at ≥ 0.33; *database-specific* when the threshold is met in one database only; *no signal* otherwise. The same rule applies to measurement rates, which identifies practice differences.
+
+**Outputs.** Aggregate tables (CSV), small-multiple figures, `shared_physiology.json`, with counts under 11 masked. No patient-level data leave the runtime.
+
+### 10c.2 Consequences for stage 2 (prespecified here; TO FREEZE with Section 11)
+
+1. **All-comers cohort.** The stage-2 cohort keeps YAIB exclusions 1 to 6 and drops exclusion 7: stays with onset before the sixth ICU hour (including before admission) stay in the cohort. Their hours before onset, if any, are scored as now; their hours from onset to onset + 6 h carry the positive label; later hours are not scored. The warning model is trained on all comers. **The primary evaluation stays the incident cohort** (onset at or after 6 h), reported exactly as in stage 1 so that it remains comparable with Section 10 and with the literature. The all-comers evaluation is a prespecified secondary, reported stratified: incident, arrived septic, controls. This makes the model learn sepsis physiology from every septic patient and tests it on the patients who can be warned.
+2. **Predictor-set arms.** Beside the full 659-predictor set: (a) *physiology only*, defined by class from the feature registry (raw measurements, derived criteria and ratios, renal windows, handcrafted physiology features, with their masks and ages, age and sex; no exposures, devices, medications, imaging, fluids, charted states, admission context, comorbidity flags or prophylaxis); (b) *shared physiology*, the channels the 10c.1 rule marks shared in both databases, applied to (a); (c) variant of (a) without the mask and age channels, to measure how much of home performance is charting practice. Judged by transfer and leave-hospital-out as well as at home.
+3. **Recognition-to-anticipation pretraining.** A prespecified self-supervised variant: the encoder is first trained to recognise sepsis present in the first 6 h of the arrived-septic stays against non-septic stays (a label-free task with respect to the warning target), then the warning model is trained on the cohort. One arm beside the existing self-supervised pair.
+4. **Build consequence.** Dropping exclusion 7 changes the cohort key; labels are reused (the label batches cover every candidate), the cohort step reruns, and features are built for the added stays. Recorded here before any stage-2 result exists.
+
 ## 11. Stage 2, full cohort
 
 - **Data:** all eligible stays in both databases (`FULL_SAMPLE_STAYS_PER_DATASET=None`); the same split rules; three seeds.
@@ -405,6 +442,9 @@ Items E and F are evaluation settings applied to saved predictions; they need no
   - the D1 pair, labelled exploratory;
   - **(proposed 25 Oct 2026, to confirm before the freeze)** a pooled-training arm: the project model and GRU-D trained once on the MIMIC-IV and eICU development splits together (same hours, same label, one normaliser per database), evaluated on each database's test split and leave-hospital-out on eICU. Basis: pooled training was the best strategy for small and large target data in the 2026 multi-centre sepsis study; fine-tuning was not.
 - **Loss (decided 24 Oct 2026):** plain cross-entropy for every arm, by the Section 10 rule (first in three of four validation comparisons). The utility-weighted loss is kept selectable and runs once as a prespecified secondary comparator on `ssl_cnn_osta` only, where it ranked first on MIMIC-IV validation; it cannot replace the primary.
+- **Cohort (decided 29 Oct 2026, Section 10c.2):** all comers (YAIB exclusion 7 dropped); primary evaluation on the incident cohort, secondary stratified on all comers.
+- **Predictor-set arms (Section 10c.2):** full 659; physiology only; shared physiology; physiology only without mask and age channels.
+- **Recognition-to-anticipation pretraining arm (Section 10c.2).**
 - **Project model (TO FREEZE by stage 1b, Section 10b):** `flat_osta` or `flat_osta_heads`, with the input-dropout setting chosen on validation; it replaces `flat_osta` in the arm list.
 - **Operating point and alarm policy (TO FREEZE by stage 1b):** quantile operating point and the policy chosen by rule 10b.2.4, unless rule 3 fails.
 - **Pretraining corpus (TO FREEZE):**
