@@ -493,12 +493,13 @@ Stage-2 settings: `STAGE_1B=False`; project model `flat_osta` with input dropout
 - **Final-release encoder (TO FREEZE):** Section 5.3.
 - **eICU leave-hospital-out (TO FREEZE):** hospital grouping and the minimum events per hospital.
 - **Postponed by decision of 31 Oct 2026, for the discussion:** a hospital-aware arm (per-hospital standardisation with a learned hospital embedding, tested on unseen hospitals); the full-cohort pathophysiology study of item 18 runs after the results.
-- **Then:**
-  1. the consultants' answers (item 12) and the seed tiering are written in;
-  2. freeze this protocol: one commit, tagged and signed by the candidate and the partner with their own keys, its SHA-256 hash and PDF deposited in the OSF registration (or a Zenodo snapshot of the repository), and the declaration of `PRIOR_TEST_EXPOSURE` in the same commit;
-  3. the full-release data build, then the arms in the order above;
-  4. open the holdout once;
-  5. report every prespecified arm and analysis, whatever its result; any change after the freeze goes to `PROTOCOL_DEVIATIONS.md` with its date and reason.
+- **Then (order amended 1 Nov 2026: the data build and the descriptive repeat precede the freeze because item 2(b) and item 11 read from them; no model is trained before the freeze):**
+  1. the full-release data build (Section 10c.2 item 19; `_14_stage2` with `STAGE2_ARMS=[]`, which trains nothing), then the full-release repeat of the Section 10c.1 pathophysiology study on training-split and non-cohort patients only, which fixes the shared physiology set of item 2(b) and decides the contingent target of item 11;
+  2. the consultants' answers (item 12), the shared physiology set, the two build decisions of Section 15 (training split, leave-hospital-out grouping) and the seed tiering are written in;
+  3. freeze this protocol: one commit, tagged and signed by the candidate and the partner with their own keys, its SHA-256 hash and PDF deposited in the OSF registration (or a Zenodo snapshot of the repository), and the declaration of `PRIOR_TEST_EXPOSURE` in the same commit; `dev/tools/freeze_record.py` writes the hashes;
+  4. the next commit sets `PROTOCOL_FROZEN=True` with the tag name; the notebook refuses full-cohort training without it; then the arms in the order above;
+  5. open the holdout once;
+  6. report every prespecified arm and analysis, whatever its result; any change after the freeze goes to `PROTOCOL_DEVIATIONS.md` with its date and reason.
 - **Deployment and recalibration (discussion, not an analysis; added 31 Oct 2026):** the dominant failure of deployed risk models is calibration-in-the-large drift with preserved discrimination; the proposed local policy is quarterly monitoring of the observed-to-expected ratio, calibration slope and realised alarm fraction by statistical process control, updating when drift is observed rather than on a calendar, intercept-only correction at about 50 to 100 local onset events, intercept and slope at about 150 to 200, revision only above about 1,000 calibration cases with shrinkage, the quantile operating point carried across sites so that alarm burden is fixed by construction, and any retraining treated as a prespecified modification under a change-control plan. These cut-points are a synthesis of the review's sources, not a single-source figure.
 - **Reporting standards:** TRIPOD+AI for reporting and PROBAST+AI for the risk-of-bias assessment.
 

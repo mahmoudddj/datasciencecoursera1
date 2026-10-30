@@ -27,8 +27,14 @@ print('Run:',RUN_KEY,'| features:',len(FEATURES),'| incident stays:',len(TRAIN_I
 # Pretraining corpus (item 3; TO FREEZE): the unlabelled corpus plus the arrival-sepsis stays (inputs; their arrival flag is the weak target).
 PRETRAIN_CORPUS=dict(CORPUS)
 if len(ARRIVAL_INDEX):PRETRAIN_CORPUS['arrival']=ARRIVAL_INDEX.copy()
-with (RESULTS_ROOT/'stage2.log').open('a') as log,contextlib.redirect_stdout(log),contextlib.redirect_stderr(log):
-    RESULTS=run_stage2(TRAIN_INDEX,FEATURES,TRAIN_CONFIG,RESULTS_ROOT,STAGE2_TABLES,DATASETS,PRETRAIN_CORPUS)
-RESULTS.to_csv(RESULTS_ROOT/'all_results.csv',index=False)
-atomic_json(RESULTS_ROOT/'COMPLETE.json',{'status':'complete','mode':RUN_MODE,'data_source':DATA_SOURCE,'rows':len(RESULTS),'frozen':bool(PROTOCOL_FROZEN),'real_extraction_verified_in_this_run':DATA_SOURCE=='clinical'})
-print('COMPLETE:',RESULTS_ROOT,time.strftime('%H:%M'))
+if not STAGE2_ARMS:
+    # Data build only (before the freeze): labels, raw stage, supplements, features, corpus and tables are cached; no model is trained.
+    RESULTS=pd.DataFrame();atomic_json(RESULTS_ROOT/'DATA_BUILD_ONLY.json',{'mode':RUN_MODE,'data_key':DATA_KEY,'incident_stays':int(len(TRAIN_INDEX)),'arrival_stays':int(len(ARRIVAL_INDEX)),'frozen':bool(PROTOCOL_FROZEN)})
+    print('STAGE2_ARMS is empty: data build only, nothing trained. Data key',DATA_KEY,'| incident stays',len(TRAIN_INDEX),'| arrival stays',len(ARRIVAL_INDEX))
+else:
+    assert PROTOCOL_FROZEN or RUN_MODE=='smoke' or DATA_SOURCE=='fixture','Full-cohort training requires PROTOCOL_FROZEN=True (signed tag, hash deposited). Set STAGE2_ARMS=[] for the data build.'
+    with (RESULTS_ROOT/'stage2.log').open('a') as log,contextlib.redirect_stdout(log),contextlib.redirect_stderr(log):
+        RESULTS=run_stage2(TRAIN_INDEX,FEATURES,TRAIN_CONFIG,RESULTS_ROOT,STAGE2_TABLES,DATASETS,PRETRAIN_CORPUS)
+    RESULTS.to_csv(RESULTS_ROOT/'all_results.csv',index=False)
+    atomic_json(RESULTS_ROOT/'COMPLETE.json',{'status':'complete','mode':RUN_MODE,'data_source':DATA_SOURCE,'rows':len(RESULTS),'frozen':bool(PROTOCOL_FROZEN),'real_extraction_verified_in_this_run':DATA_SOURCE=='clinical'})
+    print('COMPLETE:',RESULTS_ROOT,time.strftime('%H:%M'))
