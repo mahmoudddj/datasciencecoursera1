@@ -33,7 +33,7 @@ Rule for this ledger: no item is dropped without a written rationale. "Status" s
 
 | # | Item | Origin | Status | Closes with |
 |---|---|---|---|---|
-| C1 | Record stage 1b outcome (run b9b18c8632cf33d0): flat OSTA, dropout 0, quantile point, persistence 2 h, all hours | stage 1b | awaiting go | go |
+| C1 | Record stage 1b outcome (run b9b18c8632cf33d0): flat OSTA, dropout 0, quantile point, persistence 2 h, all hours | stage 1b | **done 31 Oct** (protocol 10b.4; config block) | none |
 | C2 | Alarm abstention (conformal "indeterminate") as a policy variant beside persistence | literature list, 31 Oct | open | literature item 4 |
 | C3 | Consultants' two questions: value of a warning after the first antibiotic; course definition (48 or 72 h, vasopressor threshold) | 30 Oct | in protocol (10c.2 item 12); draft offered, not yet sent | user |
 | C4 | Freeze checklist and preregistration before the holdout is opened | 31 Oct | proposed | after the review and the consultants |
@@ -41,6 +41,10 @@ Rule for this ledger: no item is dropped without a written rationale. "Status" s
 | C6 | Full-cohort pathophysiology study, holdout included, after results are final, as discussion material | user, 31 Oct | agreed; to write into the protocol as a post-results analysis | stage 2 protocol revision |
 | C7 | Recalibration policy for deployment, numbers for the discussion | literature list | open | literature item 7 |
 | C8 | Deployment argument (three layers; pooled training and local recalibration over whole-network fine-tuning; mixed-effects frame on practice inputs; transfer to another health system) | 31 Oct | discussion notes drafted | paper |
+
+## Closure
+
+All items were closed by `PRE_FREEZE_REVIEW.md` (31 Oct 2026) and the protocol revision of the same day applied the adds and modifications to Sections 10b.4, 10c.2 (items 3, 7, 9, 10, 12, 14 to 19) and 11. Open decisions: seed tiering; the consultants' three answers.
 
 ## D. Items from the pathophysiology reading not yet acted on
 

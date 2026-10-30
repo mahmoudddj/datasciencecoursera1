@@ -19,6 +19,7 @@ STAGE_1B = True                                    # True: train only STAGE1B_AR
 STAGE1B_ARMS = ['flat_osta','flat_osta_heads']     # flat backbone vs flat backbone + seven organ heads (uncertainty-weighted)
 STAGE1B_INPUT_DROPOUT = [0.0,0.1,0.2]              # predictor groups (value+flag+age) hidden together during training
 STAGE1B_LOSS = 'bce'                               # the stage-2 loss by the section 10 rule (first in 3 of 4 validation comparisons)
-STAGE2_OPERATING_POINT = 'absolute'                # 'absolute' (V11) | 'quantile' (10b item E); set by rule 10b.2.3 for stage 2
-STAGE2_PERSISTENCE = 1; STAGE2_FRESH_ONLY = False  # alarm policy (10b item F); set by rule 10b.2.4 for stage 2
+STAGE2_OPERATING_POINT = 'quantile'                # decided by rule 10b.2.3 on run b9b18c8632cf33d0 (31 Oct 2026); 'absolute' was the V11 default
+STAGE2_PERSISTENCE = 2; STAGE2_FRESH_ONLY = False  # decided by rule 10b.2.4 on run b9b18c8632cf33d0 (31 Oct 2026): persistence 2 h, all hours
+STAGE2_PROJECT_MODEL = 'flat_osta'; STAGE2_INPUT_DROPOUT = 0.0   # decided by rule 10b.2.1 on the same run; organ heads not supported, not re-tested
 
