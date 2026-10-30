@@ -111,6 +111,13 @@ for ds in DATASETS:
             draw[bad]=RNG.choice(io,int(bad.sum()))
         g.loc[cm,'pseudo_onset']=np.minimum(draw,fe)
     g['anchor']=g.onset_h.where(g.stratum.ne('control'),g.pseudo_onset)
+    # Antibiotic anchor: the first systemic antibiotic within onset +/- 24 h (cohort evaluation metadata; incident stays only).
+    # Controls receive a pseudo-antibiotic time = pseudo-onset + a lead drawn from the incident distribution of (antibiotic - onset).
+    g['anchor_abx']=np.nan;im=g.stratum.eq('incident').to_numpy()
+    if 'FirstAntibioticAroundOnset' in g:g.loc[im,'anchor_abx']=pd.to_numeric(g.loc[im,'FirstAntibioticAroundOnset'],errors='coerce').to_numpy()
+    if FIXTURE:g.loc[im,'anchor_abx']=g.loc[im,'onset_h'].to_numpy()-RNG.choice([2.,5.,9.],int(im.sum()))   # engineering only
+    leads=(g.loc[im,'anchor_abx']-g.loc[im,'onset_h']).dropna().to_numpy()
+    if len(leads) and cm.any():g.loc[cm,'anchor_abx']=g.loc[cm,'pseudo_onset'].to_numpy()+RNG.choice(leads,int(cm.sum()))
     g=g.merge(raw_outcomes(ds,g.Patient_ID),on='Patient_ID',how='left')
     GROUPS[ds]=g
     found=int(len(arrived));cnt=g.groupby('stratum').size().to_dict()
@@ -119,6 +126,7 @@ for ds in DATASETS:
                   'of_which_in_corpus':found,'outcome_source':g.source.dropna().iloc[0] if g.source.notna().any() else 'none'})
 COVER=pd.DataFrame(COVER);display(COVER.set_index('Dataset').T)
 MANIFEST=pd.concat(GROUPS.values(),ignore_index=True);MANIFEST['stay']=np.arange(len(MANIFEST))
+MANIFEST['documented']=MANIFEST.sepsis_documented.eq(1)|MANIFEST.admitted_for_sepsis_dx.eq(1)   # sepsis coded, listed or an admission diagnosis (retrospective)
 if not FIXTURE and (MANIFEST.loc[MANIFEST.stratum.ne('control'),'onset_h'].isna().any()):raise AssertionError('Septic stay without onset hour')
 pub=MANIFEST[['stay','Dataset','stratum','onset_h','pseudo_onset','hospital_death','icu_death','admitted_for_sepsis_dx','sepsis_documented']].copy()
 pub.to_parquet(PATHO_ROOT/'manifest_no_ids.parquet',index=False)   # no stay ids, no file paths
@@ -145,40 +153,76 @@ STATIC_CH=[c for c in ['Age','Gender','Weight','HospitalHoursBeforeICU','AdmitSo
 COMORB_CH=[c for c in FEATURES if c.startswith('Comorbidity_')]
 STATE_CH=VALUE_CH+[c for c in ['Urine_mlkg_h_6h','VasopressorDose_NEeq','VasopressorRecorded','ShockIndex','PulsePressure','SF_Ratio','NLR','Platelets_DeltaBaseline','Creatinine_DeltaBaseline','SOFA_MetAmongMeasured','SOFA_Available'] if c in FEATURES]
 NEED=sorted(set(['Hour']+VALUE_CH+[c+'_age' for c in VALUE_CH]+WINDOW_CH+SOFA_CH+THERAPY_CH+CARRIED_CH+STATIC_CH+COMORB_CH))
+CACHE=PATHO_ROOT/'cache';CACHE.mkdir(exist_ok=True)
+CACHE_KEY=signature({'manifest':MANIFEST[['Patient_ID','stratum','anchor','anchor_abx']].astype(str).values.tolist(),'cols':NEED,'pre':PRE_WINDOW,'post':POST_WINDOW,'v':'cache-2'})[:16]
+_cached=all((CACHE/f'{n}_{CACHE_KEY}.parquet').is_file() for n in ['fresh','hourly','static','onset_state'])
+def extended_incident_rows(ds):
+    """Full-stay hourly features for the incident stays. The cohort shards stop shortly after the onset (the YAIB follow-up ends
+    there), so the course at onset + 48 h cannot be read from them. The raw-stage events of the cohort cover the whole stay up to
+    MAX_HOURS; this rebuilds the sequences with the SAME build_sequence code, follow-up extended to the ICU discharge."""
+    from v9_data import normalize_events,build_sequence,STAGE_NON_EVENT,q
+    ids=MANIFEST[MANIFEST.Dataset.eq(ds)&MANIFEST.stratum.eq('incident')]
+    if FIXTURE or ids.empty or 'RAW_STAGE_ROOT' not in globals():return {}
+    stage=Path(RAW_STAGE_ROOT)/ds;paths=[p for p in stage.glob('*.parquet') if p.stem not in STAGE_NON_EVENT]
+    supp=stage/('supplement_'+SUPP_KEY)
+    if (supp/'prophylaxis.parquet').is_file():paths.append(supp/'prophylaxis.parquet')
+    sid=pd.DataFrame({'stay_id':[int(str(x).split('|')[1]) for x in ids.Patient_ID]});con=duckdb.connect();con.execute("SET memory_limit='4GB'");con.register('want',sid)
+    try:ev=con.execute('SELECT e.* FROM read_parquet(['+','.join(q(str(x)) for x in paths)+'],union_by_name=true) e JOIN want w USING(stay_id)').df()
+    finally:con.close()
+    ev=normalize_events(ev);groups={k:g for k,g in ev.groupby('stay_id')};out={};t1=time.time()
+    for _,r in ids.iterrows():
+        meta=INDEX.loc[INDEX.Patient_ID.eq(r.Patient_ID)].iloc[0].to_dict();end=min(float(MAX_HOURS),float(r.icu_los_h) if pd.notna(r.icu_los_h) else float(MAX_HOURS))
+        meta['followup_end']=max(float(meta.get('followup_end') or 0.),end)
+        seq=build_sequence(groups.get(int(str(r.Patient_ID).split('|')[1]),ev.iloc[:0]),meta,MAX_HOURS,HORIZON_HOURS)
+        if len(seq):out[r.stay]=seq
+    print(f'{ds}: incident sequences extended to the ICU discharge from the raw stage: {len(out)} stays in {time.time()-t1:.0f} s')
+    return out
+EXT={}
+if not _cached:
+    for ds in DATASETS:EXT.update(extended_incident_rows(ds))
 FR=[];HO=[];ST=[];OS=[]
 t0=time.time()
-for file,grp in MANIFEST.groupby('file'):
-    d=pd.read_parquet(file,columns=NEED)
-    for k,row in grp.iterrows():
-        s=d.iloc[int(row.offset):int(row.offset+row.length)]
-        if s.empty:continue
-        a=float(row.anchor) if pd.notna(row.anchor) else np.nan
-        rel=s.Hour.to_numpy(float)-a if np.isfinite(a) else np.full(len(s),np.nan)
-        keep=(s.Hour.to_numpy(float)<=30)|((rel>=-PRE_WINDOW)&(rel<=POST_WINDOW)) if np.isfinite(a) else (s.Hour.to_numpy(float)<=30)
-        # static context (first hour) and comorbidity documentation (any hour)
-        st={'stay':row.stay,**{c:float(s[c].iloc[0]) for c in STATIC_CH}};st.update({c:float(np.nanmax(s[c].to_numpy(float))) if s[c].notna().any() else np.nan for c in COMORB_CH});ST.append(st)
-        # onset state: last-known values over hours [a-2, a] (hours 1-3 when onset is at or before admission)
-        if np.isfinite(a):
-            lo,hi=(1,3) if a<=0 else (max(1.,np.floor(a)-2),np.floor(a))
-            w=s[(s.Hour>=lo)&(s.Hour<=hi)]
-            if len(w):
-                last=w[STATE_CH].ffill().iloc[-1].to_dict();last['stay']=row.stay;OS.append(last)
-        s=s[keep];rel=rel[keep]
-        if s.empty:continue
-        h=s[['Hour']+CARRIED_CH+SOFA_CH+THERAPY_CH+WINDOW_CH].copy();h['rel']=rel;h['stay']=row.stay;HO.append(h)
-        # A measurement is NEW at hour t when its age did not simply grow by one hour since t-1 (first appearance or a reset);
-        # it is placed at its own measurement time (t - age), so laboratory values are not lost to their result lag.
-        full=d.iloc[int(row.offset):int(row.offset+row.length)];full_vals=full[VALUE_CH].to_numpy(float);full_ages=full[[c+'_age' for c in VALUE_CH]].to_numpy(float)
-        prev=np.vstack([np.full((1,full_ages.shape[1]),np.nan),full_ages[:-1]])
-        new_meas=np.isfinite(full_ages)&np.isfinite(full_vals)&(~np.isfinite(prev)|(full_ages<prev+1-1e-3))
-        new_meas=new_meas[keep];vals=full_vals[keep];ages=full_ages[keep];ri,ci=np.nonzero(new_meas)
-        if len(ri):
-            mh=s.Hour.to_numpy(float)[ri]-ages[ri,ci]
-            FR.append(pd.DataFrame({'stay':row.stay,'channel':np.array(VALUE_CH,dtype=object)[ci],'Hour':mh,'rel':(mh-a) if np.isfinite(a) else np.nan,'value':vals[ri,ci]}))
-FRESH=pd.concat(FR,ignore_index=True) if FR else pd.DataFrame(columns=['stay','channel','Hour','rel','value']);del FR
-HOURLY=pd.concat(HO,ignore_index=True) if HO else pd.DataFrame(columns=['stay','Hour','rel']);del HO
-STATIC=pd.DataFrame(ST).set_index('stay') if ST else pd.DataFrame();ONSET_STATE=pd.DataFrame(OS).set_index('stay') if OS else pd.DataFrame()
-KEYS=MANIFEST.set_index('stay')[['Dataset','stratum','anchor','onset_h','followup_end','hospital_death','icu_death','icu_los_h','death_hour']]
+if not _cached:
+    for file,grp in MANIFEST.groupby('file'):
+        d=pd.read_parquet(file,columns=NEED)
+        for k,row in grp.iterrows():
+            full=EXT.get(row.stay);full=d.iloc[int(row.offset):int(row.offset+row.length)] if full is None else full;s=full
+            if s.empty:continue
+            a=float(row.anchor) if pd.notna(row.anchor) else np.nan
+            rel=s.Hour.to_numpy(float)-a if np.isfinite(a) else np.full(len(s),np.nan)
+            ab=float(row.anchor_abx) if pd.notna(row.anchor_abx) else np.nan;rel_abx=s.Hour.to_numpy(float)-ab if np.isfinite(ab) else np.full(len(s),np.nan)
+            keep=(s.Hour.to_numpy(float)<=30)|((rel>=-PRE_WINDOW)&(rel<=POST_WINDOW)) if np.isfinite(a) else (s.Hour.to_numpy(float)<=30)
+            if np.isfinite(ab):keep=keep|((rel_abx>=-PRE_WINDOW)&(rel_abx<=POST_WINDOW))
+            # static context (first hour) and comorbidity documentation (any hour)
+            st={'stay':row.stay,**{c:float(s[c].iloc[0]) for c in STATIC_CH}};st.update({c:float(np.nanmax(s[c].to_numpy(float))) if s[c].notna().any() else np.nan for c in COMORB_CH});ST.append(st)
+            # onset state: last-known values over hours [a-2, a] (hours 1-3 when onset is at or before admission)
+            if np.isfinite(a):
+                lo,hi=(1,3) if a<=0 else (max(1.,np.floor(a)-2),np.floor(a))
+                w=s[(s.Hour>=lo)&(s.Hour<=hi)]
+                if len(w):
+                    last=w[STATE_CH].ffill().iloc[-1].to_dict();last['stay']=row.stay;OS.append(last)
+            s=s[keep];rel=rel[keep];rel_abx=rel_abx[keep]
+            if s.empty:continue
+            h=s[['Hour']+CARRIED_CH+SOFA_CH+THERAPY_CH+WINDOW_CH].copy();h['rel']=rel;h['rel_abx']=rel_abx;h['stay']=row.stay;HO.append(h)
+            # A measurement is NEW at hour t when its age did not simply grow by one hour since t-1 (first appearance or a reset);
+            # it is placed at its own measurement time (t - age), so laboratory values are not lost to their result lag.
+            full_vals=full[VALUE_CH].to_numpy(float);full_ages=full[[c+'_age' for c in VALUE_CH]].to_numpy(float)
+            prev=np.vstack([np.full((1,full_ages.shape[1]),np.nan),full_ages[:-1]])
+            new_meas=np.isfinite(full_ages)&np.isfinite(full_vals)&(~np.isfinite(prev)|(full_ages<prev+1-1e-3))
+            new_meas=new_meas[keep];vals=full_vals[keep];ages=full_ages[keep];ri,ci=np.nonzero(new_meas)
+            if len(ri):
+                mh=s.Hour.to_numpy(float)[ri]-ages[ri,ci]
+                FR.append(pd.DataFrame({'stay':row.stay,'channel':np.array(VALUE_CH,dtype=object)[ci],'Hour':mh,'rel':(mh-a) if np.isfinite(a) else np.nan,'rel_abx':(mh-ab) if np.isfinite(ab) else np.nan,'value':vals[ri,ci]}))
+    FRESH=pd.concat(FR,ignore_index=True) if FR else pd.DataFrame(columns=['stay','channel','Hour','rel','rel_abx','value']);del FR
+    HOURLY=pd.concat(HO,ignore_index=True) if HO else pd.DataFrame(columns=['stay','Hour','rel','rel_abx']);del HO
+    STATIC=pd.DataFrame(ST).set_index('stay') if ST else pd.DataFrame();ONSET_STATE=pd.DataFrame(OS).set_index('stay') if OS else pd.DataFrame()
+    for n,T in [('fresh',FRESH),('hourly',HOURLY),('static',STATIC.reset_index()),('onset_state',ONSET_STATE.reset_index())]:T.to_parquet(CACHE/f'{n}_{CACHE_KEY}.parquet',index=False)
+    print('Hourly tables cached under',CACHE,'| key',CACHE_KEY)
+else:
+    FRESH=pd.read_parquet(CACHE/f'fresh_{CACHE_KEY}.parquet');HOURLY=pd.read_parquet(CACHE/f'hourly_{CACHE_KEY}.parquet')
+    STATIC=pd.read_parquet(CACHE/f'static_{CACHE_KEY}.parquet').set_index('stay');ONSET_STATE=pd.read_parquet(CACHE/f'onset_state_{CACHE_KEY}.parquet').set_index('stay')
+    print('Reused the cached hourly tables (key',CACHE_KEY,'); the shards were not read again.')
+KEYS=MANIFEST.set_index('stay')[['Dataset','stratum','anchor','anchor_abx','documented','onset_h','followup_end','hospital_death','icu_death','icu_los_h','death_hour']]
 for T in (FRESH,HOURLY):
     for c in ['Dataset','stratum']:T[c]=T.stay.map(KEYS[c])
 print(f'Read {MANIFEST.file.nunique()} shard files in {time.time()-t0:.0f} s | hourly rows {len(HOURLY):,} | fresh values {len(FRESH):,} | stays with onset state {len(ONSET_STATE):,}')
@@ -211,7 +255,7 @@ if len(COURSE):
     MANIFEST=MANIFEST.merge(COURSE.reset_index(),on='stay',how='left')
     MANIFEST['course']=MANIFEST[f'course_{PRIMARY_COURSE_H}'];MANIFEST['course2']=MANIFEST[f'course2_{PRIMARY_COURSE_H}']
 else:MANIFEST['course']=None;MANIFEST['course2']=None
-KEYS=MANIFEST.set_index('stay')[['Dataset','stratum','anchor','onset_h','followup_end','hospital_death','icu_death','icu_los_h','death_hour','course','course2']]
+KEYS=MANIFEST.set_index('stay')[['Dataset','stratum','anchor','anchor_abx','documented','onset_h','followup_end','hospital_death','icu_death','icu_los_h','death_hour','course','course2']]
 for T in (FRESH,HOURLY):T['course2']=T.stay.map(KEYS.course2)
 def masked_crosstab(a,b):
     t=pd.crosstab(a,b);return t.where(t>=SMALL_CELL,-1)
@@ -231,7 +275,7 @@ CTX.to_csv(PATHO_ROOT/'admission_context_by_stratum.csv');print('\nAdmission con
 # 7c. Trajectories, the prespecified comparisons (rank-based Cliff's delta, stay bootstrap), cross-database rule, measurement rates
 CARRY_LONG=[c for c in ['Urine_mlkg_h_6h','Temp_Max24h','Temp_Min24h','ShockIndex','PulsePressure','SF_Ratio','NLR','VasopressorDose_NEeq','HR_Variance6h','Platelets_DeltaBaseline','Creatinine_DeltaBaseline']+SOFA_COMP+['SOFA_MetAmongMeasured','qSOFA_MetAmongMeasured','NEWS2_MetAmongMeasured'] if c in HOURLY]
 CHANNELS=VALUE_CH+CARRY_LONG
-_cl=HOURLY.melt(id_vars=['stay','Hour','rel','Dataset','stratum','course2'],value_vars=CARRY_LONG,var_name='channel',value_name='value').dropna(subset=['value'])
+_cl=HOURLY.melt(id_vars=['stay','Hour','rel','rel_abx','Dataset','stratum','course2'],value_vars=CARRY_LONG,var_name='channel',value_name='value').dropna(subset=['value'])
 _cl['kind']='carried/window';FRESH['kind']='fresh'
 LONG=pd.concat([FRESH,_cl],ignore_index=True);del _cl
 BINS=[(a,a+4) for a in range(-48,72,4)];ADM_BINS=[(1,4),(5,8),(9,12),(13,16),(17,20),(21,24),(25,30)]
@@ -255,11 +299,12 @@ TRAJ_ONSET=trajectories('bin_onset');TRAJ_ADM=trajectories('bin_adm')
 TRAJ_COURSE=trajectories('bin_onset',by=('Dataset','stratum','course2'))
 TRAJ_ONSET.to_csv(PATHO_ROOT/'trajectories_relative_to_onset.csv',index=False);TRAJ_ADM.to_csv(PATHO_ROOT/'trajectories_since_admission.csv',index=False);TRAJ_COURSE.to_csv(PATHO_ROOT/'trajectories_by_course.csv',index=False)
 # ---- per-stay windows and rank-based Cliff's delta ----
-def stay_window(stratum,lo,hi,by='rel',stat='median',course2=None,channels=None):
+def stay_window(stratum,lo,hi,by='rel',stat='median',course2=None,channels=None,stays=None):
     """Per-stay summary of values inside [lo,hi) hours (by='rel': relative to the onset or pseudo-onset; 'Hour': since ICU admission)."""
     sel=LONG[LONG.stratum.eq(stratum)&(LONG[by]>=lo)&(LONG[by]<hi)] if isinstance(stratum,str) else LONG[LONG.stratum.isin(stratum)&(LONG[by]>=lo)&(LONG[by]<hi)]
     if course2 is not None:sel=sel[sel.course2.eq(course2)]
     if channels is not None:sel=sel[sel.channel.isin(channels)]
+    if stays is not None:sel=sel[sel.stay.isin(stays)]
     if stat=='median':return sel.groupby(['Dataset','channel','stay'],as_index=False).value.median()
     rows=[]
     for (ds,ch,st),g in sel.groupby(['Dataset','channel','stay']):
@@ -295,7 +340,13 @@ def with_class(comp):
     cl=comp.groupby(['comparison','channel']).apply(classify,include_groups=False).rename('cross_database').reset_index()
     return comp.merge(cl,on=['comparison','channel'],how='left')
 SEPTIC=['incident','septic_on_arrival','early_icu_onset']
+DOC=set(KEYS.index[KEYS.documented.eq(True)]);UNDOC=set(KEYS.index[KEYS.documented.ne(True)])
 COMP=with_class(pd.concat([
+    compare('C2a antibiotic-anchored: incident 12 h before the first antibiotic vs control 12 h before the pseudo-antibiotic time',stay_window('incident',-12,0,by='rel_abx'),stay_window('control',-12,0,by='rel_abx'),label_a='incident',label_b='control'),
+    compare('C6a slope per hour: incident 12 h before the first antibiotic vs control matched',stay_window('incident',-12,0,by='rel_abx',stat='slope'),stay_window('control',-12,0,by='rel_abx',stat='slope'),label_a='incident',label_b='control'),
+    compare('C2d documented sepsis (coded, listed or admission diagnosis): incident 12 h before onset vs control',stay_window('incident',-12,0,stays=DOC),stay_window('control',-12,0),label_a='incident_documented',label_b='control'),
+    compare('C2u undocumented: incident 12 h before onset vs control',stay_window('incident',-12,0,stays=UNDOC),stay_window('control',-12,0),label_a='incident_undocumented',label_b='control'),
+    compare('C3d documented septic on arrival (ICU hours 1-6) vs documented incident (onset to +6 h)',stay_window('septic_on_arrival',1,7,'Hour',stays=DOC),stay_window('incident',0,6,stays=DOC),label_a='septic_on_arrival',label_b='incident'),
     compare('C1 baseline: incident vs control, hours 1-24 since admission',stay_window('incident',1,25,'Hour'),stay_window('control',1,25,'Hour'),label_a='incident',label_b='control'),
     compare('C2 pre-onset signal: incident 12 h before onset vs control 12 h before pseudo-onset',stay_window('incident',-12,0),stay_window('control',-12,0),label_a='incident',label_b='control'),
     compare('C2b earlier pre-onset: incident 24-12 h before onset vs control matched',stay_window('incident',-24,-12),stay_window('control',-24,-12),label_a='incident',label_b='control'),
@@ -346,32 +397,37 @@ print('Saved under',PATHO_ROOT)
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 # (a) departure timing: Cliff's delta incident vs matched control per 4 h bin over the 48 h before onset; first bin of a sustained departure
-DEP_BINS=[(a,a+4) for a in range(-48,0,4)];rows=[]
-for lo,hi in DEP_BINS:
-    A=stay_window('incident',lo,hi);B=stay_window('control',lo,hi)
-    ra=FRESH[FRESH.stratum.eq('incident')&(FRESH.rel>=lo)&(FRESH.rel<hi)].groupby(['Dataset','channel']).size();rb=FRESH[FRESH.stratum.eq('control')&(FRESH.rel>=lo)&(FRESH.rel<hi)].groupby(['Dataset','channel']).size()
-    ha=HOURLY[HOURLY.stratum.eq('incident')&(HOURLY.rel>=lo)&(HOURLY.rel<hi)].groupby('Dataset').size();hb=HOURLY[HOURLY.stratum.eq('control')&(HOURLY.rel>=lo)&(HOURLY.rel<hi)].groupby('Dataset').size()
-    for ds in DATASETS:
-        for ch in CHANNELS:
-            xa=A[A.Dataset.eq(ds)&A.channel.eq(ch)].value.to_numpy();xb=B[B.Dataset.eq(ds)&B.channel.eq(ch)].value.to_numpy()
-            d=cliffs(xa,xb) if len(xa)>=SMALL_CELL and len(xb)>=SMALL_CELL else np.nan
-            num=ra.get((ds,ch),0)/ha.get(ds,np.nan) if ha.get(ds,0) else np.nan;den=rb.get((ds,ch),0)/hb.get(ds,np.nan) if hb.get(ds,0) else np.nan
-            rows.append({'Dataset':ds,'channel':ch,'bin_start':lo,'delta':d,'n_incident':len(xa) if len(xa)>=SMALL_CELL else -1,'n_control':len(xb) if len(xb)>=SMALL_CELL else -1,
-                         'rate_ratio':(num/den) if (np.isfinite(num) and np.isfinite(den) and den>0) else np.nan})
-DEP=pd.DataFrame(rows);DEP.to_csv(PATHO_ROOT/'departure_bins.csv',index=False)
-def first_departure(g,col='delta',ratio=False):
-    g=g.sort_values('bin_start');v=g[col].to_numpy(float);b=g.bin_start.to_numpy()
-    if ratio:hit=np.where(np.isfinite(v),(v>=1.5)|(v<=1/1.5),False);sign=np.sign(np.log(np.where(np.isfinite(v)&(v>0),v,1.)))
-    else:hit=np.isfinite(v)&(np.abs(v)>=.147);sign=np.sign(np.nan_to_num(v))
-    if not len(v) or not hit[-1]:return np.nan
-    k=len(v)-1
-    while k>0 and hit[k-1] and sign[k-1]==sign[-1]:k-=1
-    return float(b[k])
-DEPART=DEP.groupby(['Dataset','channel']).apply(lambda g:pd.Series({'first_departure_h':first_departure(g),'delta_last_bin':g.sort_values('bin_start').delta.iloc[-1],
-    'first_rate_departure_h':first_departure(g,'rate_ratio',True),'rate_ratio_last_bin':g.sort_values('bin_start').rate_ratio.iloc[-1],'bins_estimable':int(g.delta.notna().sum())}),include_groups=False).reset_index()
-DEPART.to_csv(PATHO_ROOT/'departure_timing.csv',index=False)
+def departure_tables(by='rel'):
+    DEP_BINS=[(a,a+4) for a in range(-48,0,4)];rows=[]
+    for lo,hi in DEP_BINS:
+        A=stay_window('incident',lo,hi,by=by);B=stay_window('control',lo,hi,by=by)
+        ra=FRESH[FRESH.stratum.eq('incident')&(FRESH[by]>=lo)&(FRESH[by]<hi)].groupby(['Dataset','channel']).size();rb=FRESH[FRESH.stratum.eq('control')&(FRESH[by]>=lo)&(FRESH[by]<hi)].groupby(['Dataset','channel']).size()
+        ha=HOURLY[HOURLY.stratum.eq('incident')&(HOURLY[by]>=lo)&(HOURLY[by]<hi)].groupby('Dataset').size();hb=HOURLY[HOURLY.stratum.eq('control')&(HOURLY[by]>=lo)&(HOURLY[by]<hi)].groupby('Dataset').size()
+        for ds in DATASETS:
+            for ch in CHANNELS:
+                xa=A[A.Dataset.eq(ds)&A.channel.eq(ch)].value.to_numpy();xb=B[B.Dataset.eq(ds)&B.channel.eq(ch)].value.to_numpy()
+                d=cliffs(xa,xb) if len(xa)>=SMALL_CELL and len(xb)>=SMALL_CELL else np.nan
+                num=ra.get((ds,ch),0)/ha.get(ds,np.nan) if ha.get(ds,0) else np.nan;den=rb.get((ds,ch),0)/hb.get(ds,np.nan) if hb.get(ds,0) else np.nan
+                rows.append({'Dataset':ds,'channel':ch,'bin_start':lo,'delta':d,'n_incident':len(xa) if len(xa)>=SMALL_CELL else -1,'n_control':len(xb) if len(xb)>=SMALL_CELL else -1,
+                             'rate_ratio':(num/den) if (np.isfinite(num) and np.isfinite(den) and den>0) else np.nan})
+    DEP=pd.DataFrame(rows);DEP.to_csv(PATHO_ROOT/('departure_bins.csv' if by=='rel' else 'departure_bins_antibiotic.csv'),index=False)
+    def first_departure(g,col='delta',ratio=False):
+        g=g.sort_values('bin_start');v=g[col].to_numpy(float);b=g.bin_start.to_numpy()
+        if ratio:hit=np.where(np.isfinite(v),(v>=1.5)|(v<=1/1.5),False);sign=np.sign(np.log(np.where(np.isfinite(v)&(v>0),v,1.)))
+        else:hit=np.isfinite(v)&(np.abs(v)>=.147);sign=np.sign(np.nan_to_num(v))
+        if not len(v) or not hit[-1]:return np.nan
+        k=len(v)-1
+        while k>0 and hit[k-1] and sign[k-1]==sign[-1]:k-=1
+        return float(b[k])
+    DEPART=DEP.groupby(['Dataset','channel']).apply(lambda g:pd.Series({'first_departure_h':first_departure(g),'delta_last_bin':g.sort_values('bin_start').delta.iloc[-1],
+        'first_rate_departure_h':first_departure(g,'rate_ratio',True),'rate_ratio_last_bin':g.sort_values('bin_start').rate_ratio.iloc[-1],'bins_estimable':int(g.delta.notna().sum())}),include_groups=False).reset_index()
+    DEPART.to_csv(PATHO_ROOT/('departure_timing.csv' if by=='rel' else 'departure_timing_antibiotic.csv'),index=False);return DEP,DEPART
+DEP,DEPART=departure_tables('rel');DEP_ABX,DEPART_ABX=departure_tables('rel_abx')
 print('(a) Empirical order of signs: first hour (bin start, relative to onset) from which the incident-control difference stays at or above 0.147 to the onset; and the same for the measurement-rate ratio (1.5-fold).')
 display(DEPART.pivot_table(index='channel',columns='Dataset',values=['first_departure_h','delta_last_bin','first_rate_departure_h']).round(2).sort_values(('first_departure_h',DATASETS[0]),na_position='last'))
+if DEPART_ABX.first_departure_h.notna().any():
+    print('(a2) The same, anchored on the first antibiotic (hours before the antibiotic from which the difference is sustained):')
+    display(DEPART_ABX.pivot_table(index='channel',columns='Dataset',values=['first_departure_h','delta_last_bin']).round(2).sort_values(('first_departure_h',DATASETS[0]),na_position='last'))
 # (b) order of signs within patients: first crossing of a clinical threshold in the 48 h before onset; "new" = a normal value preceded it in the window
 SIGNS={'Tachypnoea (Resp >= 22)':('Resp','fresh',lambda v:v>=22),'Tachycardia (HR >= 100)':('HR','fresh',lambda v:v>=100),'Fever (Temp >= 38.3)':('Temp','fresh',lambda v:v>=38.3),
        'Hypothermia (Temp <= 36)':('Temp','fresh',lambda v:v<=36.),'Hypotension (MAP < 65)':('MAP','fresh',lambda v:v<65),'SBP <= 100':('SBP','fresh',lambda v:v<=100),'Desaturation (O2Sat < 92)':('O2Sat','fresh',lambda v:v<92),
@@ -673,10 +729,10 @@ PHYS_KINDS={'raw measurement','derived criterion/ratio','renal window (availabil
 base_phys=set(REGISTRY[REGISTRY.kind.isin(PHYS_KINDS)|REGISTRY.kind.str.startswith('handcrafted')].feature)|{'Age','Gender'}
 PHYSIOLOGY_ONLY=[f for f in FEATURES if f in base_phys or (f.endswith('_observed') and f[:-9] in base_phys) or (f.endswith('_age') and f[:-4] in base_phys)]
 PHYSIOLOGY_NO_MASKS=[f for f in PHYSIOLOGY_ONLY if not f.endswith(('_observed','_age'))]
-shared_pre=set(shared.get('C2',[]))|set(shared.get('C2b',[]))|set(shared.get('C6',[]))
+shared_pre=set(shared.get('C2',[]))|set(shared.get('C2b',[]))|set(shared.get('C6',[]))|set(shared.get('C2a',[]))
 SHARED_PHYSIOLOGY=[f for f in PHYSIOLOGY_ONLY if base_name(f) in shared_pre or f in shared_pre or f in ('Age','Gender')]
 atomic_json(PATHO_ROOT/'stage2_predictor_sets.json',{'physiology_only':PHYSIOLOGY_ONLY,'physiology_no_masks':PHYSIOLOGY_NO_MASKS,'shared_physiology':SHARED_PHYSIOLOGY,'shared_pre_onset_channels':sorted(shared_pre),
-    'rule':'10c.2 item 2: classes raw measurement, derived criterion/ratio, renal window, handcrafted physiology, with masks and ages, plus Age and Gender; shared = channels marked shared in the pre-onset comparisons C2, C2b or C6'})
+    'rule':'10c.2 item 2: classes raw measurement, derived criterion/ratio, renal window, handcrafted physiology, with masks and ages, plus Age and Gender; shared = channels marked shared in the pre-onset comparisons C2, C2b, C2a or C6'})
 print('\nStage-2 predictor sets | full:',len(FEATURES),'| physiology only:',len(PHYSIOLOGY_ONLY),'| without masks/ages:',len(PHYSIOLOGY_NO_MASKS),'| shared physiology:',len(SHARED_PHYSIOLOGY),'| shared pre-onset channels:',sorted(shared_pre))
 # ---- aggregate digest (text) for the team; every table is already masked ----
 import io as _io
@@ -694,6 +750,7 @@ for c in COMP.comparison.unique():
 W('\n== Measurement-rate ratio incident/control, 12 h before (pseudo-)onset ==');W(RATE_RATIO.pivot_table(index='channel',columns='Dataset',values='incident_over_control').round(2).join(rate_cls.rename('rate_rule')).to_string())
 if len(tails):W('\n== Temperature tails ==');W(TAILS.to_string());W(TAILS_COURSE.to_string())
 W('\n== Departure timing ==');W(DEPART.pivot_table(index='channel',columns='Dataset',values=['first_departure_h','delta_last_bin','first_rate_departure_h']).round(2).to_string())
+W('\n== Departure timing, antibiotic-anchored ==');W(DEPART_ABX.pivot_table(index='channel',columns='Dataset',values=['first_departure_h','delta_last_bin']).round(2).to_string())
 if len(SIGN_INC):W('\n== Signs before onset (incident) ==');W(SIGN_INC.round(2).to_string());W('\n== Signs in matched control windows ==');W(SIGN_CTL.round(2).to_string());W('\n== Signs by course ==');W(SIGN_COURSE.round(2).to_string())
 for ds,(P,N) in PREC.items():
     if P.notna().any().any():W(f'\n== Precedence {ds}: mean P(earlier) ==');W(P.mean(axis=1).sort_values(ascending=False).round(2).to_string())

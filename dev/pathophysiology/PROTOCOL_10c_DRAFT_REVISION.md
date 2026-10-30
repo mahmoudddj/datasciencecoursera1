@@ -1,4 +1,4 @@
-# Draft revision of protocol section 10c.1 (NOT applied; for the partner's and candidate's approval)
+# Draft revision of protocol section 10c.1 (APPLIED on 30 Oct 2026 on the candidate's instruction, with the additions of items 5 to 13 of 10c.2; kept as a record)
 
 The current 10c.1 (added 29 Oct 2026) names three groups, five comparisons and the cross-database rule. The notebook now built implements the design below. If approved, this text replaces 10c.1 in `PROTOCOL.md`; 10c.2 is unchanged except where noted at the end.
 
