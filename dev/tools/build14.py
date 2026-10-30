@@ -101,9 +101,25 @@ Rows returned before the freeze: validation-split rows per arm (`condition=valid
 2. Data build on the full releases (Sections 4-5; about one day of CPU runtime), then this notebook arm by arm; `PROTOCOL_FROZEN=True` with the tag releases the test rows.
 3. `RELEASE_FINAL_HOLDOUT=True` once, for the prespecified cross-database directions on the protected patients.
 4. Report with TRIPOD+AI; assess risk of bias with PROBAST+AI; any post-freeze change goes to `PROTOCOL_DEVIATIONS.md`.""")
+for i,cl in enumerate(cells):
+    if cl['cell_type']=='markdown' and ''.join(cl['source']).startswith('## Verification record'):
+        setsrc(i,''.join(cl['source'])+"""
+
+### Stage 2 build record (1 Nov 2026, `_14_stage2`)
+
+| Check | Result | Evidence |
+|---|---|---|
+| v12 modules embedded (manifest, labels, features, data, models, evaluate, train, cohort, fixture, tests) and the stage-2 worker; SHA-256 verified | PASS | cell 2 |
+| 290 engineering checks (stage 1 + stage 2: manifest, suspicion event, soft labels, baseline features, two-channel models and causality, scoring passes, stores and transforms, splits) | PASS | `engineering_checks.json` of the fixture run |
+| Stage-2 driver on the synthetic fixture: all nine arm groups (25 arm names), every scoring pass, transfer rows, abstention variants, completion markers, rerun reuse | PASS | `v12_tests.run_checks_training`, 24 checks |
+| **Top-to-bottom execution through a real Jupyter kernel**, fixture mode, smoke settings | PASS | 566 s on CPU; 158 validation rows returned; 47 sealed test-row files written and not read |
+| Temporal validation and eICU leave-hospital-out on the fixture | SKIPPED by their event-count guards (printed) | both ran in the module check with lower guards |
+| Full-release label extraction with label-batch reuse, the label variants, the stage-2 supplement on real data | **NOT RUN** | no clinical data available to the preparer; nothing runs before the freeze |
+
+Synthetic fixture numbers are meaningless as performance and are not shown.""")
 for cl in cells:
     if cl['cell_type']=='code':ast.parse(''.join(cl['source']));cl['outputs']=[];cl['execution_count']=None
-nb['metadata']['sepsis_validation']={'status':'fixture run before release'}
+nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24'}
 import nbformat
 _,nb=nbformat.validator.normalize(nb) if hasattr(nbformat.validator,'normalize') else (0,nb)
 out=R/'Sepsis_V11_Improved_MIMIC_eICU_14_stage2.ipynb'
