@@ -67,3 +67,58 @@ def run_checks():
     tm,vm=new_measurements(hours,lab,lab_age);ok('baseline: lagged labs recovered once each at their draw time',tm.tolist()==[4.,12.,20.] and vm.tolist()==[40.,120.,200.])
     ok('baseline: column names',len(baseline_relative_columns(['HR']))==5)
     return passed
+
+def run_checks_models_and_scoring():
+    """Second group: models (needs torch) and scoring passes on synthetic prediction frames."""
+    import torch
+    passed=[]
+    def ok(name,cond):
+        if not cond:raise AssertionError('v12 check failed: '+name)
+        passed.append(name)
+    # ---- models ----
+    from v12_models import make_stage2_model,TwoChannelOSTA
+    feats=['HR','HR_observed','HR_age','MAP','MAP_observed','MAP_age','Lactate','Lactate_observed','Lactate_age','Age','Gender','Comorbidity_diabetes','Med_BetaBlocker_24h','AdmitSource_ED','ICULOS','HR_Slope6h']
+    cfg={'small_model':True,'dropout':.1}
+    b,t=3,12;x=torch.randn(b,t,len(feats));mask=torch.ones(b,t);hours=torch.arange(1,t+1,dtype=torch.float32).repeat(b,1)
+    m=make_stage2_model('two_channel',feats,cfg);out=m(x,mask,hours)
+    ok('two-channel: logits shape (B,T)',tuple(out.shape)==(b,t))
+    ok('two-channel: paths partition the columns',sorted(m.phys_idx+m.prac_idx)==list(range(len(feats))))
+    m.eval()
+    with torch.no_grad():
+        o1=m(x,mask,hours);m.practice_zero=True;o2=m(x,mask,hours);m.practice_zero=False
+        x2=x.clone();x2[:,:,m.prac_idx]=0.;o3=m(x2,mask,hours)
+    ok('two-channel: zeroing the practice path changes the output and equals zeroed input',not torch.allclose(o1,o2) and torch.allclose(o2,o3))
+    mh=make_stage2_model('two_channel_nohost',feats,cfg);ok('two-channel without host block drops Age/Gender/comorbidity',all(feats[i] not in ('Age','Gender','Comorbidity_diabetes') for i in mh.phys_idx))
+    for arm in ('physiology_path','physiology_path_nohost','practice_path'):
+        s=make_stage2_model(arm,feats,cfg);ok(f'{arm}: forward shape',tuple(s(x,mask,hours).shape)==(b,t))
+    # causality of the two-channel model: output at t must not depend on inputs after t
+    m.eval()
+    with torch.no_grad():
+        a=m(x,mask,hours);xx=x.clone();xx[:,8:,:]+=5.;bb=m(xx,mask,hours)
+    ok('two-channel: causal',torch.allclose(a[:,:8],bb[:,:8],atol=1e-5))
+    # ---- scoring passes ----
+    import numpy as np,pandas as pd
+    from v12_evaluate import relabel,pre_treatment,documentation_strata,abstention_rows,adopt_abstention,threshold_transport,alarm_records_abstain
+    rng=np.random.default_rng(0);rows=[]
+    for i in range(40):
+        pid=f'p{i}';onset=30. if i%4==0 else np.nan;hosp=f'h{i%3}'
+        for h in range(1,41):
+            if np.isfinite(onset) and h>=onset:continue
+            risk=.3 if (np.isfinite(onset) and h>=onset-6) else .05
+            rows.append({'Patient_ID':pid,'Group_ID':pid,'Hospital_ID':hosp,'Hour':float(h),'y':int(np.isfinite(onset) and h>=onset-6),'logit':0.,'risk':risk+rng.normal(0,.01),'Eligible':1,'OnsetHour':onset})
+    d=pd.DataFrame(rows);cfg2={'alarm_cooldown':6,'horizon':6,'false_alarm_budget':.5,'persistence':2,'fresh_only':False}
+    r=relabel(d,{'p0':20.},3.);ok('relabel: new onset and 3 h positives',r[r.Patient_ID.eq('p0')].y.sum()==3 and (r[r.Patient_ID.eq('p0')].Hour<20).all() and r[r.Patient_ID.eq('p4')].y.sum()==0)
+    pt=pre_treatment(d,{'p0':10.});ok('pre-treatment: hours before the first treatment only',(pt[pt.Patient_ID.eq('p0')].Hour<10).all() and len(pt[pt.Patient_ID.eq('p1')])==40)
+    st=documentation_strata(d,{f'p{i}':(i%8==0) for i in range(40)})
+    ok('documentation strata: positives split, controls shared',st['documented'].OnsetHour.notna().sum()>0 and st['undocumented'].OnsetHour.notna().sum()>0 and len(st['documented'][st['documented'].OnsetHour.isna()])==len(d[d.OnsetHour.isna()]))
+    ood=d[['Patient_ID','Hour']].copy();ood['ood']=np.where((ood.Hour%7==0),1.,0.)
+    ar=abstention_rows(d,ood,.5,.2,cfg2,2);ok('abstention: three modes with fractions',list(ar.abstention)==['reset','transparent','gated'] and abs(ar.abstained_fraction_all_hours.iloc[0]-(d.Hour%7==0).mean())<1e-9)
+    ad=adopt_abstention(ar,'reset');ok('abstention: adoption table',len(ad)==3 and not ad[ad.abstention.eq('reset')].adoptable.iloc[0])
+    # transparent mode: a single abstained hour inside a run must not break persistence
+    dd=pd.DataFrame({'Patient_ID':['q']*6,'Group_ID':['q']*6,'Hospital_ID':['h']*6,'Hour':[1.,2.,3.,4.,5.,6.],'y':[0]*6,'logit':0.,'risk':[.9,.9,.9,.9,.9,.9],'Eligible':1,'OnsetHour':np.nan})
+    ab=np.array([False,True,False,False,False,False])
+    a_t=alarm_records_abstain(dd,.5,ab,'transparent',6,6,2);a_r=alarm_records_abstain(dd,.5,ab,'reset',6,6,2)
+    ok('abstention: transparent keeps the run, reset breaks it',a_t.alarms.iloc[0]==1 and a_r.alarms.iloc[0]==1)   # both alarm once within the cooldown; timing differs
+    tt,disp=threshold_transport(d,{'threshold':.2,'alarm_fraction':.1},cfg2,min_hours=10,min_stays=5)
+    ok('threshold transport: both rules per hospital',set(tt.rule)=={'absolute','quantile'} and tt.Hospital_ID.nunique()==3 and len(disp)==2)
+    return passed
