@@ -109,6 +109,9 @@ def run_checks_models_and_scoring():
     d=pd.DataFrame(rows);cfg2={'alarm_cooldown':6,'horizon':6,'false_alarm_budget':.5,'persistence':2,'fresh_only':False}
     r=relabel(d,{'p0':20.},3.);ok('relabel: new onset and 3 h positives',r[r.Patient_ID.eq('p0')].y.sum()==3 and (r[r.Patient_ID.eq('p0')].Hour<20).all() and r[r.Patient_ID.eq('p4')].y.sum()==0)
     pt=pre_treatment(d,{'p0':10.});ok('pre-treatment: hours before the first treatment only',(pt[pt.Patient_ID.eq('p0')].Hour<10).all() and len(pt[pt.Patient_ID.eq('p1')])==40)
+    from v12_evaluate import pre_treatment_summary
+    ps=pre_treatment_summary(pre_treatment(d,{'p0':26.,'p4':10.}),.2,{'p0':26.,'p4':10.},1)
+    ok('pre-treatment: stay-level reading counts septic stays with a treatment time and alarms before it',ps['pre_treatment_septic_stays']==2 and abs(ps['alarm_before_treatment_fraction']-.5)<1e-9 and abs(ps['median_hours_alarm_before_treatment']-2.)<1e-9)
     st=documentation_strata(d,{f'p{i}':(i%8==0) for i in range(40)})
     ok('documentation strata: positives split, controls shared',st['documented'].OnsetHour.notna().sum()>0 and st['undocumented'].OnsetHour.notna().sum()>0 and len(st['documented'][st['documented'].OnsetHour.isna()])==len(d[d.OnsetHour.isna()]))
     ood=d[['Patient_ID','Hour']].copy();ood['ood']=np.where((ood.Hour%7==0),1.,0.)
@@ -122,3 +125,88 @@ def run_checks_models_and_scoring():
     tt,disp=threshold_transport(d,{'threshold':.2,'alarm_fraction':.1},cfg2,min_hours=10,min_stays=5)
     ok('threshold transport: both rules per hospital',set(tt.rule)=={'absolute','quantile'} and tt.Hospital_ID.nunique()==3 and len(disp)==2)
     return passed
+
+def _stage2_cfg(epochs,arms):
+    from v10_protocol import config
+    from v12_train import ARM_ORDER
+    cfg=config('smoke',24);cfg.update(batch=8,epochs=epochs,patience=2,bootstrap=3,seeds=[42],arms=list(arms or ARM_ORDER),operating_point='quantile',persistence=2,
+        quantile_min_hours=50,transport_min_stays=5,temporal_min_events=6,lho_fraction=.34,tabular_max_bytes=2*1024**3,tree_step=5,tree_max_iterations=10,ssl_epochs=1,pretrain_epochs=1,
+        cnn_depth=2,shared_physiology=['HR','Resp','Temp','Lactate'],best_non_project_arm='two_channel',conformal_alpha=.02,frozen=False,train_includes_observer_fit=True)
+    return cfg
+
+def run_checks_stores(root):
+    """Third group (fast): stage-2 stores, transforms and splits on the synthetic fixture."""
+    passed,_=_checks_stage2(root,1,None,run_driver=False);return passed
+
+def run_checks_training(root,epochs=1,arms=None):
+    """Fourth group: the stage-2 driver end to end on the synthetic fixture (CPU, tiny models). Returns (passed, results)."""
+    return _checks_stage2(root,epochs,arms,run_driver=True)
+
+def _checks_stage2(root,epochs,arms,run_driver):
+    import json,torch
+    import numpy as np,pandas as pd
+    from pathlib import Path
+    from v12_fixture import make_stage2_fixture
+    from v12_train import (Stage2Store,BaselineStore,fit_norms,fit_store_normalizer,practice_spec,run_stage2,ARM_ORDER,leave_hospital_out,temporal_partition,pooled_partition)
+    from v12_manifest import manifest,concept_grouped_practice
+    from v9_models import organ_mapping
+    from v10_protocol import config,partition
+    passed=[]
+    def ok(name,cond):
+        if not cond:raise AssertionError('v12 check failed: '+name)
+        passed.append(name)
+    root=Path(root);index,features,tables,corpus=make_stage2_fixture(root/'fixture')
+    cfg=_stage2_cfg(epochs,arms)
+    # ---- stores
+    mf=partition(index,'miiv',cfg);tr=mf[mf.split.eq('train')]
+    norms=fit_norms(pd.concat([partition(index,d,cfg) for d in ('miiv','eicu')]).query("split=='train'"),features,24,['miiv','eicu'])
+    ok('store: one normaliser per database and they differ',set(norms)=={'miiv','eicu'} and not np.allclose(norms['miiv']['mean'],norms['eicu']['mean']))
+    st=Stage2Store(tr,features,norms,24);b=st[0]
+    ok('store: batch carries target and weight equal to y and eligibility by default',np.allclose(b['target'],b['y']) and np.allclose(b['weight'],b['eligible']))
+    m=mf.copy();m['SuspicionHour']=m.Patient_ID.astype(str).map(tables['suspicion_hour']);ss=Stage2Store(m[m.split.eq('train')],features,norms,24,target='suspicion',horizon=3.)
+    i=int(np.flatnonzero(ss.index.SuspicionHour.notna())[0]);bs=ss[i];ev=ss.index.SuspicionHour.iloc[i]
+    ok('store: suspicion target marks the 3 hours before the event and censors at it',bs['y'].sum()==3 and bs['eligible'].sum()==ev-1 and bs['y'][int(ev)-2]==1)
+    mv=tr.copy();mv['StayValue']=.4;mv['StayWeight']=0.;sv=Stage2Store(mv,features,norms,24);bv=sv[int(np.flatnonzero(sv.index.OnsetHour.notna())[0])]
+    ok('store: soft value scales the target and zero weight removes the stay',np.allclose(bv['target'],.4*bv['y']) and bv['weight'].sum()==0)
+    man=manifest(features);es=Stage2Store(mf[mf.split.eq('test')],features,norms,24)   # another population: its own moments differ from the training normaliser
+    z=Stage2Store(tr,features,norms,24,practice=practice_spec('zero',features,man));bz=z[0];pidx=practice_spec('zero',features,man)['idx']
+    ok('store: practice zero sets every practice column to 0 and leaves physiology',np.all(bz['x'][:,pidx]==0) and np.allclose(np.delete(bz['x'],pidx,1),np.delete(b['x'],pidx,1)))
+    zs=Stage2Store(tr,features,norms,24,practice=practice_spec('zscore',features,man,st,es));bzs=zs[0]
+    ok('store: practice z-score changes practice columns only',not np.allclose(bzs['x'][:,pidx],b['x'][:,pidx]) and np.allclose(np.delete(bzs['x'],pidx,1),np.delete(b['x'],pidx,1)))
+    qs=Stage2Store(tr,features,norms,24,practice=practice_spec('quantile',features,man,st,es));bq=qs[0]
+    ok('store: quantile mapping to the same population is near identity',np.nanmean(np.abs(bq['x'][:,pidx]-b['x'][:,pidx]))<.25)
+    mapping,_=organ_mapping(features);cg=concept_grouped_practice(features,mapping);cs=Stage2Store(tr,features,norms,24,concept=cg);bc=cs[0]
+    ok('store: concept grouping appends one column per group',bc['x'].shape[1]==len(features)+len(cg) and len(cs.features)==len(features)+len(cg))
+    ws=Stage2Store(tr,features,norms,24,weak={'abx_starts':tables['abx_starts'],'arrival':tables['arrival']});bw=ws[int(np.flatnonzero(ws.index.OnsetHour.notna())[0])]
+    ok('store: weak targets present (antibiotic start within 6 h flagged before the start)',bw['abx6_ok'].sum()>0 and bw['abx6'].sum()==6 and bw['arrival_ok']==1)
+    for mode in ('relative','absolute','both'):
+        bl=BaselineStore(tr,features,None,24,mode=mode);nb=fit_store_normalizer(bl);bl.norms=nb;xb=bl[0]['x']
+        ok(f'baseline store {mode}: shape and finite',xb.shape==(24,len(bl.features)) and np.isfinite(xb).all())
+    ok('baseline store: no mask, age or count columns',not any(f.endswith(('_observed','_age')) or 'Count' in f for f in BaselineStore(tr,features,None,24,mode='both').features))
+    # ---- splits
+    pm=pooled_partition(index,cfg,['miiv','eicu']);ok('pooled partition stacks both databases with identical single-database membership',set(pm.Dataset)=={'miiv','eicu'} and pm.groupby('Group_ID').split.nunique().max()==1)
+    lho=leave_hospital_out(pm,.34);ok('leave-hospital-out: held-out hospitals are test only',lho[lho.split.eq('test')].Hospital_ID.isin(lho[lho.split.ne('test')].Hospital_ID).sum()==0)
+    ix=index[index.Dataset.eq('miiv')].copy();ix['AnchorYearGroup']=ix.Patient_ID.astype(str).map(tables['anchor_year_group']);tp=temporal_partition(ix,cfg,min_test_events=6)
+    ok('temporal partition: test group is later than every development group',tp is not None and tp[tp.split.eq('test')].AnchorYearGroup.min()>tp[tp.split.ne('test')].AnchorYearGroup.max())
+    if not run_driver:return passed,None
+    # ---- driver
+    out=run_stage2(index,features,cfg,root/'run',tables,('miiv','eicu'),corpus)
+    ok('driver: results frame has validation rows for every arm',len(out) and set(out.condition).issuperset({'validation'}))
+    sealed=list((root/'run').rglob('test_rows_sealed.json'))
+    ok('driver: test rows are sealed on disk and absent from the returned frame when not frozen',len(sealed)>0 and 'normal' not in set(out.condition))
+    rows=[r for p in sealed for r in json.loads(p.read_text())];conds=set(r['condition'] for r in rows);arms=set(r['arm'] for r in rows)
+    expect_arms={'flat_osta','two_channel','practice_path','two_channel_concept','flat_osta_pooled','flat_osta@suspicion','two_channel@suspicion','flat_osta_weakpre','flat_osta_weakpre_zeroshot',
+                 'flat_osta_weakpre_finetune10_from_miiv','physiology_path','physiology_path_nohost','shared_physiology','baseline_relative','baseline_absolute','baseline_both',
+                 'flat_osta@documented','flat_osta@pu_soft','grud','tcn','logistic','boosted_tree','ssl_cnn_flat_pooled','ssl_cnn_osta_pooled','flat_osta_temporal'}
+    missing=expect_arms-arms;ok('driver: every arm wrote test rows (missing: %s)'%sorted(missing),not missing)
+    expect_conds={'normal','pre_treatment_hours','documentation_documented','documentation_undocumented','suspicion_label_3h','suspicion_label_6h','alternative_operational_label',
+                  'practice_zero','practice_zscore','practice_quantile','pooled_model_own_test','suspicion_reading_3h','suspicion_reading_6h','threshold_transport_absolute','threshold_transport_quantile',
+                  'eval_label_documented_and_operational','temporal_absolute','temporal_quantile'}
+    missing_c=expect_conds-conds;ok('driver: every scoring pass produced rows (missing: %s)'%sorted(missing_c),not missing_c)
+    ok('driver: transfer rows exist for the single-database arms',any(r['target'].endswith('_from_miiv') for r in rows if r['arm']=='flat_osta'))
+    ok('driver: abstention variants on validation',{'validation_abstention_reset','validation_abstention_transparent','validation_abstention_gated'}<=set(out.condition))
+    ok('driver: completion markers per arm',len(list((root/'run').rglob('completed.json')))>=len(expect_arms))
+    # resume: a second call reuses every marker and returns the same frame
+    out2=run_stage2(index,features,cfg,root/'run',tables,('miiv','eicu'),corpus)
+    ok('driver: rerun reuses completed arms',len(out2)==len(out))
+    return passed,out

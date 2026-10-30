@@ -20,6 +20,25 @@ def pre_treatment(d,first_treatment_by_stay):
     ft=d.Patient_ID.astype(str).map(first_treatment_by_stay).astype(float).to_numpy()
     return d[~np.isfinite(ft)|(d.Hour.to_numpy(float)<ft)]
 
+def pre_treatment_summary(d_pre,threshold,first_treatment_by_stay,persistence=1):
+    """Stay-level reading of the pre-treatment evaluation (Kamran et al. 2024): among septic stays WITH a treatment
+    indicator, the share whose risk reached the threshold (for `persistence` consecutive hours) before the first
+    treatment, and the median hours from that first alarm to the treatment. Septic stays whose 6 h window lies entirely
+    after the treatment are counted in the denominator (they cannot be detected before the clinician acted)."""
+    rows=[]
+    for pid,g in d_pre[d_pre.OnsetHour.notna()].groupby('Patient_ID',sort=False,observed=True):
+        ft=first_treatment_by_stay.get(str(pid),np.nan)
+        if not np.isfinite(ft):continue
+        g=g.sort_values('Hour');above=(g.risk.to_numpy()>=threshold);h=g.Hour.to_numpy(float);run=0;first=np.nan
+        for i,(a,t) in enumerate(zip(above,h)):
+            run=run+1 if (a and (i==0 or h[i]-h[i-1]<=1.001)) else (1 if a else 0)
+            if a and run>=persistence:first=t;break
+        rows.append({'alarm_before_treatment':np.isfinite(first),'hours_before_treatment':ft-first if np.isfinite(first) else np.nan})
+    if not rows:return {'pre_treatment_septic_stays':0}
+    r=pd.DataFrame(rows)
+    return {'pre_treatment_septic_stays':int(len(r)),'alarm_before_treatment_fraction':float(r.alarm_before_treatment.mean()),
+            'median_hours_alarm_before_treatment':float(r.hours_before_treatment.median()) if r.hours_before_treatment.notna().any() else np.nan}
+
 def documentation_strata(d,documented_by_stay):
     """Two frames: documented positives with all controls; undocumented positives with all controls."""
     doc=d.Patient_ID.astype(str).map(documented_by_stay);pos=d.OnsetHour.notna()

@@ -383,10 +383,17 @@ def main():
     LoadStep = steps.LoadStep
 
     original_init=LoadStep.__init__;original_do=LoadStep.do_perform
+    # V12 (stage 2, protocol 10c.2 items 10 and 19): optional label variant. V12_SI_MODE overrides ricu's sep3
+    # suspected-infection mode for the sep3_alt load ('abx' = antibiotic-only, the eICU rule, on MIMIC-IV; 'and' =
+    # antibiotic paired with a culture, the MIMIC-IV rule, on eICU). Unset: the pinned behaviour, unchanged.
+    v12_si_mode=os.environ.get('V12_SI_MODE','').strip() or None
+    if v12_si_mode is not None:print('V12_SI_MODE',args.src,v12_si_mode,flush=True)
     def scoped_init(self,concept,src,cache=False,**kwargs):
         kwargs['patient_ids']=ro.IntVector(ids)
+        names=[concept] if isinstance(concept,str) else list(concept)
+        if v12_si_mode is not None and names==['sep3_alt']:kwargs['si_mode']=v12_si_mode
         original_init(self,concept,src,cache=cache,**kwargs)
-        self._v9_names=[concept] if isinstance(concept,str) else list(concept)
+        self._v9_names=names
     LoadStep.__init__=scoped_init
 
     def bounded_do(self,input):
@@ -415,6 +422,18 @@ def main():
         sepsis.stay_windows=bounded_windows
         class EmptySelectedBatch(Exception):
             def __init__(self,attrition):self.attrition=attrition
+        # V12 (stage 2, protocol 10c.2 item 1): V12_KEEP_EARLY_ONSET=1 drops YAIB exclusion 7 (sepsis onset before
+        # ICU hour 6) from the criteria list; every other criterion and the pinned sepsis.py are untouched. Unset: the
+        # pinned criteria apply.
+        if os.environ.get('V12_KEEP_EARLY_ONSET','')=='1':
+            original_add=sepsis.Cohort.add_criterion
+            def add_without_early_onset(self,criteria,*a,**kw):
+                crit=list(criteria) if isinstance(criteria,(list,tuple)) else [criteria]
+                kept=[c for c in crit if 'onset before 6h' not in str(getattr(c,'desc',getattr(c,'name',''))).lower()]   # SelectionCriterion stores its text as .desc
+                if len(kept)==len(crit):raise RuntimeError('V12_KEEP_EARLY_ONSET: exclusion 7 was not found in the pinned criteria list')
+                print('V12_KEEP_EARLY_ONSET: exclusion 7 (onset before 6h) not applied',flush=True)
+                return original_add(self,kept,*a,**kw)
+            sepsis.Cohort.add_criterion=add_without_early_onset
         original_select=sepsis.Cohort.select
         def checked_select(self,*a,**kw):
             selected,attrition=original_select(self,*a,**kw)

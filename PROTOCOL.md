@@ -587,6 +587,8 @@ The findings of stage 2 shaped stage 3:
 
 ## 15. Known code notes (no effect on stage-1 results; to correct before stage 2)
 
+**Stage-2 build (1 Nov 2026; `dev/stage2/STAGE2_CODE_NOTES.md`).** Notebook `_14_stage2` is built; nothing has run on real data. Two build decisions need confirmation before the freeze: the training split (the retired observer bank's 30 % development split joins training, so 70 % of development patients train; stage 1 trained on 40 %; a one-line setting restores the stage-1 split), and the eICU leave-hospital-out grouping (a hash-selected 20 % of development hospitals, fixed before training). The all-comers stratified evaluation of Section 11 is not built: arrival-sepsis stays have 0 to 5 pre-onset hours and enter only the pretraining corpus.
+
 - The `utility.json` scope text says that post-onset hours are never trained on, and that an onset after the window counts as non-septic. Under the V11 primary loss and the 6-hour look-ahead, Sections 4 and 8 are the correct statements.
 - The secondary analysis notebook still names the V10 arm list.
 - The `_11` notebook embeds the earlier label worker (Section 4); the repository copy carries the interval-units fix.
