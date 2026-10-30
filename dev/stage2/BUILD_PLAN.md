@@ -37,3 +37,10 @@ Patient-grouped splits keyed by the data key and split seed; protected holdout u
 ## Open decisions feeding the build
 
 The consultants' three answers (alarm budget, course definition, threshold form); the shared physiology set from the full-release pathophysiology repeat; whether the deterioration target is prespecified (contingent on that repeat).
+
+## Added 1 Nov 2026
+
+| # | Piece | Module or cell | Protocol item | Status |
+|---|---|---|---|---|
+| 16 | Full-release pathophysiology repeat on the all-comers data build (`_15_pathophysiology_full`; early-onset stays from the cohort index, arrival stays from the corpus) | `pathophys_15.py`, `build15.py` | 10c.1, section 11 step 1 | done 1 Nov (fixture run passed, 251 s) |
+| 17 | Data-build-only mode and the freeze gate in `_14_stage2`; `freeze_record.py`; runbook | cells, `dev/tools/freeze_record.py`, `RUNBOOK.md` | section 11 steps 1-4 | done 1 Nov |

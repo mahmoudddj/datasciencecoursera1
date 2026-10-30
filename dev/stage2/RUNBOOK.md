@@ -33,9 +33,9 @@ Settings in cell 1 of `_14_stage2` before Run all:
 - Optional, saves about two days: run the same cells on a Google Cloud 32-core, 256 GB machine for about one day (about $25) after I have tested the environment rebuild on the fixture there. Only worth it if the Google account is yours and the data stay in it.
 - Send me the printed cell outputs (attrition by batch, the index table by database and incident status, the stage-2 table summary, the manifest audit). I check the counts before anything else runs.
 
-## Step 3. Full-release pathophysiology repeat (me to build, you to run; CPU, hours)
+## Step 3. Full-release pathophysiology repeat (built; you run it on CPU, hours)
 
-- I rebuild the pathophysiology notebook on the `_14` data stages (`_15_pathophysiology_full`), reading training-split and non-cohort patients only, with the arrival and early-onset strata now taken from the all-comers cohort.
+- `Sepsis_V11_Improved_MIMIC_eICU_15_pathophysiology_full.ipynb` (built by `dev/tools/build15.py` from `_14`; fixture run passed) reuses the `_14` data stages by key and runs the `_13` study on the full release, training-split and non-cohort patients only. Early-ICU-onset stays with pre-onset hours are read from the all-comers cohort index; stays septic at or before arrival (no pre-onset hours, not in the index) from the unlabelled corpus as before. Run it after step 2 with the same cell-1 paths; `STAGE2_ARMS` is unused there.
 - You run it once on the CPU runtime and send me the aggregate outputs and figures.
 - From it I fix the shared physiology set (protocol item 2(b)) and decide whether the deterioration target (item 11) is prespecified, by the rules already in Section 10c.1.
 
@@ -88,6 +88,5 @@ Settings in cell 1 of `_14_stage2` before Run all:
 
 ## What I do next, in order
 
-1. Build `_15_pathophysiology_full` on the `_14` data stages and pass the fixture gate (step 3).
-2. Prepare the Google Cloud environment test on the fixture, in case step 7 needs it.
-3. Apply the consultants' answers and the shared physiology set when they arrive (step 4), rebuild, rerun the gate, and hand you the commit for the freeze (step 5).
+1. Apply the consultants' answers and the shared physiology set when they arrive (step 4), rebuild, rerun the gate, and hand you the commit for the freeze (step 5).
+2. The Google Cloud environment test on the fixture only if step 7 calls for it (Colab is the working assumption).
