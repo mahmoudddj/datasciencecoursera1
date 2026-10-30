@@ -1,0 +1,2588 @@
+--- cell 19 [table] ---
+Dataset                                miiv        eicu
+incident                                224         144
+septic_on_arrival                       318         208
+early_icu_onset                         510          66
+controls_read                          3000        2668
+controls_available                     4286        2668
+candidates_with_onset_before_6h        1048         698
+of_which_in_corpus                      828         274
+outcome_source                   raw tables  raw tables
+--- cell 19 ---
+
+Sepsis documentation versus the operational onset (fractions; masked when fewer than 11 stays):
+
+--- cell 19 [table] ---
+                           stays  hospital_mortality  icu_mortality  \
+Dataset stratum                                                       
+eicu    early_icu_onset       66               0.154          0.076   
+        incident             144               0.160          0.118   
+        septic_on_arrival    208               0.217          0.183   
+miiv    early_icu_onset      510               0.306          0.253   
+        incident             224               0.254          0.205   
+        septic_on_arrival    318               0.374          0.280   
+
+                           admitted_for_sepsis_dx  sepsis_documented  \
+Dataset stratum                                                        
+eicu    early_icu_onset                     0.348              0.273   
+        incident                            0.278              0.229   
+        septic_on_arrival                   0.308              0.370   
+miiv    early_icu_onset                       NaN              0.484   
+        incident                              NaN              0.348   
+        septic_on_arrival                     NaN              0.503   
+
+                           onset_h_median  
+Dataset stratum                            
+eicu    early_icu_onset               2.0  
+        incident                     16.0  
+        septic_on_arrival            -1.0  
+miiv    early_icu_onset               2.0  
+        incident                     14.0  
+        septic_on_arrival             0.0  
+--- cell 19 ---
+Control hospital mortality: {'eicu': 0.06, 'miiv': 0.081}
+
+--- cell 20 ---
+Read 1379 shard files in 4507 s | hourly rows 343,664 | fresh values 2,251,657 | stays with onset state 7,126
+
+Course at onset + 48 h (deteriorating = hospital death, or paired SOFA-component rise >= 2, or vasopressor escalation to >= 0.1 NE-eq; improving = alive, no rise, no vasopressor; counts under 11 masked):
+
+--- cell 20 [table] ---
+course             deteriorating  improving  indeterminate  \
+miiv                                                         
+early_icu_onset              164         30            316   
+incident                      57         -1            161   
+septic_on_arrival            137         82             99   
+
+course             left_icu_alive_before_horizon  
+miiv                                              
+early_icu_onset                               -1  
+incident                                      -1  
+septic_on_arrival                             -1  
+--- cell 20 [table] ---
+course             deteriorating  improving  indeterminate  \
+eicu                                                         
+early_icu_onset               13         11             26   
+incident                      23         -1             87   
+septic_on_arrival             56         38             70   
+
+course             left_icu_alive_before_horizon  
+eicu                                              
+early_icu_onset                               16  
+incident                                      34  
+septic_on_arrival                             44  
+--- cell 20 ---
+Two-way course agreement between 48 h and 72 h: 0.986 of 632 stays
+
+Admission context and comorbidity documentation by stratum (fractions; medians for Age and hours in hospital before the ICU):
+
+--- cell 20 [table] ---
+Dataset                                        eicu                           \
+stratum                                     control early_icu_onset incident   
+Gender                                        0.535           0.470    0.604   
+AdmitSource_ED                                0.432           0.439    0.479   
+AdmitSource_OR                                0.205           0.106    0.125   
+AdmitSource_Ward                              0.223           0.227    0.188   
+AdmitSource_OtherHospital                     0.021           0.000    0.042   
+ICUType_Medical                               0.577           0.742    0.667   
+ICUType_Surgical                              0.633           0.712    0.743   
+ICUType_Cardiac                               0.246           0.121    0.174   
+ICUType_Neuro                                 0.111           0.091    0.076   
+AdmitDx_Infection                             0.118           0.486    0.351   
+AdmitDx_Operative                             0.234           0.108    0.134   
+PriorAntibiotics_90d                            NaN             NaN      NaN   
+PriorPositiveCulture_1y                         NaN             NaN      NaN   
+Age                                          65.000          63.000   69.000   
+HospitalHoursBeforeICU                        4.717           2.267    3.100   
+Comorbidity_chronic_heart_failure             0.180           0.136    0.194   
+Comorbidity_chronic_liver_disease_cirrhosis   0.033           0.045    0.042   
+Comorbidity_diabetes                          0.290           0.364    0.319   
+Comorbidity_metastatic_carcinoma              0.028           0.015    0.042   
+Comorbidity_hematological_malignancy          0.016           0.000    0.028   
+Comorbidity_immunocompromised                 0.041           0.076    0.111   
+Comorbidity_chronic_organ_insufficiency       0.084           0.045    0.139   
+Comorbidity_chronic_pulmonary_disease         0.166           0.136    0.264   
+Comorbidity_chronic_kidney_disease            0.114           0.136    0.153   
+Comorbidity_dementia                          0.029           0.076    0.062   
+Comorbidity_alcohol_use_disorder              0.022           0.030    0.021   
+Comorbidity_malnutrition                      0.016           0.015    0.028   
+Comorbidity_obesity                           0.009           0.000    0.007   
+Comorbidity_prior_sepsis                      0.000           0.000    0.000   
+Comorbidity_stroke_hemiplegia                 0.137           0.167    0.146   
+Comorbidity_pressure_ulcer                    0.002           0.000    0.000   
+Comorbidity_solid_tumor                       0.161           0.167    0.222   
+
+Dataset                                                          miiv  \
+stratum                                     septic_on_arrival control   
+Gender                                                  0.553   0.569   
+AdmitSource_ED                                          0.486   0.433   
+AdmitSource_OR                                          0.154   0.123   
+AdmitSource_Ward                                        0.308   0.382   
+AdmitSource_OtherHospital                               0.019   0.061   
+ICUType_Medical                                         0.736   0.360   
+ICUType_Surgical                                        0.731   0.420   
+ICUType_Cardiac                                         0.154   0.291   
+ICUType_Neuro                                           0.034   0.105   
+AdmitDx_Infection                                       0.366     NaN   
+AdmitDx_Operative                                       0.183     NaN   
+PriorAntibiotics_90d                                      NaN   0.148   
+PriorPositiveCulture_1y                                   NaN   0.219   
+Age                                                    67.000  65.000   
+HospitalHoursBeforeICU                                  4.725   2.333   
+Comorbidity_chronic_heart_failure                       0.255   0.162   
+Comorbidity_chronic_liver_disease_cirrhosis             0.077   0.079   
+Comorbidity_diabetes                                    0.380   0.181   
+Comorbidity_metastatic_carcinoma                        0.043   0.040   
+Comorbidity_hematological_malignancy                    0.024   0.027   
+Comorbidity_immunocompromised                           0.053   0.092   
+Comorbidity_chronic_organ_insufficiency                 0.173   0.074   
+Comorbidity_chronic_pulmonary_disease                   0.284   0.175   
+Comorbidity_chronic_kidney_disease                      0.135   0.139   
+Comorbidity_dementia                                    0.038   0.020   
+Comorbidity_alcohol_use_disorder                        0.014   0.061   
+Comorbidity_malnutrition                                0.038   0.083   
+Comorbidity_obesity                                     0.010   0.085   
+Comorbidity_prior_sepsis                                0.000   0.080   
+Comorbidity_stroke_hemiplegia                           0.130   0.071   
+Comorbidity_pressure_ulcer                              0.005   0.030   
+Comorbidity_solid_tumor                                 0.183   0.089   
+
+Dataset                                                               \
+stratum                                     early_icu_onset incident   
+Gender                                                0.557    0.562   
+AdmitSource_ED                                        0.598    0.571   
+AdmitSource_OR                                        0.041    0.071   
+AdmitSource_Ward                                      0.216    0.246   
+AdmitSource_OtherHospital                             0.145    0.112   
+ICUType_Medical                                       0.561    0.442   
+ICUType_Surgical                                      0.500    0.509   
+ICUType_Cardiac                                       0.143    0.161   
+ICUType_Neuro                                         0.022    0.094   
+AdmitDx_Infection                                       NaN      NaN   
+AdmitDx_Operative                                       NaN      NaN   
+PriorAntibiotics_90d                                  0.188    0.192   
+PriorPositiveCulture_1y                               0.327    0.263   
+Age                                                  64.000   67.500   
+HospitalHoursBeforeICU                                1.333    1.550   
+Comorbidity_chronic_heart_failure                     0.161    0.116   
+Comorbidity_chronic_liver_disease_cirrhosis           0.086    0.054   
+Comorbidity_diabetes                                  0.204    0.174   
+Comorbidity_metastatic_carcinoma                      0.053    0.036   
+Comorbidity_hematological_malignancy                  0.033    0.036   
+Comorbidity_immunocompromised                         0.088    0.076   
+Comorbidity_chronic_organ_insufficiency               0.092    0.085   
+Comorbidity_chronic_pulmonary_disease                 0.212    0.174   
+Comorbidity_chronic_kidney_disease                    0.139    0.103   
+Comorbidity_dementia                                  0.020    0.027   
+Comorbidity_alcohol_use_disorder                      0.059    0.040   
+Comorbidity_malnutrition                              0.090    0.080   
+Comorbidity_obesity                                   0.106    0.085   
+Comorbidity_prior_sepsis                              0.100    0.094   
+Comorbidity_stroke_hemiplegia                         0.076    0.094   
+Comorbidity_pressure_ulcer                            0.043    0.040   
+Comorbidity_solid_tumor                               0.090    0.067   
+
+Dataset                                                        
+stratum                                     septic_on_arrival  
+Gender                                                  0.613  
+AdmitSource_ED                                          0.233  
+AdmitSource_OR                                          0.094  
+AdmitSource_Ward                                        0.623  
+AdmitSource_OtherHospital                               0.050  
+ICUType_Medical                                         0.531  
+ICUType_Surgical                                        0.484  
+ICUType_Cardiac                                         0.145  
+ICUType_Neuro                                           0.025  
+AdmitDx_Infection                                         NaN  
+AdmitDx_Operative                                         NaN  
+PriorAntibiotics_90d                                    0.252  
+PriorPositiveCulture_1y                                 0.302  
+Age                                                    65.000  
+HospitalHoursBeforeICU                                 46.229  
+Comorbidity_chronic_heart_failure                       0.179  
+Comorbidity_chronic_liver_disease_cirrhosis             0.164  
+Comorbidity_diabetes                                    0.208  
+Comorbidity_metastatic_carcinoma                        0.050  
+Comorbidity_hematological_malignancy                    0.063  
+Comorbidity_immunocompromised                           0.119  
+Comorbidity_chronic_organ_insufficiency                 0.082  
+Comorbidity_chronic_pulmonary_disease                   0.211  
+Comorbidity_chronic_kidney_disease                      0.192  
+Comorbidity_dementia                                    0.019  
+Comorbidity_alcohol_use_disorder                        0.091  
+Comorbidity_malnutrition                                0.104  
+Comorbidity_obesity                                     0.104  
+Comorbidity_prior_sepsis                                0.113  
+Comorbidity_stroke_hemiplegia                           0.085  
+Comorbidity_pressure_ulcer                              0.053  
+Comorbidity_solid_tumor                                 0.091  
+--- cell 21 ---
+Channels: 58 | rows in long table: 7,611,672
+
+C1 baseline: incident vs control, hours 1-24 since admission  [delta > 0 means higher in incident]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+MAP                      -0.12 -0.16                database-specific
+DBP                      -0.10 -0.15                database-specific
+Lymphocytes              -0.25 -0.14                database-specific
+SF_Ratio                 -0.28 -0.13                database-specific
+SBP                      -0.15 -0.11                database-specific
+Albumin                  -0.21 -0.08                database-specific
+PaCO2                    -0.25 -0.01                database-specific
+SOFA_Resp                 0.15  0.01                database-specific
+SOFA_Renal                0.16  0.02                database-specific
+pH                        0.17  0.02                database-specific
+BUN                       0.17  0.03                database-specific
+Neutrophils               0.23  0.08                database-specific
+FiO2                      0.29  0.09                database-specific
+HR                        0.28  0.12                database-specific
+SOFA_MetAmongMeasured     0.15  0.14                database-specific
+VasopressorDose_NEeq      0.00  0.15                database-specific
+Glucose                   0.03  0.15                database-specific
+SOFAproxy_CNS             0.11  0.17                database-specific
+Temp_Min24h               0.02  0.18                database-specific
+Temp_Max24h               0.06  0.18                database-specific
+PTT                       0.08  0.18                database-specific
+SOFA_CV                   0.06  0.23                database-specific
+Temp                      0.10  0.23                database-specific
+Urine_mlkg_h_6h          -0.09 -0.12                        no signal
+HCO3                     -0.14 -0.06                        no signal
+Potassium                -0.05 -0.04                        no signal
+SOFAproxy_Coag            0.10 -0.04                        no signal
+PulsePressure            -0.11 -0.01                        no signal
+Bilirubin_total           0.11 -0.01                        no signal
+Lactate                   0.15 -0.01                        no signal
+Hgb                      -0.14  0.00                        no signal
+SOFAproxy_Liver           0.03  0.00                        no signal
+Chloride                  0.09  0.01                        no signal
+Platelets_DeltaBaseline   0.05  0.02                        no signal
+PaO2                     -0.12  0.03                        no signal
+BaseExcess               -0.06  0.04                        no signal
+Creatinine                0.11  0.05                        no signal
+WBC                       0.10  0.06                        no signal
+Platelets                -0.08  0.07                        no signal
+Creatinine_DeltaBaseline -0.04  0.07                        no signal
+HR_Variance6h             0.03  0.07                        no signal
+Sodium                    0.08  0.07                        no signal
+INR                       0.04  0.08                        no signal
+ALT                      -0.04  0.10                        no signal
+O2Sat                     0.00  0.10                        no signal
+AnionGap                  0.10  0.10                        no signal
+AST                       0.03  0.11                        no signal
+Bands                     0.11  0.13                        no signal
+Fibrinogen                 NaN  0.27  not estimable in both databases
+GCS                      -0.15 -0.25                           shared
+NLR                       0.20  0.15                           shared
+ShockIndex                0.27  0.15                           shared
+Resp                      0.25  0.20                           shared
+qSOFA_MetAmongMeasured    0.26  0.33                           shared
+NEWS2_MetAmongMeasured    0.35  0.43                    strong shared
+--- cell 21 ---
+
+C2 pre-onset signal: incident 12 h before onset vs control 12 h before pseudo-onset  [delta > 0 means higher in incident]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+Urine_mlkg_h_6h          -0.06 -0.16                database-specific
+SOFA_Resp                 0.03 -0.15                database-specific
+FiO2                      0.26 -0.03                database-specific
+SF_Ratio                 -0.23 -0.00                database-specific
+Lactate                   0.26  0.04                database-specific
+ALT                      -0.17  0.08                database-specific
+ShockIndex                0.26  0.14                database-specific
+HR                        0.30  0.14                database-specific
+PaO2                     -0.06  0.16                database-specific
+Platelets                 0.09  0.17                database-specific
+Neutrophils               0.09  0.18                database-specific
+Temp_Min24h               0.02  0.19                database-specific
+DBP                      -0.07 -0.14                        no signal
+MAP                      -0.08 -0.12                        no signal
+GCS                      -0.07 -0.10                        no signal
+SOFAproxy_Coag            0.07 -0.08                        no signal
+Potassium                -0.05 -0.07                        no signal
+Platelets_DeltaBaseline   0.08 -0.07                        no signal
+SBP                      -0.11 -0.05                        no signal
+O2Sat                    -0.09 -0.03                        no signal
+Bilirubin_total          -0.04 -0.03                        no signal
+Creatinine_DeltaBaseline -0.12 -0.02                        no signal
+SOFAproxy_Liver          -0.03 -0.02                        no signal
+PaCO2                    -0.05 -0.01                        no signal
+Hgb                      -0.13 -0.00                        no signal
+SOFA_Renal                0.08  0.00                        no signal
+Creatinine                0.05  0.01                        no signal
+HCO3                     -0.10  0.02                        no signal
+Chloride                 -0.06  0.03                        no signal
+BUN                       0.13  0.04                        no signal
+PulsePressure            -0.07  0.05                        no signal
+BaseExcess                0.12  0.05                        no signal
+INR                       0.06  0.07                        no signal
+AST                       0.07  0.07                        no signal
+HR_Variance6h             0.09  0.07                        no signal
+pH                        0.00  0.08                        no signal
+SOFA_MetAmongMeasured     0.11  0.08                        no signal
+Glucose                  -0.02  0.09                        no signal
+VasopressorDose_NEeq      0.00  0.09                        no signal
+SOFAproxy_CNS             0.06  0.10                        no signal
+WBC                       0.08  0.10                        no signal
+AnionGap                  0.11  0.10                        no signal
+SOFA_CV                   0.07  0.13                        no signal
+Sodium                   -0.07  0.14                        no signal
+Bands                      NaN -0.10  not estimable in both databases
+Fibrinogen                 NaN  0.23  not estimable in both databases
+Albumin                  -0.31 -0.29                           shared
+Lymphocytes              -0.22 -0.17                           shared
+NLR                       0.22  0.17                           shared
+PTT                       0.28  0.17                           shared
+Resp                      0.21  0.18                           shared
+qSOFA_MetAmongMeasured    0.21  0.27                           shared
+Temp                      0.15  0.30                           shared
+Temp_Max24h               0.18  0.31                           shared
+NEWS2_MetAmongMeasured    0.29  0.38                           shared
+--- cell 21 ---
+
+C2b earlier pre-onset: incident 24-12 h before onset vs control matched  [delta > 0 means higher in incident]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+Potassium                -0.08 -0.21                database-specific
+GCS                      -0.09 -0.20                database-specific
+PaCO2                    -0.33 -0.13                database-specific
+Albumin                  -0.22 -0.12                database-specific
+FiO2                      0.17 -0.08                database-specific
+BUN                       0.15 -0.03                database-specific
+O2Sat                    -0.15 -0.02                database-specific
+ShockIndex                0.22  0.03                database-specific
+NLR                       0.16  0.10                database-specific
+SF_Ratio                 -0.17  0.12                database-specific
+Neutrophils               0.30  0.12                database-specific
+BaseExcess               -0.03  0.17                database-specific
+SOFAproxy_CNS             0.11  0.18                database-specific
+Temp_Min24h               0.04  0.19                database-specific
+Sodium                    0.11  0.21                database-specific
+SOFA_Resp                 0.03 -0.14                        no signal
+Creatinine                0.07 -0.13                        no signal
+Platelets_DeltaBaseline   0.10 -0.11                        no signal
+Lactate                   0.11 -0.11                        no signal
+Creatinine_DeltaBaseline  0.00 -0.09                        no signal
+PaO2                      0.05 -0.07                        no signal
+SOFA_Renal                0.03 -0.06                        no signal
+DBP                       0.08 -0.06                        no signal
+SOFAproxy_Coag            0.11 -0.05                        no signal
+INR                      -0.04 -0.04                        no signal
+SOFAproxy_Liver          -0.04 -0.04                        no signal
+AnionGap                  0.07 -0.03                        no signal
+WBC                       0.14 -0.03                        no signal
+Hgb                      -0.08 -0.02                        no signal
+Urine_mlkg_h_6h          -0.06 -0.02                        no signal
+HR_Variance6h             0.14 -0.02                        no signal
+Bilirubin_total           0.08  0.00                        no signal
+MAP                       0.03  0.01                        no signal
+ALT                       0.02  0.02                        no signal
+Chloride                  0.04  0.04                        no signal
+VasopressorDose_NEeq     -0.01  0.06                        no signal
+SOFA_CV                   0.05  0.06                        no signal
+Platelets                -0.13  0.07                        no signal
+AST                       0.06  0.07                        no signal
+Glucose                   0.05  0.10                        no signal
+SBP                      -0.03  0.11                        no signal
+HCO3                     -0.13  0.12                        no signal
+SOFA_MetAmongMeasured     0.12  0.12                        no signal
+PulsePressure            -0.05  0.13                        no signal
+PTT                       0.05  0.13                        no signal
+Bands                     0.17   NaN  not estimable in both databases
+Lymphocytes              -0.25 -0.15                           shared
+HR                        0.33  0.16                           shared
+Resp                      0.26  0.18                           shared
+pH                        0.19  0.21                           shared
+Temp                      0.15  0.25                           shared
+qSOFA_MetAmongMeasured    0.22  0.25                           shared
+NEWS2_MetAmongMeasured    0.34  0.29                           shared
+Temp_Max24h               0.22  0.30                           shared
+--- cell 21 ---
+
+C3 septic on arrival (ICU hours 1-6) vs incident (onset to +6 h)  [delta > 0 means higher in septic_on_arrival]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+Lymphocytes              -0.13 -0.40                database-specific
+BaseExcess               -0.09 -0.26                database-specific
+Sodium                   -0.02 -0.26                database-specific
+Chloride                 -0.04 -0.21                database-specific
+Albumin                  -0.10 -0.19                database-specific
+Hgb                      -0.04 -0.19                database-specific
+Temp                     -0.05 -0.16                database-specific
+ALT                       0.02 -0.15                database-specific
+MAP                      -0.16 -0.07                database-specific
+PaCO2                     0.20 -0.04                database-specific
+Bilirubin_total          -0.27  0.00                database-specific
+Platelets                 0.18  0.03                database-specific
+NEWS2_MetAmongMeasured    0.19  0.07                database-specific
+SOFAproxy_CNS             0.17  0.09                database-specific
+Potassium                 0.17  0.10                database-specific
+Temp_Min24h               0.18  0.10                database-specific
+INR                       0.25  0.13                database-specific
+SOFAproxy_Liver           0.03  0.16                database-specific
+VasopressorDose_NEeq      0.07  0.16                database-specific
+Lactate                  -0.17  0.18                database-specific
+BUN                       0.10  0.19                database-specific
+Platelets_DeltaBaseline  -0.13  0.22                database-specific
+WBC                       0.00  0.22                database-specific
+AnionGap                  0.05  0.28                database-specific
+Neutrophils              -0.04  0.34                database-specific
+AST                       0.09 -0.08                        no signal
+HR_Variance6h            -0.11 -0.07                        no signal
+GCS                      -0.08 -0.03                        no signal
+Urine_mlkg_h_6h           0.04 -0.03                        no signal
+DBP                      -0.07 -0.02                        no signal
+Glucose                   0.09 -0.00                        no signal
+PTT                      -0.05  0.01                        no signal
+PaO2                      0.09  0.03                        no signal
+O2Sat                     0.14  0.03                        no signal
+SOFAproxy_Coag           -0.10  0.07                        no signal
+Resp                     -0.06  0.07                        no signal
+qSOFA_MetAmongMeasured    0.11  0.07                        no signal
+SOFA_Resp                 0.11  0.11                        no signal
+HR                        0.02  0.13                        no signal
+Creatinine                0.15  0.13                        no signal
+NLR                       0.03  0.14                        no signal
+Creatinine_DeltaBaseline  0.13  0.14                        no signal
+Fibrinogen                 NaN -0.20  not estimable in both databases
+Temp_Max24h              -0.27 -0.43                           shared
+SF_Ratio                 -0.15 -0.31                           shared
+HCO3                     -0.16 -0.23                           shared
+pH                       -0.38 -0.21                           shared
+PulsePressure            -0.18 -0.21                           shared
+SBP                      -0.19 -0.19                           shared
+SOFA_CV                   0.18  0.18                           shared
+ShockIndex                0.16  0.21                           shared
+SOFA_Renal                0.18  0.22                           shared
+FiO2                      0.23  0.22                           shared
+SOFA_MetAmongMeasured     0.34  0.37                    strong shared
+--- cell 21 ---
+
+C4 early ICU onset (onset to +6 h) vs incident (onset to +6 h)  [delta > 0 means higher in early_icu_onset]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+Lymphocytes               0.28 -0.30                database-specific
+HCO3                     -0.14 -0.21                database-specific
+BaseExcess               -0.11 -0.21                database-specific
+SF_Ratio                 -0.13 -0.20                database-specific
+Temp                     -0.13 -0.15                database-specific
+Platelets                 0.29 -0.03                database-specific
+PaCO2                     0.16  0.01                database-specific
+Bilirubin_total          -0.23  0.02                database-specific
+Creatinine_DeltaBaseline -0.19  0.06                database-specific
+SOFAproxy_Coag           -0.20  0.08                database-specific
+SOFA_CV                   0.16  0.12                database-specific
+Platelets_DeltaBaseline  -0.26  0.15                database-specific
+Neutrophils              -0.18  0.15                database-specific
+BUN                      -0.02  0.16                database-specific
+Lactate                  -0.27  0.17                database-specific
+NLR                      -0.16  0.17                database-specific
+SOFA_Renal                0.10  0.17                database-specific
+SOFA_MetAmongMeasured    -0.02  0.19                database-specific
+AnionGap                 -0.01  0.24                database-specific
+ALT                      -0.01 -0.11                        no signal
+PTT                      -0.08 -0.10                        no signal
+Sodium                   -0.07 -0.08                        no signal
+SOFAproxy_CNS             0.07 -0.06                        no signal
+Chloride                 -0.13 -0.05                        no signal
+HR_Variance6h            -0.09 -0.04                        no signal
+PaO2                      0.02 -0.03                        no signal
+Urine_mlkg_h_6h           0.09 -0.03                        no signal
+MAP                      -0.09 -0.02                        no signal
+GCS                      -0.00 -0.02                        no signal
+AST                       0.06 -0.02                        no signal
+Hgb                       0.04 -0.01                        no signal
+Glucose                   0.07  0.02                        no signal
+NEWS2_MetAmongMeasured    0.12  0.02                        no signal
+qSOFA_MetAmongMeasured    0.10  0.03                        no signal
+DBP                      -0.03  0.05                        no signal
+O2Sat                     0.09  0.05                        no signal
+Potassium                -0.13  0.06                        no signal
+Resp                     -0.06  0.06                        no signal
+Creatinine                0.03  0.08                        no signal
+Temp_Min24h              -0.03  0.11                        no signal
+HR                        0.09  0.11                        no signal
+VasopressorDose_NEeq      0.04  0.12                        no signal
+WBC                       0.08  0.12                        no signal
+SOFAproxy_Liver           0.09  0.12                        no signal
+INR                      -0.07  0.14                        no signal
+Fibrinogen                 NaN -0.18  not estimable in both databases
+pH                       -0.24 -0.21                           shared
+PulsePressure            -0.22 -0.19                           shared
+Albumin                  -0.17 -0.19                           shared
+SBP                      -0.21 -0.15                           shared
+ShockIndex                0.23  0.17                           shared
+FiO2                      0.25  0.17                           shared
+SOFA_Resp                 0.27  0.20                           shared
+Temp_Max24h              -0.34 -0.39                    strong shared
+--- cell 21 ---
+
+C5 septic on arrival (ICU hours 1-12) vs incident 12 h before onset  [delta > 0 means higher in septic_on_arrival]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+PaO2                     -0.01 -0.38                database-specific
+Hgb                      -0.13 -0.25                database-specific
+Sodium                    0.12 -0.21                database-specific
+SF_Ratio                 -0.13 -0.18                database-specific
+MAP                      -0.23 -0.15                database-specific
+Temp_Max24h               0.03 -0.15                database-specific
+DBP                      -0.18 -0.08                database-specific
+ALT                       0.21  0.04                database-specific
+Neutrophils               0.19  0.07                database-specific
+O2Sat                     0.16  0.10                database-specific
+SOFAproxy_Coag            0.02  0.16                database-specific
+AnionGap                  0.05  0.16                database-specific
+WBC                       0.10  0.18                database-specific
+SOFAproxy_Liver           0.12  0.19                database-specific
+ShockIndex                0.12  0.19                database-specific
+Platelets_DeltaBaseline  -0.12  0.21                database-specific
+Bilirubin_total           0.10  0.22                database-specific
+VasopressorDose_NEeq      0.08  0.30                database-specific
+Temp                     -0.02 -0.14                        no signal
+Urine_mlkg_h_6h          -0.06 -0.13                        no signal
+Temp_Min24h               0.03 -0.12                        no signal
+Chloride                  0.14 -0.09                        no signal
+HR_Variance6h            -0.02 -0.01                        no signal
+PaCO2                     0.07  0.01                        no signal
+Glucose                   0.09  0.01                        no signal
+HR                       -0.06  0.07                        no signal
+PTT                      -0.06  0.07                        no signal
+Lactate                  -0.14  0.10                        no signal
+Potassium                 0.12  0.10                        no signal
+Resp                     -0.00  0.11                        no signal
+AST                       0.11  0.11                        no signal
+FiO2                      0.15  0.13                        no signal
+NLR                       0.13  0.14                        no signal
+Fibrinogen                 NaN -0.03  not estimable in both databases
+Bands                      NaN  0.24  not estimable in both databases
+Lymphocytes              -0.28 -0.29                           shared
+SBP                      -0.23 -0.27                           shared
+GCS                      -0.34 -0.25                           shared
+PulsePressure            -0.17 -0.24                           shared
+HCO3                     -0.20 -0.21                           shared
+pH                       -0.26 -0.18                           shared
+BaseExcess               -0.21 -0.17                           shared
+Platelets                -0.20 -0.17                           shared
+Albumin                  -0.21 -0.15                           shared
+INR                       0.50  0.21                           shared
+Creatinine_DeltaBaseline  0.17  0.23                           shared
+SOFA_Renal                0.21  0.24                           shared
+BUN                       0.23  0.24                           shared
+Creatinine                0.25  0.24                           shared
+qSOFA_MetAmongMeasured    0.26  0.25                           shared
+NEWS2_MetAmongMeasured    0.34  0.25                           shared
+SOFAproxy_CNS             0.31  0.28                           shared
+SOFA_CV                   0.19  0.32                           shared
+SOFA_Resp                 0.18  0.37                           shared
+SOFA_MetAmongMeasured     0.59  0.66                    strong shared
+--- cell 21 ---
+
+C6 slope per hour: incident 12 h before onset vs control matched  [delta > 0 means higher in incident]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+NLR                      -0.17 -0.09                database-specific
+FiO2                      0.08  0.26                database-specific
+Glucose                   0.12  0.33                database-specific
+GCS                      -0.04 -0.10                        no signal
+Creatinine_DeltaBaseline  0.08 -0.06                        no signal
+SOFA_MetAmongMeasured    -0.04 -0.05                        no signal
+DBP                      -0.13 -0.02                        no signal
+Temp_Max24h               0.00 -0.02                        no signal
+ShockIndex                0.06 -0.02                        no signal
+Platelets_DeltaBaseline  -0.14 -0.01                        no signal
+SF_Ratio                 -0.13 -0.01                        no signal
+SOFA_Renal               -0.05 -0.01                        no signal
+PulsePressure            -0.04 -0.01                        no signal
+SOFAproxy_Liver           0.01 -0.01                        no signal
+MAP                      -0.10 -0.00                        no signal
+HR                       -0.04 -0.00                        no signal
+SBP                      -0.11  0.01                        no signal
+SOFA_Resp                 0.08  0.01                        no signal
+SOFAproxy_CNS            -0.12  0.03                        no signal
+VasopressorDose_NEeq     -0.01  0.03                        no signal
+Temp_Min24h               0.11  0.03                        no signal
+SOFAproxy_Coag           -0.13  0.04                        no signal
+O2Sat                     0.01  0.05                        no signal
+Temp                      0.06  0.05                        no signal
+qSOFA_MetAmongMeasured   -0.02  0.06                        no signal
+Urine_mlkg_h_6h           0.09  0.06                        no signal
+Resp                     -0.07  0.07                        no signal
+HR_Variance6h            -0.02  0.07                        no signal
+NEWS2_MetAmongMeasured   -0.02  0.08                        no signal
+SOFA_CV                   0.12  0.11                        no signal
+BaseExcess                 NaN -0.11  not estimable in both databases
+pH                         NaN -0.01  not estimable in both databases
+PaCO2                      NaN  0.01  not estimable in both databases
+Lactate                    NaN  0.28  not estimable in both databases
+PaO2                       NaN  0.32  not estimable in both databases
+--- cell 21 ---
+
+C7 course: incident deteriorating vs improving, 12 h before onset  [delta > 0 means higher in deteriorating]
+
+--- cell 21 [table] ---
+                          eicu                   cross_database
+channel                                                        
+GCS                      -0.61  not estimable in both databases
+SF_Ratio                 -0.45  not estimable in both databases
+HCO3                     -0.34  not estimable in both databases
+Glucose                  -0.29  not estimable in both databases
+Platelets_DeltaBaseline  -0.23  not estimable in both databases
+O2Sat                    -0.15  not estimable in both databases
+Sodium                   -0.14  not estimable in both databases
+Chloride                 -0.11  not estimable in both databases
+DBP                      -0.06  not estimable in both databases
+HR_Variance6h             0.00  not estimable in both databases
+Temp_Min24h               0.01  not estimable in both databases
+Potassium                 0.06  not estimable in both databases
+Temp                      0.06  not estimable in both databases
+Creatinine_DeltaBaseline  0.07  not estimable in both databases
+Temp_Max24h               0.08  not estimable in both databases
+SBP                       0.09  not estimable in both databases
+SOFA_CV                   0.09  not estimable in both databases
+VasopressorDose_NEeq      0.09  not estimable in both databases
+ShockIndex                0.10  not estimable in both databases
+NLR                       0.12  not estimable in both databases
+PulsePressure             0.13  not estimable in both databases
+MAP                       0.15  not estimable in both databases
+SOFAproxy_Liver           0.16  not estimable in both databases
+HR                        0.23  not estimable in both databases
+SOFAproxy_Coag            0.26  not estimable in both databases
+SOFA_Renal                0.31  not estimable in both databases
+Creatinine                0.35  not estimable in both databases
+Resp                      0.43  not estimable in both databases
+BUN                       0.54  not estimable in both databases
+SOFAproxy_CNS             0.55  not estimable in both databases
+qSOFA_MetAmongMeasured    0.59  not estimable in both databases
+NEWS2_MetAmongMeasured    0.60  not estimable in both databases
+SOFA_MetAmongMeasured     0.66  not estimable in both databases
+--- cell 21 ---
+
+C8 course: septic on arrival deteriorating vs improving, ICU hours 1-6  [delta > 0 means higher in deteriorating]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+PaO2                      0.05 -0.27                database-specific
+HCO3                     -0.11 -0.20                database-specific
+Platelets                -0.07 -0.19                database-specific
+SOFAproxy_CNS             0.19 -0.19                database-specific
+Urine_mlkg_h_6h          -0.46 -0.15                database-specific
+SBP                      -0.21 -0.08                database-specific
+SF_Ratio                 -0.39 -0.05                database-specific
+Temp_Min24h              -0.18 -0.05                database-specific
+NLR                       0.22 -0.04                database-specific
+Neutrophils              -0.28 -0.02                database-specific
+GCS                      -0.29  0.03                database-specific
+PaCO2                    -0.30  0.05                database-specific
+qSOFA_MetAmongMeasured    0.17  0.08                database-specific
+SOFA_MetAmongMeasured     0.29  0.09                database-specific
+SOFAproxy_Coag            0.21  0.12                database-specific
+BUN                       0.11  0.32                database-specific
+Lymphocytes               0.00 -0.13                        no signal
+WBC                       0.03 -0.12                        no signal
+Chloride                 -0.08 -0.07                        no signal
+Temp                     -0.12 -0.05                        no signal
+Albumin                  -0.10 -0.04                        no signal
+MAP                      -0.05 -0.04                        no signal
+SOFA_CV                   0.12 -0.04                        no signal
+Temp_Max24h              -0.14 -0.03                        no signal
+Glucose                  -0.03 -0.02                        no signal
+HR_Variance6h             0.04 -0.02                        no signal
+VasopressorDose_NEeq      0.09 -0.02                        no signal
+DBP                      -0.01  0.02                        no signal
+Sodium                   -0.02  0.04                        no signal
+SOFA_Renal                0.13  0.09                        no signal
+Potassium                 0.03  0.10                        no signal
+Creatinine_DeltaBaseline  0.07  0.10                        no signal
+SOFA_Resp                 0.10  0.13                        no signal
+Platelets_DeltaBaseline   0.05  0.14                        no signal
+Fibrinogen                 NaN -0.61  not estimable in both databases
+PTT                        NaN  0.20  not estimable in both databases
+pH                       -0.21 -0.24                           shared
+Hgb                      -0.18 -0.21                           shared
+O2Sat                    -0.17 -0.19                           shared
+BaseExcess               -0.37 -0.17                           shared
+PulsePressure            -0.21 -0.16                           shared
+HR                        0.16  0.15                           shared
+ALT                       0.20  0.16                           shared
+Creatinine                0.21  0.16                           shared
+AST                       0.23  0.17                           shared
+ShockIndex                0.20  0.19                           shared
+NEWS2_MetAmongMeasured    0.36  0.19                           shared
+Resp                      0.27  0.21                           shared
+INR                       0.39  0.22                           shared
+FiO2                      0.44  0.23                           shared
+Lactate                   0.59  0.26                           shared
+SOFAproxy_Liver           0.30  0.31                           shared
+Bilirubin_total           0.38  0.31                           shared
+AnionGap                  0.33  0.32                           shared
+--- cell 21 ---
+
+C9 course: all septic deteriorating vs improving, onset +24 to +48 h  [delta > 0 means higher in deteriorating]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+PaO2                     -0.09 -0.15                database-specific
+PaCO2                    -0.22 -0.13                database-specific
+PulsePressure            -0.18 -0.12                database-specific
+Temp_Min24h              -0.15  0.00                database-specific
+Albumin                  -0.18  0.01                database-specific
+FiO2                      0.30  0.10                database-specific
+Glucose                   0.17  0.13                database-specific
+SOFAproxy_Coag            0.21  0.13                database-specific
+HR                        0.18  0.14                database-specific
+SOFA_Resp                 0.14  0.17                database-specific
+PTT                       0.02  0.18                database-specific
+Potassium                 0.11  0.21                database-specific
+Resp                      0.12  0.24                database-specific
+Temp_Max24h              -0.14 -0.15                        no signal
+HR_Variance6h            -0.12 -0.12                        no signal
+O2Sat                    -0.05 -0.07                        no signal
+Temp                     -0.10 -0.03                        no signal
+Chloride                 -0.01 -0.02                        no signal
+Hgb                       0.07 -0.00                        no signal
+Sodium                    0.05  0.04                        no signal
+Platelets_DeltaBaseline  -0.12  0.12                        no signal
+Fibrinogen                 NaN -0.31  not estimable in both databases
+Lymphocytes              -0.32 -0.35                           shared
+GCS                      -0.60 -0.29                           shared
+HCO3                     -0.26 -0.29                           shared
+BaseExcess               -0.27 -0.28                           shared
+Urine_mlkg_h_6h          -0.54 -0.24                           shared
+pH                       -0.22 -0.20                           shared
+SBP                      -0.35 -0.19                           shared
+Platelets                -0.19 -0.19                           shared
+MAP                      -0.35 -0.18                           shared
+DBP                      -0.40 -0.16                           shared
+SF_Ratio                 -0.35 -0.16                           shared
+Neutrophils               0.19  0.18                           shared
+NLR                       0.19  0.19                           shared
+ShockIndex                0.34  0.19                           shared
+ALT                       0.18  0.20                           shared
+SOFA_Renal                0.37  0.22                           shared
+WBC                       0.19  0.24                           shared
+VasopressorDose_NEeq      0.27  0.24                           shared
+SOFA_CV                   0.41  0.24                           shared
+Creatinine                0.43  0.24                           shared
+SOFAproxy_Liver           0.23  0.25                           shared
+Bilirubin_total           0.37  0.31                           shared
+AST                       0.30  0.32                           shared
+Creatinine_DeltaBaseline  0.31  0.32                           shared
+SOFAproxy_CNS             0.54  0.32                           shared
+INR                       0.29  0.33                           shared
+qSOFA_MetAmongMeasured    0.34  0.33                    strong shared
+BUN                       0.46  0.35                    strong shared
+AnionGap                  0.40  0.38                    strong shared
+NEWS2_MetAmongMeasured    0.49  0.39                    strong shared
+SOFA_MetAmongMeasured     0.67  0.39                    strong shared
+Lactate                   0.75  0.40                    strong shared
+--- cell 21 ---
+
+C10 course: all septic deteriorating vs improving, onset to +6 h  [delta > 0 means higher in deteriorating]
+
+--- cell 21 [table] ---
+                          eicu  miiv                   cross_database
+channel                                                              
+Temp_Min24h              -0.08 -0.17                database-specific
+GCS                      -0.38 -0.14                database-specific
+BaseExcess               -0.33 -0.12                database-specific
+SF_Ratio                 -0.42 -0.09                database-specific
+Urine_mlkg_h_6h          -0.17 -0.05                database-specific
+Lymphocytes              -0.28 -0.03                database-specific
+NLR                       0.26 -0.03                database-specific
+SOFAproxy_CNS             0.30 -0.03                database-specific
+HR_Variance6h             0.16 -0.01                database-specific
+SOFA_MetAmongMeasured     0.32  0.02                database-specific
+HR                        0.24  0.03                database-specific
+ALT                       0.28  0.04                database-specific
+WBC                       0.18  0.06                database-specific
+ShockIndex                0.18  0.07                database-specific
+Bilirubin_total           0.22  0.09                database-specific
+SOFA_Renal                0.15  0.10                database-specific
+qSOFA_MetAmongMeasured    0.26  0.10                database-specific
+AST                       0.27  0.10                database-specific
+Creatinine                0.21  0.11                database-specific
+AnionGap                  0.24  0.13                database-specific
+PTT                       0.41  0.14                database-specific
+Bands                     0.49  0.14                database-specific
+Creatinine_DeltaBaseline  0.08  0.17                database-specific
+Platelets                 0.09 -0.14                        no signal
+Temp_Max24h              -0.10 -0.11                        no signal
+HCO3                     -0.10 -0.10                        no signal
+PaO2                      0.09 -0.10                        no signal
+MAP                       0.11 -0.10                        no signal
+O2Sat                    -0.13 -0.09                        no signal
+SBP                      -0.01 -0.08                        no signal
+Temp                     -0.14 -0.07                        no signal
+PulsePressure            -0.08 -0.06                        no signal
+Neutrophils              -0.07 -0.06                        no signal
+Hgb                       0.07 -0.05                        no signal
+Chloride                 -0.05 -0.02                        no signal
+DBP                       0.07 -0.02                        no signal
+Glucose                   0.12  0.01                        no signal
+PaCO2                    -0.13  0.03                        no signal
+Platelets_DeltaBaseline   0.12  0.03                        no signal
+SOFAproxy_Coag            0.08  0.04                        no signal
+SOFA_CV                   0.03  0.06                        no signal
+Sodium                    0.05  0.06                        no signal
+VasopressorDose_NEeq      0.05  0.07                        no signal
+Potassium                 0.04  0.09                        no signal
+SOFA_Resp                -0.06  0.12                        no signal
+Fibrinogen                 NaN -0.24  not estimable in both databases
+Albumin                  -0.26 -0.22                           shared
+pH                       -0.21 -0.18                           shared
+FiO2                      0.42  0.16                           shared
+NEWS2_MetAmongMeasured    0.47  0.16                           shared
+SOFAproxy_Liver           0.19  0.17                           shared
+Resp                      0.45  0.17                           shared
+INR                       0.35  0.22                           shared
+BUN                       0.37  0.22                           shared
+Lactate                   0.52  0.26                           shared
+--- cell 21 ---
+
+Measurement-rate ratio incident/control, 12 h before (pseudo-)onset (practice signal):
+
+--- cell 21 [table] ---
+                 eicu  miiv          rate_rule
+channel                                       
+ALT              0.78  0.95          no signal
+AST              0.77  0.91          no signal
+Albumin          0.80  0.79          no signal
+AnionGap         0.63  0.82  database-specific
+BUN              0.71  0.80          no signal
+Bands            1.95  1.47  database-specific
+BaseExcess       0.67  0.84          no signal
+Bilirubin_total  0.79  0.82          no signal
+CRP              1.32  1.09          no signal
+Chloride         0.73  0.83          no signal
+Creatinine       0.71  0.80          no signal
+DBP              1.02  0.99          no signal
+DDimer            NaN  3.41  database-specific
+FiO2             1.39  1.68  database-specific
+Fibrinogen       0.83  0.68          no signal
+GCS              0.96  0.60  database-specific
+Glucose          0.90  0.77          no signal
+HCO3             0.72  0.80          no signal
+HR               0.99  0.97          no signal
+Hgb              0.79  0.72          no signal
+INR              0.71  0.73          no signal
+Lactate          1.57  0.94  database-specific
+Lymphocytes      0.76  0.97          no signal
+MAP              1.02  0.99          no signal
+Neutrophils      0.72  0.97          no signal
+O2Sat            0.99  0.98          no signal
+PTT              0.83  0.76          no signal
+PaCO2            0.71  0.84          no signal
+PaO2             0.68  0.78          no signal
+Platelets        0.73  0.72          no signal
+Potassium        0.75  0.85          no signal
+Resp             0.99  0.98          no signal
+SBP              1.02  0.99          no signal
+Sodium           0.75  0.88          no signal
+Temp             1.00  0.95          no signal
+WBC              0.73  0.72          no signal
+pH               0.67  0.84  database-specific
+--- cell 21 ---
+
+Temperature tails at the (pseudo-)onset hour (24 h maximum >= 38.3 C; minimum <= 36 C):
+
+--- cell 21 [table] ---
+                            n  fever  hypothermia
+Dataset stratum                                  
+eicu    control          2668  0.046        0.148
+        early_icu_onset    43  0.088        0.235
+        incident          142  0.107        0.143
+miiv    control          2992  0.038        0.150
+        early_icu_onset   320  0.103        0.097
+        incident          220  0.173        0.120
+--- cell 21 [table] ---
+                                        n  fever  hypothermia
+Dataset stratum         course2                              
+eicu    early_icu_onset deteriorating  -1    NaN          NaN
+                        improving      22  0.000        0.133
+        incident        deteriorating  23  0.136        0.227
+                        improving      32  0.000        0.156
+miiv    early_icu_onset deteriorating  99  0.050        0.150
+                        improving      30  0.136        0.045
+        incident        deteriorating  54  0.151        0.208
+                        improving      -1    NaN          NaN
+--- cell 21 ---
+Saved under /content/drive/.shortcut-targets-by-id/1A7VFDTLnevMBChDvADRU2QJBzHf3s9pF/sepsis_colab_project/validation_v10/pathophysiology/3101b901d915324b
+
+--- cell 22 ---
+(a) Empirical order of signs: first hour (bin start, relative to onset) from which the incident-control difference stays at or above 0.147 to the onset; and the same for the measurement-rate ratio (1.5-fold).
+
+--- cell 22 [table] ---
+                         delta_last_bin       first_departure_h        \
+Dataset                            eicu  miiv              eicu  miiv   
+channel                                                                 
+NEWS2_MetAmongMeasured             0.29  0.39             -48.0 -48.0   
+qSOFA_MetAmongMeasured             0.20  0.30             -24.0 -48.0   
+Temp_Max24h                        0.23  0.32             -48.0 -44.0   
+Temp                               0.10  0.29               NaN -24.0   
+NLR                                0.20  0.17             -16.0 -12.0   
+Temp_Min24h                        0.03  0.20               NaN  -8.0   
+PTT                                 NaN  0.20               NaN  -8.0   
+Resp                               0.20  0.20             -16.0  -8.0   
+PaO2                                NaN  0.17               NaN  -4.0   
+Bilirubin_total                     NaN -0.40               NaN  -4.0   
+GCS                               -0.05 -0.16               NaN  -4.0   
+Lactate                             NaN  0.23               NaN  -4.0   
+SOFA_Resp                          0.02 -0.17               NaN  -4.0   
+SOFA_CV                            0.10  0.15               NaN  -4.0   
+Platelets                          0.14  0.21               NaN  -4.0   
+ALT                                 NaN -0.18               NaN  -4.0   
+Urine_mlkg_h_6h                   -0.05 -0.15               NaN  -4.0   
+AST                                 NaN -0.11               NaN   NaN   
+Albumin                             NaN   NaN               NaN   NaN   
+AnionGap                          -0.06  0.00               NaN   NaN   
+BUN                                0.10 -0.05               NaN   NaN   
+Bands                               NaN   NaN               NaN   NaN   
+BaseExcess                          NaN  0.08               NaN   NaN   
+CRP                                 NaN   NaN               NaN   NaN   
+Chloride                          -0.07  0.06               NaN   NaN   
+Creatinine                         0.13 -0.06               NaN   NaN   
+Creatinine_DeltaBaseline          -0.10 -0.02               NaN   NaN   
+DBP                               -0.12 -0.12               NaN   NaN   
+DDimer                              NaN   NaN               NaN   NaN   
+FiO2                               0.31  0.03             -24.0   NaN   
+Fibrinogen                          NaN   NaN               NaN   NaN   
+Glucose                            0.02  0.14               NaN   NaN   
+HCO3                               0.03 -0.02               NaN   NaN   
+HR                                 0.28  0.14             -48.0   NaN   
+HR_Variance6h                      0.06  0.14               NaN   NaN   
+Hgb                               -0.17 -0.08              -4.0   NaN   
+INR                                 NaN  0.11               NaN   NaN   
+Lymphocytes                       -0.20  0.06             -20.0   NaN   
+MAP                               -0.11 -0.11               NaN   NaN   
+Neutrophils                         NaN -0.12               NaN   NaN   
+O2Sat                             -0.09 -0.01               NaN   NaN   
+PaCO2                               NaN -0.10               NaN   NaN   
+Platelets_DeltaBaseline            0.07 -0.08               NaN   NaN   
+Potassium                         -0.21 -0.09              -4.0   NaN   
+PulsePressure                     -0.08  0.04               NaN   NaN   
+SBP                               -0.15 -0.05               NaN   NaN   
+SF_Ratio                          -0.24  0.02              -8.0   NaN   
+SOFA_MetAmongMeasured              0.11  0.06               NaN   NaN   
+SOFA_Renal                         0.07  0.01               NaN   NaN   
+SOFAproxy_CNS                      0.07  0.13               NaN   NaN   
+SOFAproxy_Coag                     0.05 -0.06               NaN   NaN   
+SOFAproxy_Liver                   -0.03 -0.02               NaN   NaN   
+ShockIndex                         0.29  0.14             -20.0   NaN   
+Sodium                             0.02  0.12               NaN   NaN   
+VasopressorDose_NEeq               0.00  0.10               NaN   NaN   
+WBC                                0.15  0.07               NaN   NaN   
+pH                                  NaN  0.13               NaN   NaN   
+
+                         first_rate_departure_h        
+Dataset                                    eicu  miiv  
+channel                                                
+NEWS2_MetAmongMeasured                      NaN   NaN  
+qSOFA_MetAmongMeasured                      NaN   NaN  
+Temp_Max24h                                 NaN   NaN  
+Temp                                        NaN   NaN  
+NLR                                         NaN   NaN  
+Temp_Min24h                                 NaN   NaN  
+PTT                                         NaN   NaN  
+Resp                                        NaN   NaN  
+PaO2                                        NaN   NaN  
+Bilirubin_total                            -4.0   NaN  
+GCS                                         NaN -20.0  
+Lactate                                    -8.0   NaN  
+SOFA_Resp                                   NaN   NaN  
+SOFA_CV                                     NaN   NaN  
+Platelets                                   NaN   NaN  
+ALT                                        -4.0   NaN  
+Urine_mlkg_h_6h                             NaN   NaN  
+AST                                        -4.0   NaN  
+Albumin                                     NaN  -4.0  
+AnionGap                                    NaN   NaN  
+BUN                                         NaN   NaN  
+Bands                                       NaN  -8.0  
+BaseExcess                                  NaN   NaN  
+CRP                                        -8.0  -4.0  
+Chloride                                    NaN   NaN  
+Creatinine                                  NaN   NaN  
+Creatinine_DeltaBaseline                    NaN   NaN  
+DBP                                         NaN   NaN  
+DDimer                                      NaN  -4.0  
+FiO2                                       -4.0 -12.0  
+Fibrinogen                                 -4.0   NaN  
+Glucose                                     NaN   NaN  
+HCO3                                        NaN   NaN  
+HR                                          NaN   NaN  
+HR_Variance6h                               NaN   NaN  
+Hgb                                         NaN   NaN  
+INR                                        -4.0   NaN  
+Lymphocytes                                 NaN   NaN  
+MAP                                         NaN   NaN  
+Neutrophils                                -4.0   NaN  
+O2Sat                                       NaN   NaN  
+PaCO2                                       NaN   NaN  
+Platelets_DeltaBaseline                     NaN   NaN  
+Potassium                                   NaN   NaN  
+PulsePressure                               NaN   NaN  
+SBP                                         NaN   NaN  
+SF_Ratio                                    NaN   NaN  
+SOFA_MetAmongMeasured                       NaN   NaN  
+SOFA_Renal                                  NaN   NaN  
+SOFAproxy_CNS                               NaN   NaN  
+SOFAproxy_Coag                              NaN   NaN  
+SOFAproxy_Liver                             NaN   NaN  
+ShockIndex                                  NaN   NaN  
+Sodium                                      NaN   NaN  
+VasopressorDose_NEeq                        NaN   NaN  
+WBC                                         NaN   NaN  
+pH                                          NaN   NaN  
+--- cell 22 ---
+
+(b) Signs in the 48 h before onset (incident) versus the matched 48 h of controls: fraction of measured stays in which the sign is present, fraction in which it is NEW (a normal value preceded it), median lead time of new signs.
+
+--- cell 22 [table] ---
+                                     lead_new_median_h          new        \
+Dataset                                           eicu   miiv  eicu  miiv   
+sign                                                                        
+Creatinine rise >= 0.3 from baseline             13.00  16.00  0.04  0.01   
+Platelet fall >= 25% from baseline               21.00  15.00  0.07  0.10   
+Oliguria (< 0.5 ml/kg/h over 6 h)                25.00  14.50  0.19  0.23   
+GCS < 15 (unsedated, not intubated)              20.00  14.00  0.05  0.05   
+Tachypnoea (Resp >= 22)                          14.05  10.52  0.31  0.36   
+Tachycardia (HR >= 100)                          12.05  10.32  0.24  0.23   
+Hyperglycaemia (Glucose >= 180)                  12.29  10.32  0.10  0.09   
+Thrombocytopenia (Platelets < 150)                1.10  10.08  0.03  0.04   
+Shock index >= 0.9                               11.50  10.00  0.29  0.24   
+Hypotension (MAP < 65)                            9.12  10.00  0.36  0.38   
+Hypothermia (Temp <= 36)                         19.11   9.45  0.07  0.06   
+Desaturation (O2Sat < 92)                        15.58   9.05  0.31  0.22   
+SBP <= 100                                        8.60   7.97  0.38  0.38   
+Bicarbonate < 20                                 13.45   7.01  0.04  0.05   
+Leucocytosis (WBC >= 12)                          3.68   6.19  0.06  0.10   
+Fever (Temp >= 38.3)                             12.17   4.22  0.11  0.15   
+Lactate >= 2                                     10.65   2.09  0.04  0.08   
+Leucopenia (WBC <= 4)                              NaN   1.67  0.00  0.02   
+Hyperbilirubinaemia (>= 2)                         NaN    NaN  0.00  0.00   
+
+                                     new_in_controls_48h       present        
+Dataset                                             eicu  miiv    eicu  miiv  
+sign                                                                          
+Creatinine rise >= 0.3 from baseline                0.03  0.03    0.17  0.12  
+Platelet fall >= 25% from baseline                  0.04  0.07    0.79  0.71  
+Oliguria (< 0.5 ml/kg/h over 6 h)                   0.13  0.13    0.46  0.54  
+GCS < 15 (unsedated, not intubated)                 0.07  0.09    0.42  0.43  
+Tachypnoea (Resp >= 22)                             0.36  0.36    0.79  0.75  
+Tachycardia (HR >= 100)                             0.17  0.15    0.68  0.55  
+Hyperglycaemia (Glucose >= 180)                     0.10  0.08    0.30  0.30  
+Thrombocytopenia (Platelets < 150)                  0.05  0.06    0.31  0.23  
+Shock index >= 0.9                                  0.22  0.19    0.64  0.52  
+Hypotension (MAP < 65)                              0.28  0.31    0.51  0.55  
+Hypothermia (Temp <= 36)                            0.06  0.05    0.18  0.15  
+Desaturation (O2Sat < 92)                           0.21  0.12    0.39  0.27  
+SBP <= 100                                          0.32  0.33    0.62  0.56  
+Bicarbonate < 20                                    0.03  0.04    0.21  0.22  
+Leucocytosis (WBC >= 12)                            0.05  0.09    0.48  0.47  
+Fever (Temp >= 38.3)                                0.03  0.02    0.13  0.21  
+Lactate >= 2                                        0.01  0.12    0.58  0.42  
+Leucopenia (WBC <= 4)                               0.01  0.01    0.04  0.06  
+Hyperbilirubinaemia (>= 2)                          0.01  0.01    0.07  0.13  
+--- cell 22 ---
+
+Precedence miiv: P(row sign appears before column sign | both new before onset); mean over columns = how early the sign tends to be
+
+--- cell 22 [table] ---
+SBP <= 100                              0.61
+Hypotension (MAP < 65)                  0.58
+Shock index >= 0.9                      0.53
+Tachypnoea (Resp >= 22)                 0.49
+Tachycardia (HR >= 100)                 0.47
+Desaturation (O2Sat < 92)               0.33
+Fever (Temp >= 38.3)                    0.28
+Oliguria (< 0.5 ml/kg/h over 6 h)       0.28
+Bicarbonate < 20                         NaN
+Creatinine rise >= 0.3 from baseline     NaN
+GCS < 15 (unsedated, not intubated)      NaN
+Hyperglycaemia (Glucose >= 180)          NaN
+Hypothermia (Temp <= 36)                 NaN
+Lactate >= 2                             NaN
+Leucocytosis (WBC >= 12)                 NaN
+Leucopenia (WBC <= 4)                    NaN
+Platelet fall >= 25% from baseline       NaN
+Thrombocytopenia (Platelets < 150)       NaN
+Name: mean P(earlier), dtype: float64
+--- cell 22 ---
+
+Precedence eicu: P(row sign appears before column sign | both new before onset); mean over columns = how early the sign tends to be
+
+--- cell 22 [table] ---
+Tachycardia (HR >= 100)                 0.59
+Tachypnoea (Resp >= 22)                 0.53
+Shock index >= 0.9                      0.47
+SBP <= 100                              0.46
+Desaturation (O2Sat < 92)               0.43
+Hypotension (MAP < 65)                  0.39
+Fever (Temp >= 38.3)                    0.27
+Bicarbonate < 20                         NaN
+Creatinine rise >= 0.3 from baseline     NaN
+GCS < 15 (unsedated, not intubated)      NaN
+Hyperglycaemia (Glucose >= 180)          NaN
+Hypothermia (Temp <= 36)                 NaN
+Lactate >= 2                             NaN
+Leucocytosis (WBC >= 12)                 NaN
+Oliguria (< 0.5 ml/kg/h over 6 h)        NaN
+Platelet fall >= 25% from baseline       NaN
+Thrombocytopenia (Platelets < 150)       NaN
+Name: mean P(earlier), dtype: float64
+--- cell 22 ---
+
+(c) Data-driven phenotypes at onset (k = 4; silhouette by k: {2: 0.222, 3: 0.072, 4: 0.077, 5: 0.084, 6: 0.091}; mean matched-centroid correlation between databases: 0.55)
+
+--- cell 22 [table] ---
+phenotype_name        P0: high WBC, high Platelets  \
+Temp                                         36.78   
+HR                                           96.00   
+Resp                                         21.00   
+MAP                                          75.00   
+Lactate                                       2.20   
+WBC                                          21.80   
+Platelets                                   313.00   
+Creatinine                                    1.50   
+Glucose                                     173.00   
+HCO3                                         22.00   
+O2Sat                                        98.00   
+GCS                                          14.00   
+VasopressorDose_NEeq                          0.00   
+Age                                          69.00   
+
+phenotype_name        P1: high Lactate, high VasopressorDose_NEeq  \
+Temp                                                        36.56   
+HR                                                          99.00   
+Resp                                                        22.00   
+MAP                                                         70.00   
+Lactate                                                      7.40   
+WBC                                                         12.82   
+Platelets                                                  154.50   
+Creatinine                                                   1.90   
+Glucose                                                    142.50   
+HCO3                                                        17.00   
+O2Sat                                                       97.00   
+GCS                                                         10.50   
+VasopressorDose_NEeq                                         0.20   
+Age                                                         61.00   
+
+phenotype_name        P2: low HR, low Resp  P3: high HR, high Temp  
+Temp                                 36.67                   37.28  
+HR                                   77.00                  106.00  
+Resp                                 18.00                   23.00  
+MAP                                  73.00                   81.00  
+Lactate                               1.80                    1.90  
+WBC                                  10.30                   10.40  
+Platelets                           175.00                  191.50  
+Creatinine                            1.10                    0.93  
+Glucose                             127.50                  124.00  
+HCO3                                 24.00                   23.00  
+O2Sat                                98.00                   97.00  
+GCS                                  15.00                   15.00  
+VasopressorDose_NEeq                  0.00                    0.00  
+Age                                  70.00                   58.00  
+--- cell 22 [table] ---
+phenotype_name             P0: high WBC, high Platelets  \
+Dataset stratum                                           
+eicu    early_icu_onset                              13   
+        incident                                     18   
+        septic_on_arrival                            44   
+miiv    early_icu_onset                              34   
+        incident                                     19   
+        septic_on_arrival                            64   
+
+phenotype_name             P1: high Lactate, high VasopressorDose_NEeq  \
+Dataset stratum                                                          
+eicu    early_icu_onset                                             -1   
+        incident                                                    -1   
+        septic_on_arrival                                           19   
+miiv    early_icu_onset                                             25   
+        incident                                                    11   
+        septic_on_arrival                                           39   
+
+phenotype_name             P2: low HR, low Resp  P3: high HR, high Temp  
+Dataset stratum                                                          
+eicu    early_icu_onset                      23                      21  
+        incident                             70                      50  
+        septic_on_arrival                    82                      63  
+miiv    early_icu_onset                     176                     144  
+        incident                            105                      83  
+        septic_on_arrival                   123                      91  
+--- cell 22 [table] ---
+                                                       n  mortality  \
+Dataset phenotype_name                                                
+eicu    P0: high WBC, high Platelets                  75      0.160   
+        P1: high Lactate, high VasopressorDose_NEeq   27      0.630   
+        P2: low HR, low Resp                         175      0.132   
+        P3: high HR, high Temp                       134      0.180   
+miiv    P0: high WBC, high Platelets                 117      0.333   
+        P1: high Lactate, high VasopressorDose_NEeq   75      0.627   
+        P2: low HR, low Resp                         404      0.307   
+        P3: high HR, high Temp                       318      0.239   
+
+                                                     deteriorating  
+Dataset phenotype_name                                              
+eicu    P0: high WBC, high Platelets                         0.364  
+        P1: high Lactate, high VasopressorDose_NEeq          0.857  
+        P2: low HR, low Resp                                 0.278  
+        P3: high HR, high Temp                               0.426  
+miiv    P0: high WBC, high Platelets                         0.568  
+        P1: high Lactate, high VasopressorDose_NEeq          0.897  
+        P2: low HR, low Resp                                 0.739  
+        P3: high HR, high Temp                               0.719  
+--- cell 22 ---
+
+(d) Compensation states in the 24 h before (pseudo-)onset, fraction of stay-hours (incident by course; controls):
+
+--- cell 22 [table] ---
+state                                    compensated  decompensated  quiet  \
+Dataset stratum  course2       bin                                           
+eicu    control  NaN           -12..-8         0.332          0.142  0.526   
+                               -16..-12        0.336          0.159  0.505   
+                               -20..-16        0.332          0.154  0.514   
+                               -24..-20        0.352          0.171  0.478   
+                               -4..0           0.320          0.145  0.535   
+                               -8..-4          0.336          0.143  0.521   
+        incident deteriorating -12..-8         0.687          0.179  0.134   
+                               -16..-12        0.455          0.309  0.236   
+                               -20..-16        0.574          0.191  0.234   
+                               -4..0           0.565          0.293  0.141   
+                               -8..-4          0.598          0.207  0.195   
+                 improving     -12..-8         0.516          0.110  0.374   
+                               -16..-12        0.444          0.222  0.333   
+                               -20..-16        0.273          0.159  0.568   
+                               -4..0           0.305          0.267  0.427   
+                               -8..-4          0.407          0.093  0.500   
+                 NaN           -12..-8         0.561          0.164  0.275   
+                               -16..-12        0.467          0.181  0.352   
+                               -20..-16        0.500          0.123  0.377   
+                               -24..-20        0.439          0.138  0.423   
+                               -4..0           0.486          0.175  0.339   
+                               -8..-4          0.541          0.167  0.292   
+miiv    control  NaN           -12..-8         0.325          0.172  0.503   
+                               -16..-12        0.335          0.178  0.487   
+                               -20..-16        0.338          0.184  0.478   
+                               -24..-20        0.345          0.180  0.476   
+                               -4..0           0.313          0.167  0.520   
+                               -8..-4          0.322          0.157  0.522   
+        incident deteriorating -12..-8         0.355          0.191  0.454   
+                               -16..-12        0.303          0.180  0.516   
+                               -20..-16        0.444          0.204  0.352   
+                               -24..-20        0.371          0.206  0.423   
+                               -4..0           0.374          0.283  0.342   
+                               -8..-4          0.342          0.246  0.412   
+                 NaN           -12..-8         0.388          0.210  0.402   
+                               -16..-12        0.415          0.202  0.383   
+                               -20..-16        0.405          0.181  0.414   
+                               -24..-20        0.362          0.181  0.456   
+                               -4..0           0.390          0.235  0.375   
+                               -8..-4          0.393          0.206  0.401   
+
+state                                    n_stays  
+Dataset stratum  course2       bin                
+eicu    control  NaN           -12..-8      1670  
+                               -16..-12     1019  
+                               -20..-16      546  
+                               -24..-20      381  
+                               -4..0        2638  
+                               -8..-4       2595  
+        incident deteriorating -12..-8        18  
+                               -16..-12       15  
+                               -20..-16       13  
+                               -4..0          23  
+                               -8..-4         23  
+                 improving     -12..-8        24  
+                               -16..-12       19  
+                               -20..-16       12  
+                               -4..0          34  
+                               -8..-4         34  
+                 NaN           -12..-8        68  
+                               -16..-12       51  
+                               -20..-16       37  
+                               -24..-20       33  
+                               -4..0          87  
+                               -8..-4         87  
+miiv    control  NaN           -12..-8      1555  
+                               -16..-12      966  
+                               -20..-16      651  
+                               -24..-20      391  
+                               -4..0        2946  
+                               -8..-4       2666  
+        incident deteriorating -12..-8        42  
+                               -16..-12       32  
+                               -20..-16       28  
+                               -24..-20       25  
+                               -4..0          56  
+                               -8..-4         56  
+                 NaN           -12..-8        93  
+                               -16..-12       70  
+                               -20..-16       57  
+                               -24..-20       43  
+                               -4..0         154  
+                               -8..-4        140  
+--- cell 22 ---
+
+(e) Heart-rate response per degree of temperature (within-stay slope; incident and controls 24 h before (pseudo-)onset, arrived strata first 24 h) and relative bradycardia (HR < 90 while Temp >= 38.3, no beta-blocker):
+
+--- cell 22 [table] ---
+                             n  median_slope   q25    q75
+Dataset stratum                                          
+eicu    control            106          2.56 -1.16  10.09
+        early_icu_onset     -1           NaN   NaN    NaN
+        incident            -1           NaN   NaN    NaN
+        septic_on_arrival   22          2.94 -1.40   9.19
+miiv    control            143          2.85 -1.03   8.95
+        early_icu_onset    123          5.65  0.07  12.73
+        incident            14          0.27 -8.57   4.56
+        septic_on_arrival   82          3.75 -3.71  11.84
+--- cell 22 [table] ---
+                           febrile_hours  relative_bradycardia
+Dataset stratum                                               
+eicu    control                       67                 0.179
+        early_icu_onset               -1                   NaN
+        incident                      -1                   NaN
+        septic_on_arrival             21                 0.524
+miiv    control                      107                 0.346
+        early_icu_onset              159                 0.170
+        incident                      36                 0.333
+        septic_on_arrival             85                 0.259
+--- cell 22 ---
+
+(f) Incident-control delta 12 h before onset within therapy strata (does the masking therapy hide the sign?):
+
+--- cell 22 [table] ---
+Dataset                                 eicu        miiv      
+exposed                                    0     1     0     1
+channel         stratifier                                    
+GCS             Med_Sedative_24h       -0.10 -0.06 -0.12 -0.07
+Glucose         Med_Insulin_24h         0.03 -0.08  0.13  0.08
+HR              Med_BetaBlocker_24h     0.32  0.24  0.10  0.21
+MAP             VasopressorRecorded    -0.08   NaN -0.04 -0.23
+Resp            Intubated               0.22  0.20  0.30  0.14
+Temp            Med_Antipyretic_24h     0.13  0.19  0.22  0.40
+Urine_mlkg_h_6h Med_Diuretic_24h       -0.07   NaN -0.15 -0.19
+WBC             Med_Corticosteroid_24h  0.08   NaN  0.10  0.07
+--- cell 22 ---
+
+(g) Selection check: pre-onset delta in all stays versus stays measured in every 4 h bin (a value signal that survives is not a who-gets-measured artefact):
+
+--- cell 22 [table] ---
+        delta_all_stays       delta_regularly_measured      
+Dataset            eicu  miiv                     eicu  miiv
+channel                                                     
+DBP               -0.07 -0.14                    -0.05 -0.15
+FiO2               0.26 -0.03                     0.26 -0.04
+GCS               -0.07 -0.10                    -0.13 -0.20
+Glucose           -0.02   NaN                    -0.08   NaN
+HR                 0.30  0.14                     0.31  0.11
+MAP               -0.08 -0.12                    -0.08 -0.08
+O2Sat             -0.09 -0.03                    -0.07 -0.03
+Resp               0.21  0.18                     0.21  0.17
+SBP               -0.11 -0.05                    -0.06  0.04
+Temp               0.15  0.30                     0.14  0.28
+--- cell 22 ---
+
+(h) Between-hospital share of variance among controls (hours 1-24): values versus measurement rates (practice spread):
+
+--- cell 22 [table] ---
+                         icc_value  icc_rate
+Dataset channel                             
+eicu    Neutrophils          0.027     0.280
+        AnionGap             0.408     0.264
+        Lymphocytes          0.034     0.250
+        GCS                  0.023     0.218
+        Temp                 0.037     0.156
+        FiO2                 0.094     0.141
+        Resp                 0.032     0.139
+        HCO3                 0.041     0.135
+        BaseExcess           0.022     0.125
+        Glucose              0.005     0.116
+        Bands                0.012     0.088
+        HR                   0.015     0.087
+        Albumin              0.094     0.082
+        Lactate              0.008     0.080
+        MAP                  0.107     0.080
+        O2Sat                0.040     0.078
+        SBP                  0.016     0.073
+        DBP                  0.017     0.073
+        Bilirubin_total      0.023     0.068
+        pH                   0.029     0.068
+        Fibrinogen           0.027     0.065
+        AST                  0.015     0.064
+        ALT                  0.016     0.063
+        PaCO2                0.050     0.063
+        PaO2                 0.019     0.059
+        Platelets            0.018     0.057
+        Hgb                  0.014     0.052
+        INR                  0.023     0.049
+        WBC                  0.003     0.047
+        Chloride             0.084     0.043
+        Sodium               0.035     0.042
+        PTT                  0.071     0.039
+        BUN                 -0.002     0.035
+        Creatinine           0.012     0.034
+        Potassium            0.022     0.034
+        CRP                  0.204     0.028
+--- cell 22 ---
+
+(i) Lactate clearance from onset (-2..+1 h) to +4..+8 h, by stratum and course:
+
+--- cell 22 [table] ---
+                                          n  lactate_onset_median  \
+Dataset stratum           course2                                   
+eicu    early_icu_onset   deteriorating  -1                   NaN   
+                          improving      -1                   NaN   
+                          NaN            -1                   NaN   
+        incident          deteriorating  -1                   NaN   
+        septic_on_arrival deteriorating  11                 3.600   
+                          improving      -1                   NaN   
+                          NaN            -1                   NaN   
+miiv    early_icu_onset   deteriorating  58                 3.850   
+                          improving      -1                   NaN   
+                          NaN            84                 2.575   
+        incident          deteriorating  -1                   NaN   
+                          NaN            18                 2.650   
+        septic_on_arrival deteriorating  47                 4.200   
+                          improving      25                 2.400   
+                          NaN            31                 3.100   
+
+                                         clearance_median  cleared_10pct  
+Dataset stratum           course2                                         
+eicu    early_icu_onset   deteriorating               NaN            NaN  
+                          improving                   NaN            NaN  
+                          NaN                         NaN            NaN  
+        incident          deteriorating               NaN            NaN  
+        septic_on_arrival deteriorating            -0.091          0.364  
+                          improving                   NaN            NaN  
+                          NaN                         NaN            NaN  
+miiv    early_icu_onset   deteriorating             0.175          0.586  
+                          improving                   NaN            NaN  
+                          NaN                       0.086          0.488  
+        incident          deteriorating               NaN            NaN  
+                          NaN                       0.132          0.500  
+        septic_on_arrival deteriorating             0.075          0.426  
+                          improving                 0.071          0.440  
+                          NaN                       0.177          0.581  
+--- cell 22 ---
+
+Saved under /content/drive/.shortcut-targets-by-id/1A7VFDTLnevMBChDvADRU2QJBzHf3s9pF/sepsis_colab_project/validation_v10/pathophysiology/3101b901d915324b
+
+--- cell 23 ---
+Therapy exposure (fraction of stays with any exposure in the window; medians for doses and volumes):
+
+--- cell 23 [table] ---
+                                                n  VasopressorRecorded  \
+window            Dataset stratum                                        
+12 h before onset eicu    control            2668                 0.07   
+                          early_icu_onset      43                 0.05   
+                          incident            144                 0.06   
+                  miiv    control            3000                 0.14   
+                          early_icu_onset     320                 0.11   
+                          incident            224                 0.25   
+onset to +6 h     eicu    control            2668                 0.06   
+                          early_icu_onset      66                 0.27   
+                          incident            142                 0.12   
+                          septic_on_arrival   157                 0.29   
+                  miiv    control            2992                 0.08   
+                          early_icu_onset     510                 0.43   
+                          incident            219                 0.30   
+                          septic_on_arrival   233                 0.48   
++6 to +24 h       eicu    control            2246                 0.07   
+                          early_icu_onset      66                 0.30   
+                          incident            135                 0.07   
+                          septic_on_arrival   184                 0.38   
+                  miiv    control            2658                 0.09   
+                          early_icu_onset     510                 0.49   
+                          incident            218                 0.09   
+                          septic_on_arrival   275                 0.60   
++24 to +48 h      eicu    control            1289                 0.06   
+                          early_icu_onset      58                 0.26   
+                          septic_on_arrival   172                 0.30   
+                  miiv    control            1563                 0.07   
+                          early_icu_onset     485                 0.42   
+                          septic_on_arrival   295                 0.53   
+
+                                             VasopressorDose_NEeq  \
+window            Dataset stratum                                   
+12 h before onset eicu    control                            0.00   
+                          early_icu_onset                    0.00   
+                          incident                           0.00   
+                  miiv    control                            0.00   
+                          early_icu_onset                    0.00   
+                          incident                           0.00   
+onset to +6 h     eicu    control                            0.00   
+                          early_icu_onset                    0.00   
+                          incident                           0.00   
+                          septic_on_arrival                  0.00   
+                  miiv    control                            0.00   
+                          early_icu_onset                    0.02   
+                          incident                           0.00   
+                          septic_on_arrival                  0.04   
++6 to +24 h       eicu    control                            0.00   
+                          early_icu_onset                    0.00   
+                          incident                           0.00   
+                          septic_on_arrival                  0.00   
+                  miiv    control                            0.00   
+                          early_icu_onset                    0.05   
+                          incident                           0.00   
+                          septic_on_arrival                  0.08   
++24 to +48 h      eicu    control                            0.00   
+                          early_icu_onset                    0.00   
+                          septic_on_arrival                  0.00   
+                  miiv    control                            0.00   
+                          early_icu_onset                    0.00   
+                          septic_on_arrival                  0.05   
+
+                                             FluidIn_24h  Intubated  \
+window            Dataset stratum                                     
+12 h before onset eicu    control               0.000000       0.17   
+                          early_icu_onset       0.000000       0.26   
+                          incident              0.000000       0.16   
+                  miiv    control              50.000000       0.28   
+                          early_icu_onset       0.000000       0.33   
+                          incident            641.330017       0.51   
+onset to +6 h     eicu    control             150.000000       0.16   
+                          early_icu_onset       0.000000       0.30   
+                          incident              0.000000       0.17   
+                          septic_on_arrival     0.000000       0.45   
+                  miiv    control             450.000000       0.21   
+                          early_icu_onset     462.500000       0.65   
+                          incident           1114.420044       0.57   
+                          septic_on_arrival   250.000000       0.57   
++6 to +24 h       eicu    control             400.000000       0.18   
+                          early_icu_onset     878.000000       0.35   
+                          incident              0.000000       0.18   
+                          septic_on_arrival   375.000000       0.53   
+                  miiv    control            1000.000000       0.18   
+                          early_icu_onset    2050.000000       0.71   
+                          incident           1141.329956       0.54   
+                          septic_on_arrival  1900.000000       0.63   
++24 to +48 h      eicu    control             300.000000       0.15   
+                          early_icu_onset    1053.000000       0.33   
+                          septic_on_arrival   846.239990       0.54   
+                  miiv    control             801.630005       0.17   
+                          early_icu_onset    2491.600098       0.69   
+                          septic_on_arrival  2502.000000       0.65   
+
+                                             Med_Sedative_24h  \
+window            Dataset stratum                               
+12 h before onset eicu    control                        0.31   
+                          early_icu_onset                0.21   
+                          incident                       0.31   
+                  miiv    control                        0.41   
+                          early_icu_onset                0.38   
+                          incident                       0.60   
+onset to +6 h     eicu    control                        0.31   
+                          early_icu_onset                0.41   
+                          incident                       0.37   
+                          septic_on_arrival              0.50   
+                  miiv    control                        0.43   
+                          early_icu_onset                0.70   
+                          incident                       0.63   
+                          septic_on_arrival              0.60   
++6 to +24 h       eicu    control                        0.33   
+                          early_icu_onset                0.45   
+                          incident                       0.36   
+                          septic_on_arrival              0.59   
+                  miiv    control                        0.47   
+                          early_icu_onset                0.79   
+                          incident                       0.63   
+                          septic_on_arrival              0.69   
++24 to +48 h      eicu    control                        0.25   
+                          early_icu_onset                0.36   
+                          septic_on_arrival              0.58   
+                  miiv    control                        0.37   
+                          early_icu_onset                0.79   
+                          septic_on_arrival              0.75   
+
+                                             Med_Corticosteroid_24h  \
+window            Dataset stratum                                     
+12 h before onset eicu    control                              0.08   
+                          early_icu_onset                      0.02   
+                          incident                             0.07   
+                  miiv    control                              0.11   
+                          early_icu_onset                      0.06   
+                          incident                             0.08   
+onset to +6 h     eicu    control                              0.08   
+                          early_icu_onset                      0.05   
+                          incident                             0.08   
+                          septic_on_arrival                    0.12   
+                  miiv    control                              0.12   
+                          early_icu_onset                      0.09   
+                          incident                             0.09   
+                          septic_on_arrival                    0.10   
++6 to +24 h       eicu    control                              0.09   
+                          early_icu_onset                      0.06   
+                          incident                             0.09   
+                          septic_on_arrival                    0.15   
+                  miiv    control                              0.14   
+                          early_icu_onset                      0.14   
+                          incident                             0.08   
+                          septic_on_arrival                    0.12   
++24 to +48 h      eicu    control                              0.06   
+                          early_icu_onset                      0.09   
+                          septic_on_arrival                    0.13   
+                  miiv    control                              0.10   
+                          early_icu_onset                      0.14   
+                          septic_on_arrival                    0.13   
+
+                                             Procedure_RRT_24h  \
+window            Dataset stratum                                
+12 h before onset eicu    control                         0.02   
+                          early_icu_onset                 0.00   
+                          incident                        0.03   
+                  miiv    control                         0.00   
+                          early_icu_onset                 0.00   
+                          incident                        0.00   
+onset to +6 h     eicu    control                         0.02   
+                          early_icu_onset                 0.02   
+                          incident                        0.04   
+                          septic_on_arrival               0.02   
+                  miiv    control                         0.00   
+                          early_icu_onset                 0.00   
+                          incident                        0.01   
+                          septic_on_arrival               0.00   
++6 to +24 h       eicu    control                         0.03   
+                          early_icu_onset                 0.02   
+                          incident                        0.04   
+                          septic_on_arrival               0.03   
+                  miiv    control                         0.01   
+                          early_icu_onset                 0.02   
+                          incident                        0.01   
+                          septic_on_arrival               0.02   
++24 to +48 h      eicu    control                         0.02   
+                          early_icu_onset                 0.05   
+                          septic_on_arrival               0.06   
+                  miiv    control                         0.01   
+                          early_icu_onset                 0.02   
+                          septic_on_arrival               0.03   
+
+                                             Transfusion_24h  \
+window            Dataset stratum                              
+12 h before onset eicu    control                       0.07   
+                          early_icu_onset               0.02   
+                          incident                      0.05   
+                  miiv    control                       0.09   
+                          early_icu_onset               0.04   
+                          incident                      0.10   
+onset to +6 h     eicu    control                       0.07   
+                          early_icu_onset               0.03   
+                          incident                      0.04   
+                          septic_on_arrival             0.06   
+                  miiv    control                       0.11   
+                          early_icu_onset               0.15   
+                          incident                      0.14   
+                          septic_on_arrival             0.11   
++6 to +24 h       eicu    control                       0.09   
+                          early_icu_onset               0.09   
+                          incident                      0.04   
+                          septic_on_arrival             0.15   
+                  miiv    control                       0.14   
+                          early_icu_onset               0.26   
+                          incident                      0.13   
+                          septic_on_arrival             0.23   
++24 to +48 h      eicu    control                       0.09   
+                          early_icu_onset               0.14   
+                          septic_on_arrival             0.20   
+                  miiv    control                       0.15   
+                          early_icu_onset               0.31   
+                          septic_on_arrival             0.35   
+
+                                             Med_BetaBlocker_24h  \
+window            Dataset stratum                                  
+12 h before onset eicu    control                           0.22   
+                          early_icu_onset                   0.09   
+                          incident                          0.22   
+                  miiv    control                           0.29   
+                          early_icu_onset                   0.08   
+                          incident                          0.35   
+onset to +6 h     eicu    control                           0.23   
+                          early_icu_onset                   0.11   
+                          incident                          0.21   
+                          septic_on_arrival                 0.16   
+                  miiv    control                           0.32   
+                          early_icu_onset                   0.14   
+                          incident                          0.37   
+                          septic_on_arrival                 0.22   
++6 to +24 h       eicu    control                           0.27   
+                          early_icu_onset                   0.14   
+                          incident                          0.19   
+                          septic_on_arrival                 0.21   
+                  miiv    control                           0.40   
+                          early_icu_onset                   0.21   
+                          incident                          0.35   
+                          septic_on_arrival                 0.28   
++24 to +48 h      eicu    control                           0.19   
+                          early_icu_onset                   0.14   
+                          septic_on_arrival                 0.23   
+                  miiv    control                           0.38   
+                          early_icu_onset                   0.29   
+                          septic_on_arrival                 0.28   
+
+                                             Med_Antipyretic_24h  \
+window            Dataset stratum                                  
+12 h before onset eicu    control                           0.36   
+                          early_icu_onset                   0.33   
+                          incident                          0.26   
+                  miiv    control                           0.58   
+                          early_icu_onset                   0.18   
+                          incident                          0.45   
+onset to +6 h     eicu    control                           0.35   
+                          early_icu_onset                   0.33   
+                          incident                          0.27   
+                          septic_on_arrival                 0.39   
+                  miiv    control                           0.59   
+                          early_icu_onset                   0.37   
+                          incident                          0.47   
+                          septic_on_arrival                 0.34   
++6 to +24 h       eicu    control                           0.35   
+                          early_icu_onset                   0.33   
+                          incident                          0.24   
+                          septic_on_arrival                 0.44   
+                  miiv    control                           0.63   
+                          early_icu_onset                   0.52   
+                          incident                          0.42   
+                          septic_on_arrival                 0.50   
++24 to +48 h      eicu    control                           0.16   
+                          early_icu_onset                   0.16   
+                          septic_on_arrival                 0.33   
+                  miiv    control                           0.40   
+                          early_icu_onset                   0.51   
+                          septic_on_arrival                 0.50   
+
+                                             Med_Diuretic_24h  LabResults_24h  
+window            Dataset stratum                                              
+12 h before onset eicu    control                        0.13            38.0  
+                          early_icu_onset                0.05            30.0  
+                          incident                       0.12            37.0  
+                  miiv    control                        0.18            43.0  
+                          early_icu_onset                0.06             8.0  
+                          incident                       0.22            44.5  
+onset to +6 h     eicu    control                        0.14            42.0  
+                          early_icu_onset                0.09            46.0  
+                          incident                       0.14            44.0  
+                          septic_on_arrival              0.13            48.0  
+                  miiv    control                        0.21            50.0  
+                          early_icu_onset                0.13            45.0  
+                          incident                       0.20            60.0  
+                          septic_on_arrival              0.23            61.0  
++6 to +24 h       eicu    control                        0.18            46.0  
+                          early_icu_onset                0.15            81.0  
+                          incident                       0.14            40.0  
+                          septic_on_arrival              0.25            83.5  
+                  miiv    control                        0.32            59.0  
+                          early_icu_onset                0.23            96.0  
+                          incident                       0.18            53.0  
+                          septic_on_arrival              0.27           106.0  
++24 to +48 h      eicu    control                        0.19            35.0  
+                          early_icu_onset                0.24            67.0  
+                          septic_on_arrival              0.25            73.0  
+                  miiv    control                        0.34            46.0  
+                          early_icu_onset                0.36            90.0  
+                          septic_on_arrival              0.34            98.0  
+--- cell 23 ---
+
+By course:
+
+--- cell 23 [table] ---
+                                                             n  \
+window            Dataset stratum           course2              
+12 h before onset eicu    early_icu_onset   deteriorating   -1   
+                                            improving       22   
+                          incident          deteriorating   23   
+                                            improving       34   
+                  miiv    early_icu_onset   deteriorating   99   
+                                            improving       30   
+                          incident          deteriorating   57   
+                                            improving       -1   
+onset to +6 h     eicu    early_icu_onset   deteriorating   13   
+                                            improving       27   
+                          incident          deteriorating   23   
+                                            improving       32   
+                          septic_on_arrival deteriorating   41   
+                                            improving       69   
+                  miiv    early_icu_onset   deteriorating  164   
+                                            improving       30   
+                          incident          deteriorating   54   
+                                            improving       -1   
+                          septic_on_arrival deteriorating   87   
+                                            improving       70   
++6 to +24 h       eicu    early_icu_onset   deteriorating   13   
+                                            improving       27   
+                          incident          deteriorating   21   
+                                            improving       28   
+                          septic_on_arrival deteriorating   48   
+                                            improving       82   
+                  miiv    early_icu_onset   deteriorating  164   
+                                            improving       30   
+                          incident          deteriorating   53   
+                                            improving       -1   
+                          septic_on_arrival deteriorating  114   
+                                            improving       81   
++24 to +48 h      eicu    early_icu_onset   deteriorating   11   
+                                            improving       21   
+                          septic_on_arrival deteriorating   42   
+                                            improving       71   
+                  miiv    early_icu_onset   deteriorating  139   
+                                            improving       30   
+                          septic_on_arrival deteriorating  122   
+                                            improving       82   
+
+                                                           VasopressorRecorded  \
+window            Dataset stratum           course2                              
+12 h before onset eicu    early_icu_onset   deteriorating                  NaN   
+                                            improving                     0.05   
+                          incident          deteriorating                 0.17   
+                                            improving                     0.03   
+                  miiv    early_icu_onset   deteriorating                 0.18   
+                                            improving                     0.17   
+                          incident          deteriorating                 0.28   
+                                            improving                      NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating                 0.46   
+                                            improving                     0.15   
+                          incident          deteriorating                 0.17   
+                                            improving                     0.06   
+                          septic_on_arrival deteriorating                 0.34   
+                                            improving                     0.29   
+                  miiv    early_icu_onset   deteriorating                 0.50   
+                                            improving                     0.27   
+                          incident          deteriorating                 0.31   
+                                            improving                      NaN   
+                          septic_on_arrival deteriorating                 0.47   
+                                            improving                     0.49   
++6 to +24 h       eicu    early_icu_onset   deteriorating                 0.46   
+                                            improving                     0.19   
+                          incident          deteriorating                 0.14   
+                                            improving                     0.04   
+                          septic_on_arrival deteriorating                 0.54   
+                                            improving                     0.28   
+                  miiv    early_icu_onset   deteriorating                 0.64   
+                                            improving                     0.33   
+                          incident          deteriorating                 0.13   
+                                            improving                      NaN   
+                          septic_on_arrival deteriorating                 0.56   
+                                            improving                     0.63   
++24 to +48 h      eicu    early_icu_onset   deteriorating                 0.36   
+                                            improving                     0.14   
+                          septic_on_arrival deteriorating                 0.62   
+                                            improving                     0.13   
+                  miiv    early_icu_onset   deteriorating                 0.62   
+                                            improving                     0.20   
+                          septic_on_arrival deteriorating                 0.56   
+                                            improving                     0.50   
+
+                                                           VasopressorDose_NEeq  \
+window            Dataset stratum           course2                               
+12 h before onset eicu    early_icu_onset   deteriorating                   NaN   
+                                            improving                      0.00   
+                          incident          deteriorating                  0.00   
+                                            improving                      0.00   
+                  miiv    early_icu_onset   deteriorating                  0.00   
+                                            improving                      0.00   
+                          incident          deteriorating                  0.00   
+                                            improving                       NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating                  0.00   
+                                            improving                      0.00   
+                          incident          deteriorating                  0.00   
+                                            improving                      0.00   
+                          septic_on_arrival deteriorating                  0.00   
+                                            improving                      0.00   
+                  miiv    early_icu_onset   deteriorating                  0.06   
+                                            improving                      0.00   
+                          incident          deteriorating                  0.00   
+                                            improving                       NaN   
+                          septic_on_arrival deteriorating                  0.05   
+                                            improving                      0.03   
++6 to +24 h       eicu    early_icu_onset   deteriorating                  0.00   
+                                            improving                      0.00   
+                          incident          deteriorating                  0.00   
+                                            improving                      0.00   
+                          septic_on_arrival deteriorating                  0.00   
+                                            improving                      0.00   
+                  miiv    early_icu_onset   deteriorating                  0.13   
+                                            improving                      0.00   
+                          incident          deteriorating                  0.00   
+                                            improving                       NaN   
+                          septic_on_arrival deteriorating                  0.09   
+                                            improving                      0.08   
++24 to +48 h      eicu    early_icu_onset   deteriorating                  0.00   
+                                            improving                      0.00   
+                          septic_on_arrival deteriorating                  0.00   
+                                            improving                      0.00   
+                  miiv    early_icu_onset   deteriorating                  0.10   
+                                            improving                      0.00   
+                          septic_on_arrival deteriorating                  0.10   
+                                            improving                      0.03   
+
+                                                           FluidIn_24h  \
+window            Dataset stratum           course2                      
+12 h before onset eicu    early_icu_onset   deteriorating          NaN   
+                                            improving         0.000000   
+                          incident          deteriorating     0.000000   
+                                            improving         0.000000   
+                  miiv    early_icu_onset   deteriorating     0.000000   
+                                            improving         0.000000   
+                          incident          deteriorating   675.000000   
+                                            improving              NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating     0.000000   
+                                            improving         0.000000   
+                          incident          deteriorating     0.000000   
+                                            improving       160.000000   
+                          septic_on_arrival deteriorating     0.000000   
+                                            improving         0.000000   
+                  miiv    early_icu_onset   deteriorating   318.000000   
+                                            improving       175.000000   
+                          incident          deteriorating   871.200012   
+                                            improving              NaN   
+                          septic_on_arrival deteriorating   200.000000   
+                                            improving       292.500000   
++6 to +24 h       eicu    early_icu_onset   deteriorating     0.000000   
+                                            improving      1831.000000   
+                          incident          deteriorating     0.000000   
+                                            improving         0.000000   
+                          septic_on_arrival deteriorating   669.500000   
+                                            improving       575.000000   
+                  miiv    early_icu_onset   deteriorating  1969.760010   
+                                            improving      1954.170044   
+                          incident          deteriorating   700.000000   
+                                            improving              NaN   
+                          septic_on_arrival deteriorating  1274.750000   
+                                            improving      2223.169922   
++24 to +48 h      eicu    early_icu_onset   deteriorating    48.900002   
+                                            improving      2036.000000   
+                          septic_on_arrival deteriorating  2317.000000   
+                                            improving      1025.000000   
+                  miiv    early_icu_onset   deteriorating  2150.000000   
+                                            improving      2416.899902   
+                          septic_on_arrival deteriorating  2000.000000   
+                                            improving      3131.350098   
+
+                                                           Intubated  \
+window            Dataset stratum           course2                    
+12 h before onset eicu    early_icu_onset   deteriorating        NaN   
+                                            improving           0.23   
+                          incident          deteriorating       0.17   
+                                            improving           0.03   
+                  miiv    early_icu_onset   deteriorating       0.37   
+                                            improving           0.50   
+                          incident          deteriorating       0.60   
+                                            improving            NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating       0.23   
+                                            improving           0.26   
+                          incident          deteriorating       0.17   
+                                            improving           0.00   
+                          septic_on_arrival deteriorating       0.44   
+                                            improving           0.38   
+                  miiv    early_icu_onset   deteriorating       0.65   
+                                            improving           0.63   
+                          incident          deteriorating       0.63   
+                                            improving            NaN   
+                          septic_on_arrival deteriorating       0.57   
+                                            improving           0.49   
++6 to +24 h       eicu    early_icu_onset   deteriorating       0.38   
+                                            improving           0.30   
+                          incident          deteriorating       0.19   
+                                            improving           0.00   
+                          septic_on_arrival deteriorating       0.60   
+                                            improving           0.41   
+                  miiv    early_icu_onset   deteriorating       0.72   
+                                            improving           0.60   
+                          incident          deteriorating       0.62   
+                                            improving            NaN   
+                          septic_on_arrival deteriorating       0.58   
+                                            improving           0.58   
++24 to +48 h      eicu    early_icu_onset   deteriorating       0.36   
+                                            improving           0.29   
+                          septic_on_arrival deteriorating       0.60   
+                                            improving           0.45   
+                  miiv    early_icu_onset   deteriorating       0.78   
+                                            improving           0.57   
+                          septic_on_arrival deteriorating       0.63   
+                                            improving           0.60   
+
+                                                           Med_Sedative_24h  \
+window            Dataset stratum           course2                           
+12 h before onset eicu    early_icu_onset   deteriorating               NaN   
+                                            improving                  0.32   
+                          incident          deteriorating              0.39   
+                                            improving                  0.24   
+                  miiv    early_icu_onset   deteriorating              0.38   
+                                            improving                  0.47   
+                          incident          deteriorating              0.54   
+                                            improving                   NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating              0.38   
+                                            improving                  0.41   
+                          incident          deteriorating              0.52   
+                                            improving                  0.25   
+                          septic_on_arrival deteriorating              0.49   
+                                            improving                  0.46   
+                  miiv    early_icu_onset   deteriorating              0.69   
+                                            improving                  0.63   
+                          incident          deteriorating              0.59   
+                                            improving                   NaN   
+                          septic_on_arrival deteriorating              0.56   
+                                            improving                  0.54   
++6 to +24 h       eicu    early_icu_onset   deteriorating              0.38   
+                                            improving                  0.44   
+                          incident          deteriorating              0.43   
+                                            improving                  0.25   
+                          septic_on_arrival deteriorating              0.67   
+                                            improving                  0.48   
+                  miiv    early_icu_onset   deteriorating              0.79   
+                                            improving                  0.70   
+                          incident          deteriorating              0.58   
+                                            improving                   NaN   
+                          septic_on_arrival deteriorating              0.66   
+                                            improving                  0.67   
++24 to +48 h      eicu    early_icu_onset   deteriorating              0.36   
+                                            improving                  0.29   
+                          septic_on_arrival deteriorating              0.67   
+                                            improving                  0.48   
+                  miiv    early_icu_onset   deteriorating              0.81   
+                                            improving                  0.70   
+                          septic_on_arrival deteriorating              0.76   
+                                            improving                  0.71   
+
+                                                           Med_Corticosteroid_24h  \
+window            Dataset stratum           course2                                 
+12 h before onset eicu    early_icu_onset   deteriorating                     NaN   
+                                            improving                        0.05   
+                          incident          deteriorating                    0.09   
+                                            improving                        0.09   
+                  miiv    early_icu_onset   deteriorating                    0.07   
+                                            improving                        0.07   
+                          incident          deteriorating                    0.14   
+                                            improving                         NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating                    0.00   
+                                            improving                        0.04   
+                          incident          deteriorating                    0.13   
+                                            improving                        0.09   
+                          septic_on_arrival deteriorating                    0.05   
+                                            improving                        0.17   
+                  miiv    early_icu_onset   deteriorating                    0.09   
+                                            improving                        0.03   
+                          incident          deteriorating                    0.15   
+                                            improving                         NaN   
+                          septic_on_arrival deteriorating                    0.08   
+                                            improving                        0.10   
++6 to +24 h       eicu    early_icu_onset   deteriorating                    0.00   
+                                            improving                        0.04   
+                          incident          deteriorating                    0.14   
+                                            improving                        0.11   
+                          septic_on_arrival deteriorating                    0.08   
+                                            improving                        0.20   
+                  miiv    early_icu_onset   deteriorating                    0.14   
+                                            improving                        0.07   
+                          incident          deteriorating                    0.13   
+                                            improving                         NaN   
+                          septic_on_arrival deteriorating                    0.10   
+                                            improving                        0.12   
++24 to +48 h      eicu    early_icu_onset   deteriorating                    0.00   
+                                            improving                        0.10   
+                          septic_on_arrival deteriorating                    0.10   
+                                            improving                        0.14   
+                  miiv    early_icu_onset   deteriorating                    0.13   
+                                            improving                        0.13   
+                          septic_on_arrival deteriorating                    0.13   
+                                            improving                        0.12   
+
+                                                           Procedure_RRT_24h  \
+window            Dataset stratum           course2                            
+12 h before onset eicu    early_icu_onset   deteriorating                NaN   
+                                            improving                   0.00   
+                          incident          deteriorating               0.09   
+                                            improving                   0.00   
+                  miiv    early_icu_onset   deteriorating               0.00   
+                                            improving                   0.00   
+                          incident          deteriorating               0.02   
+                                            improving                    NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating               0.08   
+                                            improving                   0.00   
+                          incident          deteriorating               0.09   
+                                            improving                   0.00   
+                          septic_on_arrival deteriorating               0.02   
+                                            improving                   0.01   
+                  miiv    early_icu_onset   deteriorating               0.00   
+                                            improving                   0.00   
+                          incident          deteriorating               0.02   
+                                            improving                    NaN   
+                          septic_on_arrival deteriorating               0.00   
+                                            improving                   0.00   
++6 to +24 h       eicu    early_icu_onset   deteriorating               0.08   
+                                            improving                   0.00   
+                          incident          deteriorating               0.05   
+                                            improving                   0.00   
+                          septic_on_arrival deteriorating               0.04   
+                                            improving                   0.02   
+                  miiv    early_icu_onset   deteriorating               0.03   
+                                            improving                   0.00   
+                          incident          deteriorating               0.02   
+                                            improving                    NaN   
+                          septic_on_arrival deteriorating               0.00   
+                                            improving                   0.01   
++24 to +48 h      eicu    early_icu_onset   deteriorating               0.18   
+                                            improving                   0.00   
+                          septic_on_arrival deteriorating               0.14   
+                                            improving                   0.04   
+                  miiv    early_icu_onset   deteriorating               0.04   
+                                            improving                   0.00   
+                          septic_on_arrival deteriorating               0.00   
+                                            improving                   0.06   
+
+                                                           Transfusion_24h  \
+window            Dataset stratum           course2                          
+12 h before onset eicu    early_icu_onset   deteriorating              NaN   
+                                            improving                 0.00   
+                          incident          deteriorating             0.04   
+                                            improving                 0.06   
+                  miiv    early_icu_onset   deteriorating             0.05   
+                                            improving                 0.10   
+                          incident          deteriorating             0.16   
+                                            improving                  NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating             0.00   
+                                            improving                 0.04   
+                          incident          deteriorating             0.00   
+                                            improving                 0.03   
+                          septic_on_arrival deteriorating             0.07   
+                                            improving                 0.07   
+                  miiv    early_icu_onset   deteriorating             0.18   
+                                            improving                 0.20   
+                          incident          deteriorating             0.20   
+                                            improving                  NaN   
+                          septic_on_arrival deteriorating             0.15   
+                                            improving                 0.10   
++6 to +24 h       eicu    early_icu_onset   deteriorating             0.00   
+                                            improving                 0.15   
+                          incident          deteriorating             0.00   
+                                            improving                 0.04   
+                          septic_on_arrival deteriorating             0.21   
+                                            improving                 0.11   
+                  miiv    early_icu_onset   deteriorating             0.28   
+                                            improving                 0.30   
+                          incident          deteriorating             0.19   
+                                            improving                  NaN   
+                          septic_on_arrival deteriorating             0.25   
+                                            improving                 0.19   
++24 to +48 h      eicu    early_icu_onset   deteriorating             0.00   
+                                            improving                 0.24   
+                          septic_on_arrival deteriorating             0.29   
+                                            improving                 0.13   
+                  miiv    early_icu_onset   deteriorating             0.33   
+                                            improving                 0.37   
+                          septic_on_arrival deteriorating             0.35   
+                                            improving                 0.29   
+
+                                                           Med_BetaBlocker_24h  \
+window            Dataset stratum           course2                              
+12 h before onset eicu    early_icu_onset   deteriorating                  NaN   
+                                            improving                     0.09   
+                          incident          deteriorating                 0.17   
+                                            improving                     0.29   
+                  miiv    early_icu_onset   deteriorating                 0.07   
+                                            improving                     0.07   
+                          incident          deteriorating                 0.35   
+                                            improving                      NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating                 0.15   
+                                            improving                     0.07   
+                          incident          deteriorating                 0.17   
+                                            improving                     0.31   
+                          septic_on_arrival deteriorating                 0.10   
+                                            improving                     0.20   
+                  miiv    early_icu_onset   deteriorating                 0.13   
+                                            improving                     0.20   
+                          incident          deteriorating                 0.35   
+                                            improving                      NaN   
+                          septic_on_arrival deteriorating                 0.24   
+                                            improving                     0.20   
++6 to +24 h       eicu    early_icu_onset   deteriorating                 0.31   
+                                            improving                     0.07   
+                          incident          deteriorating                 0.19   
+                                            improving                     0.25   
+                          septic_on_arrival deteriorating                 0.10   
+                                            improving                     0.27   
+                  miiv    early_icu_onset   deteriorating                 0.23   
+                                            improving                     0.20   
+                          incident          deteriorating                 0.36   
+                                            improving                      NaN   
+                          septic_on_arrival deteriorating                 0.26   
+                                            improving                     0.36   
++24 to +48 h      eicu    early_icu_onset   deteriorating                 0.36   
+                                            improving                     0.05   
+                          septic_on_arrival deteriorating                 0.12   
+                                            improving                     0.28   
+                  miiv    early_icu_onset   deteriorating                 0.27   
+                                            improving                     0.23   
+                          septic_on_arrival deteriorating                 0.22   
+                                            improving                     0.38   
+
+                                                           Med_Antipyretic_24h  \
+window            Dataset stratum           course2                              
+12 h before onset eicu    early_icu_onset   deteriorating                  NaN   
+                                            improving                     0.32   
+                          incident          deteriorating                 0.26   
+                                            improving                     0.32   
+                  miiv    early_icu_onset   deteriorating                 0.10   
+                                            improving                     0.33   
+                          incident          deteriorating                 0.33   
+                                            improving                      NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating                 0.38   
+                                            improving                     0.30   
+                          incident          deteriorating                 0.26   
+                                            improving                     0.34   
+                          septic_on_arrival deteriorating                 0.37   
+                                            improving                     0.42   
+                  miiv    early_icu_onset   deteriorating                 0.26   
+                                            improving                     0.63   
+                          incident          deteriorating                 0.41   
+                                            improving                      NaN   
+                          septic_on_arrival deteriorating                 0.25   
+                                            improving                     0.44   
++6 to +24 h       eicu    early_icu_onset   deteriorating                 0.38   
+                                            improving                     0.30   
+                          incident          deteriorating                 0.29   
+                                            improving                     0.25   
+                          septic_on_arrival deteriorating                 0.40   
+                                            improving                     0.50   
+                  miiv    early_icu_onset   deteriorating                 0.40   
+                                            improving                     0.67   
+                          incident          deteriorating                 0.36   
+                                            improving                      NaN   
+                          septic_on_arrival deteriorating                 0.44   
+                                            improving                     0.53   
++24 to +48 h      eicu    early_icu_onset   deteriorating                 0.09   
+                                            improving                     0.10   
+                          septic_on_arrival deteriorating                 0.33   
+                                            improving                     0.27   
+                  miiv    early_icu_onset   deteriorating                 0.45   
+                                            improving                     0.60   
+                          septic_on_arrival deteriorating                 0.47   
+                                            improving                     0.51   
+
+                                                           Med_Diuretic_24h  \
+window            Dataset stratum           course2                           
+12 h before onset eicu    early_icu_onset   deteriorating               NaN   
+                                            improving                  0.09   
+                          incident          deteriorating              0.13   
+                                            improving                  0.09   
+                  miiv    early_icu_onset   deteriorating              0.06   
+                                            improving                  0.07   
+                          incident          deteriorating              0.26   
+                                            improving                   NaN   
+onset to +6 h     eicu    early_icu_onset   deteriorating              0.15   
+                                            improving                  0.07   
+                          incident          deteriorating              0.17   
+                                            improving                  0.09   
+                          septic_on_arrival deteriorating              0.10   
+                                            improving                  0.14   
+                  miiv    early_icu_onset   deteriorating              0.13   
+                                            improving                  0.10   
+                          incident          deteriorating              0.22   
+                                            improving                   NaN   
+                          septic_on_arrival deteriorating              0.28   
+                                            improving                  0.17   
++6 to +24 h       eicu    early_icu_onset   deteriorating              0.15   
+                                            improving                  0.11   
+                          incident          deteriorating              0.19   
+                                            improving                  0.11   
+                          septic_on_arrival deteriorating              0.21   
+                                            improving                  0.23   
+                  miiv    early_icu_onset   deteriorating              0.21   
+                                            improving                  0.13   
+                          incident          deteriorating              0.23   
+                                            improving                   NaN   
+                          septic_on_arrival deteriorating              0.32   
+                                            improving                  0.20   
++24 to +48 h      eicu    early_icu_onset   deteriorating              0.09   
+                                            improving                  0.19   
+                          septic_on_arrival deteriorating              0.14   
+                                            improving                  0.27   
+                  miiv    early_icu_onset   deteriorating              0.27   
+                                            improving                  0.40   
+                          septic_on_arrival deteriorating              0.40   
+                                            improving                  0.24   
+
+                                                           LabResults_24h  
+window            Dataset stratum           course2                        
+12 h before onset eicu    early_icu_onset   deteriorating             NaN  
+                                            improving                33.5  
+                          incident          deteriorating            47.0  
+                                            improving                36.0  
+                  miiv    early_icu_onset   deteriorating            14.0  
+                                            improving                40.5  
+                          incident          deteriorating            49.0  
+                                            improving                 NaN  
+onset to +6 h     eicu    early_icu_onset   deteriorating            50.0  
+                                            improving                47.0  
+                          incident          deteriorating            59.0  
+                                            improving                37.0  
+                          septic_on_arrival deteriorating            44.0  
+                                            improving                50.0  
+                  miiv    early_icu_onset   deteriorating            48.0  
+                                            improving                61.5  
+                          incident          deteriorating            63.0  
+                                            improving                 NaN  
+                          septic_on_arrival deteriorating            64.0  
+                                            improving                66.0  
++6 to +24 h       eicu    early_icu_onset   deteriorating            95.0  
+                                            improving                71.0  
+                          incident          deteriorating            54.0  
+                                            improving                32.5  
+                          septic_on_arrival deteriorating            96.0  
+                                            improving                81.5  
+                  miiv    early_icu_onset   deteriorating           103.5  
+                                            improving                97.5  
+                          incident          deteriorating            62.0  
+                                            improving                 NaN  
+                          septic_on_arrival deteriorating           107.5  
+                                            improving               106.0  
++24 to +48 h      eicu    early_icu_onset   deteriorating            87.0  
+                                            improving                61.0  
+                          septic_on_arrival deteriorating            93.0  
+                                            improving                67.0  
+                  miiv    early_icu_onset   deteriorating           107.0  
+                                            improving                82.0  
+                          septic_on_arrival deteriorating            98.0  
+                                            improving               102.5  
+--- cell 23 ---
+
+First antibiotic around onset relative to the onset hour (incident; negative = antibiotic before the operational onset):
+
+--- cell 23 [table] ---
+           n  median    q25   q75  before_onset
+Dataset                                        
+eicu     101   -6.95 -14.25  8.30          0.44
+miiv     180   -6.75 -12.79 -1.26          0.63
+[figure 1 saved]
+[figure 2 saved]
+[figure 3 saved]
+[figure 4 saved]
+[figure 5 saved]
+[figure 6 saved]
+[figure 7 saved]
+--- cell 24 ---
+Figures saved under /content/drive/.shortcut-targets-by-id/1A7VFDTLnevMBChDvADRU2QJBzHf3s9pF/sepsis_colab_project/validation_v10/pathophysiology/3101b901d915324b
+
+--- cell 25 ---
+Hypotheses of the framework document, scored on the comparisons (sign and |delta| >= 0.147):
+
+--- cell 25 [table] ---
+                                              expected_sign  \
+hypothesis comparison channel                                 
+H1         C2         Resp                                +   
+           C6         Resp                                +   
+H2         C2         DBP                                 -   
+                      HR                                  +   
+                      MAP                                 -   
+                      PulsePressure                       +   
+                      ShockIndex                          +   
+H3         -          -                                   -   
+H4         C2         FiO2                                +   
+                      O2Sat                               -   
+                      SF_Ratio                            -   
+H5         C2         Urine_mlkg_h_6h                     -   
+H6         C2         BUN                                 +   
+                      Creatinine                          +   
+H7         C2         Platelets                           -   
+                      Platelets_DeltaBaseline             -   
+H8         C2         Lactate                             +   
+H9         C2         Lymphocytes                         -   
+                      NLR                                 +   
+                      WBC                                 +   
+H10        C2         Glucose                             +   
+H11        C2         AnionGap                            +   
+                      BaseExcess                          -   
+                      HCO3                                -   
+                      pH                                  -   
+H12        C2         Albumin                             -   
+                      Bilirubin_total                     +   
+H13        -          -                                   -   
+           C2         GCS                                 -   
+H14        -          -                                   -   
+           C2         HR_Variance6h                       -   
+H15        -          -                                   -   
+H16        -          -                                   -   
+H17        C3         Lactate                             +   
+                      Temp                                +   
+                      VasopressorDose_NEeq                +   
+H18        C3         Lymphocytes                         +   
+                      SOFA_Renal                          -   
+                      SOFA_Resp                           -   
+                      Temp_Min24h                         +   
+H19        -          -                                   -   
+H20        C10        Bilirubin_total                     +   
+                      Lactate                             +   
+                      Platelets                           -   
+                      Temp                                -   
+                      Urine_mlkg_h_6h                     -   
+                      VasopressorDose_NEeq                +   
+H21        C7         HR                                  +   
+                      Lactate                             +   
+                      Platelets_DeltaBaseline             -   
+                      Resp                                +   
+                      Temp                                -   
+                      Urine_mlkg_h_6h                     -   
+H22        -          -                                   -   
+H23        C10        HR                                  +   
+                      Temp                                -   
+           C9         Bilirubin_total                     +   
+                      Creatinine                          +   
+                      Platelets                           -   
+
+                                                                                          status  \
+hypothesis comparison channel                                                                      
+H1         C2         Resp                                           supported in both databases   
+           C6         Resp                                             not supported (no signal)   
+H2         C2         DBP                                              not supported (no signal)   
+                      HR                                               supported in one database   
+                      MAP                                              not supported (no signal)   
+                      PulsePressure                                    not supported (no signal)   
+                      ShockIndex                                       supported in one database   
+H3         -          -                        read the temperature-tails table (fever AND hy...   
+H4         C2         FiO2                                             supported in one database   
+                      O2Sat                                            not supported (no signal)   
+                      SF_Ratio                                         supported in one database   
+H5         C2         Urine_mlkg_h_6h                                  supported in one database   
+H6         C2         BUN                                              not supported (no signal)   
+                      Creatinine                                       not supported (no signal)   
+H7         C2         Platelets                                        not supported (no signal)   
+                      Platelets_DeltaBaseline                          not supported (no signal)   
+H8         C2         Lactate                                          supported in one database   
+H9         C2         Lymphocytes                                    supported in both databases   
+                      NLR                                            supported in both databases   
+                      WBC                                              not supported (no signal)   
+H10        C2         Glucose                                          not supported (no signal)   
+H11        C2         AnionGap                                         not supported (no signal)   
+                      BaseExcess                                       not supported (no signal)   
+                      HCO3                                             not supported (no signal)   
+                      pH                                               not supported (no signal)   
+H12        C2         Albumin                                        supported in both databases   
+                      Bilirubin_total                                  not supported (no signal)   
+H13        -          -                        read the GCS row of the therapy-stratified tab...   
+           C2         GCS                                              not supported (no signal)   
+H14        -          -                        measurement artefact between databases; not co...   
+           C2         HR_Variance6h                                    not supported (no signal)   
+H15        -          -                                         read the measurement-rate rule:    
+H16        -          -                                        C1 channels shared at baseline: 6   
+H17        C3         Lactate                                          supported in one database   
+                      Temp                                             not supported (no signal)   
+                      VasopressorDose_NEeq                             supported in one database   
+H18        C3         Lymphocytes                                      not supported (no signal)   
+                      SOFA_Renal                                              opposite direction   
+                      SOFA_Resp                                        not supported (no signal)   
+                      Temp_Min24h                                      supported in one database   
+H19        -          -                         read the onset-state fractions by database below   
+H20        C10        Bilirubin_total                                  supported in one database   
+                      Lactate                                        supported in both databases   
+                      Platelets                                        not supported (no signal)   
+                      Temp                                             not supported (no signal)   
+                      Urine_mlkg_h_6h                                  supported in one database   
+                      VasopressorDose_NEeq                             not supported (no signal)   
+H21        C7         HR                                               supported in one database   
+                      Lactate                                                       not testable   
+                      Platelets_DeltaBaseline                          supported in one database   
+                      Resp                                             supported in one database   
+                      Temp                                             not supported (no signal)   
+                      Urine_mlkg_h_6h                                               not testable   
+H22        -          -                               read the therapy-exposure tables by course   
+H23        C10        HR                                               supported in one database   
+                      Temp                                             not supported (no signal)   
+           C9         Bilirubin_total                                supported in both databases   
+                      Creatinine                                     supported in both databases   
+                      Platelets                                      supported in both databases   
+
+                                               delta_miiv  delta_eicu  
+hypothesis comparison channel                                          
+H1         C2         Resp                          0.183       0.215  
+           C6         Resp                          0.067      -0.073  
+H2         C2         DBP                          -0.141      -0.070  
+                      HR                            0.138       0.301  
+                      MAP                          -0.120      -0.085  
+                      PulsePressure                 0.052      -0.067  
+                      ShockIndex                    0.141       0.261  
+H3         -          -                               NaN         NaN  
+H4         C2         FiO2                         -0.031       0.255  
+                      O2Sat                        -0.033      -0.087  
+                      SF_Ratio                     -0.003      -0.229  
+H5         C2         Urine_mlkg_h_6h              -0.156      -0.055  
+H6         C2         BUN                           0.045       0.130  
+                      Creatinine                    0.015       0.049  
+H7         C2         Platelets                     0.165       0.094  
+                      Platelets_DeltaBaseline      -0.066       0.081  
+H8         C2         Lactate                       0.044       0.259  
+H9         C2         Lymphocytes                  -0.165      -0.216  
+                      NLR                           0.166       0.220  
+                      WBC                           0.095       0.085  
+H10        C2         Glucose                       0.088      -0.023  
+H11        C2         AnionGap                      0.096       0.113  
+                      BaseExcess                    0.049       0.120  
+                      HCO3                          0.021      -0.096  
+                      pH                            0.078       0.003  
+H12        C2         Albumin                      -0.289      -0.306  
+                      Bilirubin_total              -0.032      -0.044  
+H13        -          -                               NaN         NaN  
+           C2         GCS                          -0.104      -0.073  
+H14        -          -                               NaN         NaN  
+           C2         HR_Variance6h                 0.070       0.086  
+H15        -          -                               NaN         NaN  
+H16        -          -                               NaN         NaN  
+H17        C3         Lactate                       0.177      -0.172  
+                      Temp                         -0.162      -0.045  
+                      VasopressorDose_NEeq          0.159       0.071  
+H18        C3         Lymphocytes                  -0.404      -0.127  
+                      SOFA_Renal                    0.218       0.176  
+                      SOFA_Resp                     0.114       0.110  
+                      Temp_Min24h                   0.095       0.179  
+H19        -          -                               NaN         NaN  
+H20        C10        Bilirubin_total               0.091       0.224  
+                      Lactate                       0.256       0.522  
+                      Platelets                    -0.136       0.092  
+                      Temp                         -0.071      -0.138  
+                      Urine_mlkg_h_6h              -0.054      -0.172  
+                      VasopressorDose_NEeq          0.068       0.047  
+H21        C7         HR                              NaN       0.230  
+                      Lactate                         NaN         NaN  
+                      Platelets_DeltaBaseline         NaN      -0.231  
+                      Resp                            NaN       0.434  
+                      Temp                            NaN       0.061  
+                      Urine_mlkg_h_6h                 NaN         NaN  
+H22        -          -                               NaN         NaN  
+H23        C10        HR                            0.034       0.236  
+                      Temp                         -0.071      -0.138  
+           C9         Bilirubin_total               0.305       0.373  
+                      Creatinine                    0.241       0.430  
+                      Platelets                    -0.195      -0.192  
+--- cell 25 ---
+
+Severity at the onset state (fractions among measured):
+
+--- cell 25 [table] ---
+                             n  lactate_ge_2  vasopressor  map_lt_65
+Dataset stratum                                                     
+eicu    early_icu_onset     66         0.375        0.045      0.219
+        incident           142         0.478        0.049      0.176
+        septic_on_arrival  208         0.548        0.250      0.256
+miiv    early_icu_onset    510         0.623        0.131      0.180
+        incident           221         0.407        0.131      0.213
+        septic_on_arrival  318         0.568        0.384      0.193
+--- cell 25 ---
+
+Stage-2 predictor sets | full: 659 | physiology only: 547 | without masks/ages: 230 | shared physiology: 31 | shared pre-onset channels: ['Albumin', 'HR', 'Lymphocytes', 'NEWS2_MetAmongMeasured', 'NLR', 'PTT', 'Resp', 'Temp', 'Temp_Max24h', 'pH', 'qSOFA_MetAmongMeasured']
+
+Digest written (aggregate tables only, counts under 11 masked): /content/drive/.shortcut-targets-by-id/1A7VFDTLnevMBChDvADRU2QJBzHf3s9pF/sepsis_colab_project/validation_v10/pathophysiology/3101b901d915324b/digest.txt (133 KB)
+Study key: 3101b901d915324b
