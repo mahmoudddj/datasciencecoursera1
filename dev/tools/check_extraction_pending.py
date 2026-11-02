@@ -86,4 +86,7 @@ def half(name):
     pass
 r=scenario('G cohorts done, MIMIC variant done, eICU variant pending, environment built',True,True,True,done_only=['miiv'])
 assert r['need_extract'] and r['ricu_skipped']==['miiv'] and [c[:3] for c in r['extract_calls']]==[('eicu',('labels',),'and')] and r['cell8'].endswith("{'miiv': 'nothing', 'eicu': 'label variant'}")
+# 8. the configuration from 2 Nov 2026: MIMIC variant only, already complete (the next real sessions)
+r=scenario('H cohorts done, MIMIC-only variant done, no environment (configuration from 2 Nov)',True,True,False,variants={'miiv':'abx'})
+assert not r['need_extract'] and r['ricu_skipped']==['miiv','eicu'] and r['extract_calls']==[] and r['alt_onsets']=={'miiv':2} and r['cell8'].endswith("{'miiv': 'nothing', 'eicu': 'nothing'}")
 print('ALL SCENARIOS PASS')

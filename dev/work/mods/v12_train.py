@@ -403,7 +403,7 @@ class Stage2Run:
       suspicion_hour      stay -> suspicion-anchored event hour (NaN none)                                 [items 9, 10]
       first_treatment     stay -> first antibiotic or culture hour                                           [item 10d]
       documented          stay -> True/False sepsis documented                                               [items 10c, 10e, 15]
-      alt_onsets          {'miiv': {stay: onset, antibiotic-only label}, 'eicu': {stay: onset, culture-paired label}}  [items 10a, 10b]
+      alt_onsets          {'miiv': {stay: onset, antibiotic-only label}}  [item 10a; 10b (eICU culture-paired) withdrawn 2 Nov 2026]
       abx_starts          stay -> list of antibiotic start hours (dict)                                      [item 3]
       arrival             stay -> 1 arrived septic / 0 not / NaN unknown (dict)                              [item 3]
       anchor_year_group   stay -> MIMIC anchor-year group                                                    [item 17b]
@@ -511,7 +511,7 @@ class Stage2Run:
             if sh:
                 for h in (3,6):rows.append({**base,'condition':f'suspicion_label_{h}h','scope':'primary model scored against the suspicion-anchored label',**score(relabel(d,sh,h),thr,{**cfg,'horizon':h},pers)})
             alt=self.tables.get('alt_onsets',{}).get(ds)
-            if alt:rows.append({**base,'condition':'alternative_operational_label','scope':'antibiotic-only (MIMIC) / culture-paired (eICU) sep3 label',**score(relabel(d,alt,cfg['horizon']),thr,cfg,pers)})
+            if alt:rows.append({**base,'condition':'alternative_operational_label','scope':'antibiotic-only sep3 label (MIMIC-IV, item 10a)' if ds=='miiv' else 'alternative sep3 label',**score(relabel(d,alt,cfg['horizon']),thr,cfg,pers)})
         elif sh:
             for _,r in suspicion_readings(d,sh,cfg,{**chosen,'threshold':thr},horizons=(3,6)).iterrows():
                 rows.append({**base,'condition':f'suspicion_reading_{int(r.reading_horizon_h)}h','scope':'suspicion target at its own and the 6 h reading',**{k:r[k] for k in r.index if k!='reading_horizon_h'}})

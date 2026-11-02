@@ -2,7 +2,7 @@
 STAGE_2 = True                                     # the stage-2 driver (v12_train.run_stage2) replaces the stage-1 fold driver
 STAGE2_ARMS = ['project','two_channel','pooled','suspicion','pretrained','predictor_sets','label_stratified','benchmarks','exploratory']   # section 11 order; remove from the END to cut the budget
 STAGE2_KEEP_EARLY_ONSET = True                     # all comers: YAIB exclusion 7 (onset before ICU hour 6) is not applied; the index flags Incident vs ArrivalSepsis
-STAGE2_LABEL_VARIANTS = {'miiv':'abx','eicu':'and'} # item 10 (a),(b): antibiotic-only label on MIMIC-IV, culture-paired label on eICU; labels phase only, own cache
+STAGE2_LABEL_VARIANTS = {'miiv':'abx'}             # item 10(a): antibiotic-only label on MIMIC-IV (labels phase only, own cache); 10(b) eICU culture-paired label withdrawn 2 Nov 2026 (not feasible)
 STAGE2_REUSE_LABEL_ROOTS = []                      # earlier .../cohorts_v9/<key>/sepsis roots whose completed LABEL batches are carried over (the 20,000 labelled candidates)
 STAGE2_SUSPICION_HORIZON = 3                       # item 9: 3 h before the first continued antibiotic course (6 h reading as a scoring pass)
 STAGE2_TRAIN_INCLUDES_OBSERVER_FIT = True          # the retired observer bank's 30 % development split joins the training split (recorded in run_protocol.json)

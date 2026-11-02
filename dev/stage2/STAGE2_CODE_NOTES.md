@@ -10,7 +10,7 @@ Notebook `Sepsis_V11_Improved_MIMIC_eICU_14_stage2.ipynb`, built by `dev/tools/b
 | `FULL_SEEDS` | `[42, 7, 123]` | three seeds for arms 1 to 5, the first seed for arms 6 to 9 (`THREE_SEED_ARMS` in `v12_train`) |
 | `STAGE2_ARMS` | the nine arms in section-11 order | remove from the end to cut the budget |
 | `STAGE2_KEEP_EARLY_ONSET` | `True` | YAIB exclusion 7 not applied; the index carries `Incident` and `ArrivalSepsis` |
-| `STAGE2_LABEL_VARIANTS` | `{'miiv':'abx','eicu':'and'}` | item 10 (a), (b): labels phase only, own cache, onsets read back for the scoring pass |
+| `STAGE2_LABEL_VARIANTS` | `{'miiv':'abx'}` | item 10(a): labels phase only, own cache, onsets read back for the scoring pass; 10(b), the eICU culture-paired label, withdrawn on 2 Nov 2026 |
 | `STAGE2_REUSE_LABEL_ROOTS` | `[]` | earlier `cohorts_v9/<key>/sepsis` roots whose completed label batches are carried into the new plan (the 20,000 labelled candidates) |
 | `STAGE2_SUSPICION_HORIZON` | 3 | item 9 |
 | `STAGE2_TRAIN_INCLUDES_OBSERVER_FIT` | `True` | the retired observer bank's 30 % development split joins training (70 % of development patients train; 15 % validation; 15 % calibration; 20 % test). Stage 1 trained on 40 %. **A change to confirm**: it is recorded in `run_protocol.json` either way |
@@ -56,7 +56,7 @@ Arms in `ARM_ORDER`; each arm checks its `completed.json` per seed, database and
 | `benchmarks` | `grud`, `tcn`, `logistic`, `boosted_tree` | |
 | `exploratory` | the v11 SSL pooled encoder, then `ssl_cnn_flat_pooled` and `ssl_cnn_osta_pooled` | |
 
-Scoring passes on every saved test (and transfer) frame: `pre_treatment_hours`; `documentation_documented` / `documentation_undocumented`; `suspicion_label_3h` / `_6h` (operational models against the suspicion label); `alternative_operational_label` (antibiotic-only on MIMIC, culture-paired on eICU); `threshold_transport_absolute` / `_quantile` dispersion across eICU hospitals; lead versus the first antibiotic; O:E ratio and calibration slope. Abstention variants (`reset`, `transparent`, `gated`) with the adoption rule run on the validation split only and are returned.
+Scoring passes on every saved test (and transfer) frame: `pre_treatment_hours`; `documentation_documented` / `documentation_undocumented`; `suspicion_label_3h` / `_6h` (operational models against the suspicion label); `alternative_operational_label` (antibiotic-only on MIMIC-IV; no eICU row since item 10(b) was withdrawn); `threshold_transport_absolute` / `_quantile` dispersion across eICU hospitals; lead versus the first antibiotic; O:E ratio and calibration slope. Abstention variants (`reset`, `transparent`, `gated`) with the adoption rule run on the validation split only and are returned.
 
 Every model, store and loss used by the primary target is the stage-1 code path (`predict`, `calibrate`, `select_threshold`, `utility_block`, `evaluate_v11`); `train_stage2` is `train_neural` with the per-hour target and weight read from the store, which equal the label and eligibility for the primary target.
 

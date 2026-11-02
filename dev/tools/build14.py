@@ -83,7 +83,7 @@ Built after stage 1b and the revised pathophysiology study, before the freeze. U
 | Item | What this notebook does |
 |---|---|
 | Cohort | all comers of both releases: YAIB exclusion 7 (onset before ICU hour 6) is not applied; the index flags incident vs arrival sepsis; the incident cohort is primary; completed label batches of the earlier 20,000-candidate plans are reused; eight label batches in parallel, resumable |
-| Label variants | antibiotic-only `sep3_alt` on MIMIC-IV, culture-paired on eICU (labels phase only): the item-10 sensitivity passes on saved predictions |
+| Label variant | antibiotic-only `sep3_alt` on MIMIC-IV (labels phase only): the item-10(a) sensitivity pass on saved predictions; the eICU culture-paired label (10b) was withdrawn on 2 Nov 2026 as not feasible |
 | Arms (section 11 order) | 1 project model `flat_osta` (dropout 0); 2 two-channel (physiology+host / practice) with zeroed, z-scored and quantile-mapped practice rows, the practice-only probe and the concept-grouped comparator; 3 pooled training (one normaliser per database) with eICU leave-hospital-out; 4 suspicion-anchored target (3 h, no utility; 6 h reading); 5 weakly supervised multi-task pretraining (arrival sepsis, SOFA components, treatment events) with zero-shot and 10 % fine-tune; 6 predictor sets (physiology path with/without host, shared physiology, baseline-relative/absolute/both); 7 label-stratified (documented, positive-unlabelled soft); 8 GRU-D, TCN, boosted trees, logistic; 9 exploratory SSL pair |
 | Seeds | 42, 7, 123 for arms 1-5; 42 for arms 6-9 (project-model seed spread reported as the yardstick) |
 | Policy | plain BCE; quantile operating point; persistence 2 h, all hours; abstention variants (reset / transparent / gated) on validation with the adoption rule |
@@ -126,7 +126,8 @@ Synthetic fixture numbers are meaningless as performance and are not shown.
 | Sections 4a, 4 and 4d use one rule: the YAIB environment is set up while a cohort OR a label variant is unfinished; 4d stops with a plain message if it is needed but was not set up | PASS | `dev/stage2/STAGE2_CODE_NOTES.md`, fix of 2 Nov 2026 |
 | Seven scenarios replayed on the rebuilt cells 8, 4a, 4 and 4d (including the 2 Nov state) | PASS | scenario harness, both `_14` and `_15` |
 | Cache-key modules (worker, v9_data, v10_features, v10_protocol, v11_data, v12_cohort, v12_data, feature_specs.json) unchanged; completed cohorts and label batches reused | PASS | embedded-module comparison with the previous build |
-| Top-to-bottom fixture run through a Jupyter kernel after the fix | PASS | rerun 2 Nov 2026 |""")
+| Top-to-bottom fixture run through a Jupyter kernel after the fix | PASS | rerun 2 Nov 2026 |
+| eICU culture-paired label variant withdrawn (item 10(b), not feasible: no culture record in the first label batches); `STAGE2_LABEL_VARIANTS = {'miiv':'abx'}`; scenario H (MIMIC-only variant complete, no environment needed) added | PASS | 8/8 scenarios; fixture reruns of the data-build copy and `_15` |""")
 for cl in cells:
     if cl['cell_type']=='code':ast.parse(''.join(cl['source']));cl['outputs']=[];cl['execution_count']=None
 nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24; extraction-environment fix 2 Nov 2026: scenario replay 7/7 and fixture rerun passed'}
