@@ -229,8 +229,9 @@ cat("RICU TABLE COMPLETE:", src, mode, "\n")
     ]
 
     for ds in YAIB_DATASETS:
-        if cohort_complete(ds) and not FORCE_YAIB_REEXTRACT:
-            print(ds, ': cohort already complete; ricu import skipped')
+        _pending = globals().get('stage2_extraction_pending') or (lambda d: (not cohort_complete(d)) or FORCE_YAIB_REEXTRACT)
+        if not _pending(ds):
+            print(ds, ': cohort (and label variant) already complete; ricu import skipped')
             continue
         if ds not in resolved_raw:
             raise FileNotFoundError(f'{ds}: raw source was not resolved')
@@ -310,4 +311,4 @@ cat("RICU TABLE COMPLETE:", src, mode, "\n")
         _validate_ricu_source(ds)
 
 else:
-    print('ricu import skipped because all cohorts already exist.')
+    print('ricu import skipped because all cohorts (and label variants) already exist.')

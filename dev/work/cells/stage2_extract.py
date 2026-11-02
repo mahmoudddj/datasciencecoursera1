@@ -3,10 +3,18 @@
 # two label VARIANTS (labels phase only, own caches) for the item-10 sensitivity passes.
 if DATA_SOURCE == 'clinical':
     from v12_cohort import extract_cohort_batched_v12
-    py_dir=COHORT_REPO/'Python';worker=py_dir/'v9_yaib_worker.py';worker.write_bytes((CODE_DIR/'v9_yaib_worker.py').read_bytes())
-    extract_env=YAIB_RUNTIME_ENV.copy()
-    extract_env.update({'RICU_DATA_PATH':str(RICU_MOUNT),'PYTHONPATH':str(py_dir),'PYTHONUNBUFFERED':'1','R_LIBS_USER':YAIB_R_LIB,'RENV_PROJECT':str(py_dir)})
-    if STAGE2_KEEP_EARLY_ONSET:extract_env['V12_KEEP_EARLY_ONSET']='1'
+    py_dir=COHORT_REPO/'Python';worker=py_dir/'v9_yaib_worker.py';extract_env=None
+    if any(stage2_extraction_pending(ds) for ds in DATASETS):
+        # Extraction work is left (a cohort or a label variant): the YAIB environment of Section 4a must exist in THIS session.
+        if not (py_dir/'renv'/'activate.R').is_file() or not globals().get('YAIB_RUNTIME_ENV') or 'YAIB_R_LIB' not in globals():
+            raise RuntimeError('Extraction is still needed but the YAIB environment was not set up in this session '
+                               '(Section 4a printed "skipped"?). Disconnect and delete the runtime, then use Run all. Nothing on Drive is affected.')
+        worker.write_bytes((CODE_DIR/'v9_yaib_worker.py').read_bytes())
+        extract_env=YAIB_RUNTIME_ENV.copy()
+        extract_env.update({'RICU_DATA_PATH':str(RICU_MOUNT),'PYTHONPATH':str(py_dir),'PYTHONUNBUFFERED':'1','R_LIBS_USER':YAIB_R_LIB,'RENV_PROJECT':str(py_dir)})
+        if STAGE2_KEEP_EARLY_ONSET:extract_env['V12_KEEP_EARLY_ONSET']='1'
+    else:
+        print('Cohorts and label variants are complete: no extraction in this session (YAIB environment not needed).')
     reuse_roots=[Path(p).expanduser() for p in STAGE2_REUSE_LABEL_ROOTS if Path(p).expanduser().is_dir()]
     for ds in DATASETS:
         if cohort_complete(ds) and not FORCE_YAIB_REEXTRACT:print('Reuse completed cohort:',ds);continue
@@ -21,7 +29,7 @@ if DATA_SOURCE == 'clinical':
     # ---- label variants (item 10a, 10b): labels phase only; onsets read from the batches' labels.parquet ----
     ALT_ONSETS={}
     for ds,si_mode in (STAGE2_LABEL_VARIANTS or {}).items():
-        vkey=signature({'cohort':COHORT_KEY,'si_mode':si_mode,'ds':ds})[:16];vroot=PROJECT/'cohorts_v9'/f'{COHORT_KEY}_variant_{vkey}'/'sepsis'/ds;vroot.mkdir(parents=True,exist_ok=True)
+        vroot=stage2_variant_root(ds,si_mode);vroot.mkdir(parents=True,exist_ok=True)
         if not (vroot/'variant_complete.json').is_file():
             ds_env=extract_env.copy();ds_env.update({'RICU_SRC_LOAD':ds,'V12_SI_MODE':si_mode})
             extract_cohort_batched_v12(ds,resolved_raw[ds],vroot,worker,YAIB_PYTHON,py_dir,ds_env,batch_size=COHORT_BATCH_STAYS,smoke_n=COHORT_PROTOCOL['candidate_n'],

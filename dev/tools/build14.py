@@ -18,7 +18,7 @@ def md(text):return {'cell_type':'markdown','metadata':{},'source':text.rstrip('
 # --- cell 3: embedded modules ---
 s3=src(3).splitlines();k=[i for i,l in enumerate(s3) if l.startswith('EMBEDDED_MODULES = ')][0]
 emb=ast.literal_eval(s3[k][len('EMBEDDED_MODULES = '):])
-for n in ['v12_manifest.py','v12_labels.py','v12_features.py','v12_data.py','v12_models.py','v12_evaluate.py','v12_train.py','v12_cohort.py','v12_fixture.py','v12_tests.py','v9_yaib_worker.py']:
+for n in ['v12_manifest.py','v12_labels.py','v12_features.py','v12_data.py','v12_models.py','v12_evaluate.py','v12_train.py','v12_cohort.py','v12_fixture.py','v12_tests.py','v9_yaib_worker.py','v9_environment_setup.py','v9_raw_import.py']:
     emb[n]=embed((M/n).read_bytes())
 s3[k]='EMBEDDED_MODULES = '+repr(emb);s3='\n'.join(s3)
 s3=rep(s3,"    if name.startswith(('v9_','v10_')):del sys.modules[name]","    if name.startswith(('v9_','v10_','v11_','v12_')):del sys.modules[name]")
@@ -64,6 +64,7 @@ c8=src(8)
 c8=rep(c8,"    COHORT_PROTOCOL={'version':'v9_balanced_2','raw':RAW_FINGERPRINTS,'yaib':YAIB_COHORTS_COMMIT,",
           "    COHORT_PROTOCOL={'version':'v12_all_comers' if STAGE2_KEEP_EARLY_ONSET else 'v9_balanced_2','raw':RAW_FINGERPRINTS,'yaib':YAIB_COHORTS_COMMIT,'stage2':{'keep_early_onset':STAGE2_KEEP_EARLY_ONSET},")
 c8=rep(c8,"print('Cohorts to build (smoke-capped label extraction):'","print('Cohorts to build (all comers; completed label batches of the earlier plans reused):'")
+c8=c8.rstrip('\n')+'\n'+(C/'stage2_pending.py').read_text().rstrip('\n')   # one rule for 4a, 4 and 4d: cohort OR label variant unfinished (2 Nov 2026)
 setsrc(8,c8)
 # --- cells 12, 14, 17-18, 19-20, 22 ---
 assert src(12).startswith("if DATA_SOURCE == 'clinical':\n    run_preserved('v9_extract_labels.py')"),src(12)[:80]
@@ -116,10 +117,19 @@ for i,cl in enumerate(cells):
 | Temporal validation and eICU leave-hospital-out on the fixture | SKIPPED by their event-count guards (printed) | both ran in the module check with lower guards |
 | Full-release label extraction with label-batch reuse, the label variants, the stage-2 supplement on real data | **NOT RUN** | no clinical data available to the preparer; nothing runs before the freeze |
 
-Synthetic fixture numbers are meaningless as performance and are not shown.""")
+Synthetic fixture numbers are meaningless as performance and are not shown.
+
+### Fix of 2 Nov 2026 (cohorts complete, label variants pending)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Sections 4a, 4 and 4d use one rule: the YAIB environment is set up while a cohort OR a label variant is unfinished; 4d stops with a plain message if it is needed but was not set up | PASS | `dev/stage2/STAGE2_CODE_NOTES.md`, fix of 2 Nov 2026 |
+| Seven scenarios replayed on the rebuilt cells 8, 4a, 4 and 4d (including the 2 Nov state) | PASS | scenario harness, both `_14` and `_15` |
+| Cache-key modules (worker, v9_data, v10_features, v10_protocol, v11_data, v12_cohort, v12_data, feature_specs.json) unchanged; completed cohorts and label batches reused | PASS | embedded-module comparison with the previous build |
+| Top-to-bottom fixture run through a Jupyter kernel after the fix | PASS | rerun 2 Nov 2026 |""")
 for cl in cells:
     if cl['cell_type']=='code':ast.parse(''.join(cl['source']));cl['outputs']=[];cl['execution_count']=None
-nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24'}
+nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24; extraction-environment fix 2 Nov 2026: scenario replay 7/7 and fixture rerun passed'}
 import nbformat
 _,nb=nbformat.validator.normalize(nb) if hasattr(nbformat.validator,'normalize') else (0,nb)
 out=R/'Sepsis_V11_Improved_MIMIC_eICU_14_stage2.ipynb'

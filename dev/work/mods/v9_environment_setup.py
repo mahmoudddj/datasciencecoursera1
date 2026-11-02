@@ -8,9 +8,11 @@ import os, sys, time, json, shutil, hashlib, subprocess, re
 import numpy as np
 import pandas as pd
 
+# Stage 2 (2 Nov 2026): a database also needs the environment while its label variant is unfinished.
+_extraction_pending = globals().get('stage2_extraction_pending') or (lambda ds: (not cohort_complete(ds)) or FORCE_YAIB_REEXTRACT)
 need_extract = (
     RUN_EXTRACTION
-    and any((not cohort_complete(ds)) or FORCE_YAIB_REEXTRACT for ds in YAIB_DATASETS)
+    and any(_extraction_pending(ds) for ds in YAIB_DATASETS)
 )
 print("Need YAIB extraction:", need_extract)
 
@@ -23,7 +25,7 @@ os.environ.update({'MAKEFLAGS':'-j1','CMAKE_BUILD_PARALLEL_LEVEL':'1','RENV_CONF
 
 
 if not need_extract:
-    print("Extraction environment setup skipped because cohorts already exist or RUN_EXTRACTION=False.")
+    print("Extraction environment setup skipped because cohorts (and label variants) already exist or RUN_EXTRACTION=False.")
 
 else:
     print("\n" + "=" * 72)
