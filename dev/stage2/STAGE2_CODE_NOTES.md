@@ -73,3 +73,16 @@ Every model, store and loss used by the primary target is the stage-1 code path 
 **Caches.** Unchanged: the cohort key depends on the worker hash (unchanged) and the data key on `v9_data`, `v10_features`, `v10_protocol`, `v11_data`, `v12_cohort`, `v12_data` and `feature_specs.json` (all unchanged). The finished cohorts, every label batch and the ricu imports are reused.
 
 **Checks before release.** (1) Seven scenarios replayed on the actual code of the rebuilt cells 8, 4a, 4 and 4d of both `_14` and `_15` with stubbed files: the 2 Nov state with the environment built (both variants run, labels phase only, all-comers switch passed, variant folders identical to the old formula); the same state without the environment (clear stop); everything complete without the environment (no extraction, onsets read); variants off; a fresh project (old behaviour); `FORCE_YAIB_REEXTRACT` (old behaviour); MIMIC variant done and eICU pending. All pass. (2) Embedded-module comparison with the previous notebooks: only `v9_environment_setup.py` and `v9_raw_import.py` changed; all cache-key modules identical. (3) Top-to-bottom fixture runs of both notebooks through a Jupyter kernel. Not testable here: the label-variant R worker on real data (it fails, if at all, in its first batch, within minutes).
+
+## Read-only check of 3 Nov 2026 (after the data build, before notebook 15)
+
+`Sepsis_V11_Improved_MIMIC_eICU_14_check_mappings.ipynb` (built by `dev/tools/make_check_mappings.py`) writes nothing and shows aggregates only.
+
+* **Part A.** Predictors mapped by name or pattern that found zero rows in the full data build (data key `7a70b04ae69347b0`):
+  eICU procalcitonin, D-dimer, NT-proBNP, high-flow oxygen, atrial fibrillation, capillary refill, skin colour, arterial line, dialysis catheter;
+  MIMIC procalcitonin and BNP. Also eICU predictors with no source mapped (urine dipstick, cardiac output, ScvO2). It lists the names
+  that exist in the raw tables, with row counts. This closes the open action of 19 Oct (handover: "fix zero-count mappings").
+* **Part B.** Cohort stays that are not in the feature index. The hourly grid starts at hour 1 (`build_sequence`), and a stay is kept only
+  with an eligible hour, so arrival stays with onset at or before hour 1 and non-septic stays followed for less than 7 hours are dropped.
+  The check counts both groups and any other missing stays.
+* Fixture test: a fake project with every table; all counts as constructed, including one planted unexplained missing stay; no file written.
