@@ -18,7 +18,8 @@ def md(text):return {'cell_type':'markdown','metadata':{},'source':text.rstrip('
 # --- cell 3: embedded modules ---
 s3=src(3).splitlines();k=[i for i,l in enumerate(s3) if l.startswith('EMBEDDED_MODULES = ')][0]
 emb=ast.literal_eval(s3[k][len('EMBEDDED_MODULES = '):])
-for n in ['v12_manifest.py','v12_labels.py','v12_features.py','v12_data.py','v12_models.py','v12_evaluate.py','v12_train.py','v12_cohort.py','v12_fixture.py','v12_tests.py','v9_yaib_worker.py','v9_environment_setup.py','v9_raw_import.py']:
+for n in ['v12_manifest.py','v12_labels.py','v12_features.py','v12_data.py','v12_models.py','v12_evaluate.py','v12_train.py','v12_cohort.py','v12_fixture.py','v12_tests.py','v9_yaib_worker.py','v9_environment_setup.py','v9_raw_import.py',
+          'v9_data.py','v9_models.py','v9_selftest.py','feature_specs.json']:   # last four: eICU mapping fix of 5 Nov 2026 (were taken unchanged from _12)
     emb[n]=embed((M/n).read_bytes())
 s3[k]='EMBEDDED_MODULES = '+repr(emb);s3='\n'.join(s3)
 s3=rep(s3,"    if name.startswith(('v9_','v10_')):del sys.modules[name]","    if name.startswith(('v9_','v10_','v11_','v12_')):del sys.modules[name]")
@@ -89,6 +90,7 @@ Built after stage 1b and the revised pathophysiology study, before the freeze. U
 | Policy | plain BCE; quantile operating point; persistence 2 h, all hours; abstention variants (reset / transparent / gated) on validation with the adoption rule |
 | Scoring passes | pre-treatment hours; documented vs undocumented strata; suspicion-label and alternative-label sensitivities; threshold transport per eICU hospital; MIMIC temporal validation by anchor-year group; lead versus the first antibiotic; transfer rows |
 | Training split | the retired observer bank's split joins training (70 % of development patients); recorded in `run_protocol.json` |
+| Predictors (5 Nov 2026) | 657: the arterial-line flag and its hours are dropped (no comparable definition across the databases); eICU high-flow oxygen, non-invasive ventilation and invasive airway are read from the oxygen-device fields, and eICU cardiac output, SvO2, urine WBC and the dialysis-catheter wording are mapped; cardiac output of 0 is dropped and MIMIC D-dimer in DDU is converted to FEU. Cohorts and labels are unchanged |
 
 ---
 """+src(1))
@@ -127,10 +129,19 @@ Synthetic fixture numbers are meaningless as performance and are not shown.
 | Seven scenarios replayed on the rebuilt cells 8, 4a, 4 and 4d (including the 2 Nov state) | PASS | scenario harness, both `_14` and `_15` |
 | Cache-key modules (worker, v9_data, v10_features, v10_protocol, v11_data, v12_cohort, v12_data, feature_specs.json) unchanged; completed cohorts and label batches reused | PASS | embedded-module comparison with the previous build |
 | Top-to-bottom fixture run through a Jupyter kernel after the fix | PASS | rerun 2 Nov 2026 |
-| eICU culture-paired label variant withdrawn (item 10(b), not feasible: no culture record in the first label batches); `STAGE2_LABEL_VARIANTS = {'miiv':'abx'}`; scenario H (MIMIC-only variant complete, no environment needed) added | PASS | 8/8 scenarios; fixture reruns of the data-build copy and `_15` |""")
+| eICU culture-paired label variant withdrawn (item 10(b), not feasible: no culture record in the first label batches); `STAGE2_LABEL_VARIANTS = {'miiv':'abx'}`; scenario H (MIMIC-only variant complete, no environment needed) added | PASS | 8/8 scenarios; fixture reruns of the data-build copy and `_15` |
+
+### Fix of 5 Nov 2026 (eICU mapping gaps found by the read-only checks of 3-5 Nov; decided before the freeze)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Arterial line dropped from both databases (657 predictors); eICU oxygen-device fields (high-flow nasal cannula, non-invasive ventilation, invasive airway), cardiac output (0 dropped, both databases), SvO2, urine WBC, dialysis-catheter wording; MIMIC D-dimer DDU x2 | PASS | `v9_selftest`: 4 new checks (eICU device fields with entry times, cardiac output/SvO2/urine WBC, dialysis wording and no arterial-line column, D-dimer units) |
+| Old vs new extraction on one schema-shaped fixture of both databases | PASS | MIMIC: only the arterial-line columns, cardiac output (the 0 value) and D-dimer (the DDU row) differ; eICU: only the fixed predictors and the columns derived from them (hours intubated, lab count, supplemental oxygen, NEWS2) |
+| Cohort key unchanged (worker untouched): cohorts, label batches and the MIMIC label variant are reused; the raw stage, both supplementary stages, features and the unlabelled corpus are rebuilt under new keys | PASS | embedded-module comparison |
+| Top-to-bottom fixture run of the data-build copy and `_15` | PASS | rerun 5 Nov 2026 |""")
 for cl in cells:
     if cl['cell_type']=='code':ast.parse(''.join(cl['source']));cl['outputs']=[];cl['execution_count']=None
-nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24; extraction-environment fix 2 Nov 2026: scenario replay 7/7 and fixture rerun passed'}
+nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24; extraction-environment fix 2 Nov 2026: scenario replay 7/7 and fixture rerun passed; eICU mapping fix 5 Nov 2026: 4 new extraction checks, old-vs-new extraction comparison, fixture reruns'}
 import nbformat
 _,nb=nbformat.validator.normalize(nb) if hasattr(nbformat.validator,'normalize') else (0,nb)
 out=R/'Sepsis_V11_Improved_MIMIC_eICU_14_stage2.ipynb'

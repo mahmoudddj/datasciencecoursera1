@@ -27,7 +27,7 @@ for g,fs in {'inflammatory':['Procalcitonin','Ferritin'],'hematologic':['DDimer'
              'respiratory':['PEEP','PF_Ratio','SF_Ratio']}.items():ORGAN_FEATURES[g]+=fs
 ORGAN_FEATURES['admission']=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
   'ICUType_Medical','ICUType_Surgical','ICUType_Cardiac','ICUType_Neuro','AdmitDx_Infection','AdmitDx_Operative']
-_dev=['Device_'+k for k in ['CentralLine','ArterialLine','DialysisCatheter','UrinaryCatheter','Drain']]
+_dev=['Device_'+k for k in ['CentralLine','DialysisCatheter','UrinaryCatheter','Drain']]   # ArterialLine dropped 5 Nov 2026
 ORGAN_FEATURES['infection_risk']=_dev+[d+'_Hours' for d in _dev]
 ORGAN_FEATURES['treatment']=['Med_'+k+'_24h' for k in ['Immunosuppressant','Chemotherapy','Corticosteroid','Hydrocortisone',
   'BetaBlocker','Antipyretic','Sedative','Opioid','Diuretic']]+['Imaging_24h']

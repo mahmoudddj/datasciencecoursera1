@@ -1897,7 +1897,15 @@
           "sub_var": "itemid"
         }
       ],
-      "eicu": []
+      "eicu": [
+        {
+          "ids": [
+            "WBC's in urine"
+          ],
+          "table": "lab",
+          "sub_var": "labname"
+        }
+      ]
     }
   },
   "Monocytes": {
@@ -2101,7 +2109,7 @@
   "CardiacOutput": {
     "concept": "co",
     "unit": "L/min",
-    "min": 0,
+    "min": 0.5,
     "max": 20,
     "sources": {
       "miiv": [
@@ -2114,7 +2122,13 @@
           "label_regex": "^cardiac output"
         }
       ],
-      "eicu": []
+      "eicu": [
+        {
+          "table": "vitalaperiodic",
+          "val_var": "cardiacoutput",
+          "class": "col_itm"
+        }
+      ]
     }
   },
   "ScvO2": {
@@ -2131,7 +2145,13 @@
           "label_regex": "scvo2|svo2|mixed venous"
         }
       ],
-      "eicu": []
+      "eicu": [
+        {
+          "ids": "SVO2",
+          "table": "nursecharting",
+          "sub_var": "nursingchartcelltypevalname"
+        }
+      ]
     }
   },
   "UrineNitrite": {

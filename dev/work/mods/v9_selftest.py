@@ -164,9 +164,10 @@ def run_selftests():
         pd.DataFrame({'stay_id':[1],'hadm_id':[10],'subject_id':[100],'intime':[T(0)],'outtime':[T(30)],'first_careunit':['Medical Intensive Care Unit (MICU)']}).to_csv(root/'icu/icustays.csv',index=False)
         pd.DataFrame({'subject_id':[100],'hadm_id':[10],'admittime':[T(-30)],'dischtime':[T(60)],'admission_location':['EMERGENCY ROOM']}).to_csv(root/'hosp/admissions.csv',index=False)
         pd.DataFrame({'subject_id':[100,100],'hadm_id':[10,10],'careunit':['Emergency Department','Medicine'],'intime':[T(-30),T(-20)]}).to_csv(root/'hosp/transfers.csv',index=False)
-        pd.DataFrame({'itemid':[225752,224263,225202,227194,225158,226361],'label':['Arterial Line','Multi Lumen','Foley Catheter Removed','Extubation','NaCl 0.9%','Pre-Admission Intake'],
-            'linksto':['procedureevents']*4+['inputevents']*2}).to_csv(root/'icu/d_items.csv',index=False)
-        pd.DataFrame({'stay_id':[1]*3,'itemid':[225752,224263,225202],'starttime':[T(2),T(5),T(3)],'storetime':[T(3),T(5),T(3)]}).to_csv(root/'icu/procedureevents.csv',index=False)
+        # 5 Nov 2026: the arterial line is no longer a predictor (item 999752 must not create one); the store-time check uses the dialysis catheter.
+        pd.DataFrame({'itemid':[225752,224263,225202,227194,225158,226361,999752],'label':['Dialysis Catheter','Multi Lumen','Foley Catheter Removed','Extubation','NaCl 0.9%','Pre-Admission Intake','Arterial Line'],
+            'linksto':['procedureevents']*4+['inputevents']*2+['procedureevents']}).to_csv(root/'icu/d_items.csv',index=False)
+        pd.DataFrame({'stay_id':[1]*4,'itemid':[225752,224263,225202,999752],'starttime':[T(2),T(5),T(3),T(2)],'storetime':[T(3),T(5),T(3),T(3)]}).to_csv(root/'icu/procedureevents.csv',index=False)
         pd.DataFrame({'hadm_id':[10]*4,'drug':['Tacrolimus','Metoprolol Tartrate','Hydrocortisone Cream 1%','Vancomycin'],'starttime':[T(1),T(4),T(2),T(1)]}).to_csv(root/'hosp/prescriptions.csv',index=False)
         pd.DataFrame({'stay_id':[1,1],'itemid':[225158,225158],'starttime':[T(1),T(6)],'endtime':[T(2),T(9)],'storetime':[T(2),T(9)],'amount':[500.,1000.],
             'amountuom':['ml','ml'],'ordercategoryname':['03-IV Fluid Bolus','02-Fluids (Crystalloids)'],'statusdescription':['FinishedRunning']*2,'rate':[0.,0.]}).to_csv(root/'icu/inputevents.csv',index=False)
@@ -178,7 +179,8 @@ def run_selftests():
         mv=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
         check('mimic_admission_context',mv.HospitalHoursBeforeICU.eq(30).all() and mv.AdmitSource_Ward.eq(1).all() and mv.AdmitSource_ED.eq(0).all()
               and mv.ICUType_Medical.eq(1).all() and mv.ICUType_Surgical.eq(0).all() and mv.AdmitDx_Infection.isna().all())
-        check('mimic_devices_from_store_time_removals_ignored',mv.Device_ArterialLine.tolist()[:4]==[0,0,1,1] and mv.Device_ArterialLine_Hours.iloc[3]==2
+        check('mimic_devices_from_store_time_removals_ignored',mv.Device_DialysisCatheter.tolist()[:4]==[0,0,1,1] and mv.Device_DialysisCatheter_Hours.iloc[3]==2
+              and 'Device_ArterialLine' not in mv.columns and 'Device_ArterialLine_Hours' not in mv.columns
               and mv.Device_CentralLine.iloc[4]==1 and mv.Device_UrinaryCatheter.eq(0).all())
         check('mimic_medications_24h_no_topical_no_antibiotic_feature',mv.Med_Immunosuppressant_24h.tolist()==[1.]*12 and mv.Med_BetaBlocker_24h.tolist()[2:4]==[0.,1.]
               and mv.Med_Hydrocortisone_24h.eq(0).all() and not any('ntibiot' in c and c!='PriorAntibiotics_90d' and not c.startswith('PriorAntibiotics_90d') for c in mv.columns))
@@ -196,6 +198,16 @@ def run_selftests():
             'celllabel':['NS','tube feeding','PRBC','Urine'],'cellvaluenumeric':[250,100,300,40]}).to_csv(root/'intakeOutput.csv',index=False)
         pd.DataFrame({'patientunitstayid':[1,1],'admitdxenteredoffset':[90,90],'admitdxpath':['admission diagnosis|Operative|Diagnosis|Cardiovascular|Valve replacement',
             'admission diagnosis|Was the patient admitted from the O.R. or went to the O.R. within 4 hours of admission?|Yes']}).to_csv(root/'admissionDx.csv',index=False)
+        # 5 Nov 2026: eICU oxygen-device fields, cardiac output (0 is a 'no value' placeholder), SvO2, urine WBC, dialysis catheter wording.
+        pd.DataFrame({'patientunitstayid':[1]*6,'respchartoffset':[60,300,420,540,60,60],'respchartentryoffset':[60,300,420,540,60,60],
+            'respchartvaluelabel':['O2 Device','O2 Device','O2 Device','Oxygen Delivery Method','Peak Flow','Oxygen Delivery Method'],
+            'respchartvalue':['High flow nasal cannula','Nasal cannula','Ventilator','High flow mask','300','7']}).to_csv(root/'respiratoryCharting.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1,1],'nursingchartcelltypecat':['Vital Signs','SVO2'],'nursingchartcelltypevallabel':['O2 Admin Device','SVO2'],
+            'nursingchartcelltypevalname':['O2 Admin Device','SVO2'],'nursingchartvalue':['BiPAP/CPAP','65'],'nursingchartoffset':[180,120],'nursingchartentryoffset':[240,130]}).to_csv(root/'nurseCharting.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1,1],'observationoffset':[60,120],'cardiacoutput':[0.,4.6]}).to_csv(root/'vitalAperiodic.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1],'labresultoffset':[120],'labresultrevisedoffset':[180],'labname':["WBC's in urine"],'labresult':['12'],'labmeasurenamesystem':['/hpf']}).to_csv(root/'lab.csv',index=False)
+        tr_=pd.read_csv(root/'treatment.csv');pd.concat([tr_,pd.DataFrame({'patientunitstayid':[1,1],'treatmentoffset':[240,240],
+            'treatmentstring':['renal|dialysis|insertion of venous catheter for hemodialysis','infectious diseases|procedures|vascular catheter placement|arterial']})]).to_csv(root/'treatment.csv',index=False)
         paths=RawExtractor('eicu',root,sel,td/'es',12).extract()
         meta=pd.read_parquet(td/'es/metadata.parquet').iloc[0].to_dict()
         es=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
@@ -204,6 +216,12 @@ def run_selftests():
         check('eicu_devices_imaging_from_treatments',es.Device_CentralLine.iloc[0]==1 and es.Device_UrinaryCatheter.tolist()[:2]==[0.,1.] and es.Imaging_24h.iloc[2]==1)
         check('eicu_medication_available_at_order_entry',es.Med_Sedative_24h.iloc[0]==1 and es.Med_Antipyretic_24h.tolist()[2:4]==[0.,1.])
         check('eicu_fluids_exclude_enteral_and_split_transfusion',es.FluidIn_6h.iloc[0]==250 and es.Transfusion_24h.tolist()[1:3]==[0.,300.])
+        check('eicu_oxygen_device_fields_high_flow_niv_airway',es.O2_HighFlow.tolist()[:10]==[1.,1,1,0,0,0,0,0,0,0] and es.O2_NIV.tolist()[:10]==[0.,0,0,1,0,0,0,0,0,0]
+              and es.Intubated.tolist()[:10]==[0.,0,0,0,0,0,1,1,0,0]
+              and pd.read_parquet(td/'es/airway.parquet').event_hour.eq(1).sum()==3)   # the '7' at hour 1 adds no row (the HFNC row gives 3)
+        check('eicu_cardiac_output_zero_dropped_svo2_urine_wbc',np.isnan(es.CardiacOutput.iloc[0]) and es.CardiacOutput.iloc[1]==4.6
+              and np.isnan(es.ScvO2.iloc[1]) and es.ScvO2.iloc[2]==65 and np.isnan(es.UrineWBC.iloc[1]) and es.UrineWBC.iloc[2]==12)
+        check('eicu_dialysis_catheter_wording_no_arterial_line',es.Device_DialysisCatheter.tolist()[2:4]==[0.,1.] and 'Device_ArterialLine' not in es.columns)
 
     # v10.5: text states, vasopressor dose, procedures, nutrition, stool, prior contact, lab changes, AKI (both databases).
     with tempfile.TemporaryDirectory() as td:
@@ -225,8 +243,8 @@ def run_selftests():
             'ordercategoryname':['01-Drips','01-Drips','01-Drips','10-Enteral Nutrition'],'statusdescription':['Changed','FinishedRunning','FinishedRunning','FinishedRunning']}).to_csv(root/'icu/inputevents.csv',index=False)
         pd.DataFrame({'stay_id':[1],'itemid':[225802],'starttime':[T(4)],'storetime':[T(4)]}).to_csv(root/'icu/procedureevents.csv',index=False)
         pd.DataFrame({'stay_id':[1,1,1],'itemid':[226559,226579,226588],'charttime':[T(1),T(2),T(3)],'storetime':[T(1),T(2),T(3)],'value':[50.,200.,120.],'valueuom':['mL']*3}).to_csv(root/'icu/outputevents.csv',index=False)
-        pd.DataFrame({'hadm_id':[10]*6,'itemid':[50912]*4+[51487,51486],'charttime':[T(-20),T(1),T(4),T(7),T(2),T(2)],'storetime':[T(-19),T(2),T(5),T(8),T(3),T(3)],
-            'valuenum':[1.,1.2,1.6,2.1,np.nan,np.nan],'value':['1.0','1.2','1.6','2.1','POS','NEG'],'valueuom':['mg/dL']*4+['','']}).to_csv(root/'hosp/labevents.csv',index=False)
+        pd.DataFrame({'hadm_id':[10]*7,'itemid':[50912]*4+[51487,51486,50915],'charttime':[T(-20),T(1),T(4),T(7),T(2),T(2),T(2)],'storetime':[T(-19),T(2),T(5),T(8),T(3),T(3),T(3)],
+            'valuenum':[1.,1.2,1.6,2.1,np.nan,np.nan,300.],'value':['1.0','1.2','1.6','2.1','POS','NEG','300'],'valueuom':['mg/dL']*4+['','','ng/mL DDU']}).to_csv(root/'hosp/labevents.csv',index=False)
         paths=RawExtractor('miiv',root,sel,td/'ms',12).extract()
         meta=pd.read_parquet(td/'ms/metadata.parquet').iloc[0].to_dict()
         mv=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**meta,'Age':60.,'Gender':1.},12,6)
@@ -241,9 +259,10 @@ def run_selftests():
               and np.isnan(mv.UrineNitrite.iloc[1]) and mv.DrainOutput_24h.iloc[2]==120 and mv.StoolRecords_24h.iloc[2]==1)
         check('mimic_perfusion_signs_prior_antibiotics',mv.CapRefill_Abnormal.tolist()[:4]==[1.,1,1,0] and mv.Skin_Abnormal.iloc[1]==1
               and mv.PriorAntibiotics_90d.eq(1).all())
+        check('mimic_ddimer_ddu_converted_to_feu',mv.DDimer.iloc[2]==600 and np.isnan(mv.DDimer.iloc[1]))
         check('mimic_height_bmi_iculos',mv.Height.eq(170).all() and np.isclose(mv.BMI.iloc[0],80/1.7**2) and mv.ICULOS.tolist()==list(range(1,13)))
         check('lab_changes_and_aki',np.isnan(mv.Creatinine_DeltaPrev.iloc[0]) and np.isclose(mv.Creatinine_DeltaPrev.iloc[1],.2) and np.isclose(mv.Creatinine_DeltaBaseline.iloc[4],.6)
-              and mv.AKI_Stage.tolist()[:8]==[0.,0.,0.,3.,3.,3.,3.,3.] and mv.LabResults_24h.iloc[7]==5)
+              and mv.AKI_Stage.tolist()[:8]==[0.,0.,0.,3.,3.,3.,3.,3.] and mv.LabResults_24h.iloc[7]==6)   # 6 since the D-dimer row of 5 Nov 2026
         cr=pd.DataFrame({'event_hour':[0.,10.,20.],'available_hour':[1.,11.,21.],'value':[1.,1.6,3.1]})
         st=aki_stage(cr,np.array([2.,12.,22.]),np.array([np.nan,.3,np.nan]),np.zeros(3))
         check('aki_creatinine_and_urine_criteria',st.tolist()==[0.,1.,3.])

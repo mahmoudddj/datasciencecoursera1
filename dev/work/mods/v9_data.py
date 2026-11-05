@@ -43,8 +43,10 @@ PRIMARY=BASE+SUPPORT+AIRWAY+STATES+RENAL+DERIVED+ADMISSION+PROPHYLAXIS
 # Documented exposures (0 = not documented by that hour; no masks), each from its own timestamp.
 DEVICE_PATTERNS={
  'CentralLine':r'multi lumen|picc|cordis|introducer|central (?:venous )?(?:line|catheter)|indwelling port|portacath|trauma line|swan|pulmonary artery catheter|pa catheter|tunneled|midline',
- 'ArterialLine':r'arterial line|art line|arterial catheter',
- 'DialysisCatheter':r'dialysis catheter|hemodialysis catheter|trialysis|quinton',
+ # ArterialLine dropped on 5 Nov 2026 (candidate's decision): no definition is comparable across the databases
+ # (MIMIC procedure events in many stays; eICU treatment entries in about 0.5 % of stays).
+ # 'catheter for hemodialysis': eICU treatment "insertion of venous catheter for hemodialysis" (check of 5 Nov 2026).
+ 'DialysisCatheter':r'dialysis catheter|hemodialysis catheter|catheter for hemodialysis|trialysis|quinton',
  'UrinaryCatheter':r'foley|urinary catheter|indwelling catheter|suprapubic|nephrostomy|urethral catheter',
  'Drain':r'chest tube|thoracostomy|pigtail|\bdrain\b|drainage catheter|jackson|\bjp\b|percutaneous drain'}
 DEVICE_EXCLUDE=r'remov|discontinu|\bdc\b|pulled|non-invasive|noninvasive'
@@ -144,6 +146,17 @@ PROCEDURE_AIRWAY_YES=r'^intubation$|^invasive ventilation$|tracheostomy'
 PROCEDURE_AIRWAY_NO=r'extubation'
 # eICU treatment entries (entered at treatmentoffset).
 EICU_TREATMENT_YES=r'mechanical ventilation|endotracheal|intubation|tracheostomy'
+# eICU oxygen-device fields (5 Nov 2026): respiratoryCharting 'O2 Device' / 'RETIRED O2 Device' / 'Oxygen Delivery Method'
+# (picklists) and nurseCharting 'O2 Admin Device' (free text). Read with the MIMIC O2-delivery-device rules: a high-flow
+# nasal cannula (not a high-flow mask or nebuliser), non-invasive ventilation, an invasive airway; any other device
+# recorded is 0 for high-flow and NIV, and an invasive airway is 0 only for a non-invasive device or room air.
+EICU_DEVICE_LABELS={'respiratorycharting':('respchartvaluelabel','respchartvalue','respchartoffset','respchartentryoffset',['O2 Device','RETIRED O2 Device','Oxygen Delivery Method']),
+                    'nursecharting':('nursingchartcelltypevallabel','nursingchartvalue','nursingchartoffset','nursingchartentryoffset',['O2 Admin Device'])}
+EICU_DEVICE_HFNC=r'high ?flow nasal|heated high ?flow|\bh?hfnc\b|high ?flow cannula|\bhigh[ -]?flow\b|\bhi[ -]?flow\b|vapotherm|optiflow|airvo'
+EICU_DEVICE_HFNC_NOT=r'(high|hi)[ -]?flow (face )?(mask|neb)'
+EICU_DEVICE_NIV=r'bi-?pap|cpap|\bniv\b|non-?invasive'
+EICU_DEVICE_AIRWAY_YES=r'ventilator|\bvent(ed)?\b|\bett\b|endotracheal|trach|\btc\b|\btm\b|t-piece'
+EICU_DEVICE_AIRWAY_NO=r'room ?air|\bra\b|\br/a\b|nasal|\bnc\b|cannula|canula|mask|bi-?pap|cpap|\bniv\b|high ?flow|\bhi[ -]?flow|hfnc|oxymizer|oximizer|face tent|non-?rebreather|venturi|aerosol|blow-by|\bnone\b'
 EICU_TREATMENT_NO=r'non-invasive|noninvasive|extubat'
 SITES=['urine','respiratory','abdominal','skin','cns','blood','device','other']
 PROXIES=['CultureTaken']+['SpecimenSite_'+s for s in SITES]
@@ -540,6 +553,20 @@ class RawExtractor:
               '' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
               FROM {tr} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id
               WHERE regexp_matches({text},{q(EICU_TREATMENT_YES+'|'+EICU_TREATMENT_NO)})''')
+        for stem,(lab,val,off,entry,labels) in [('respiratoryCharting',EICU_DEVICE_LABELS['respiratorycharting']),('nurseCharting',EICU_DEVICE_LABELS['nursecharting'])]:
+            raw=self.csv(stem)
+            if raw is None or not {lab,val,off,entry}<=self.cols(raw):continue
+            text=f"lower(trim(coalesce(x.{val},'')))";eh=f'TRY_CAST(x.{off} AS DOUBLE)/60'
+            ah=f'CASE WHEN TRY_CAST(x.{entry} AS DOUBLE) IS NOT NULL THEN greatest({eh},TRY_CAST(x.{entry} AS DOUBLE)/60) END'
+            values=[('Intubated',f"CASE WHEN regexp_matches({text},{q(EICU_DEVICE_AIRWAY_YES)}) THEN 1.0 WHEN regexp_matches({text},{q(EICU_DEVICE_AIRWAY_NO)}) THEN 0.0 END"),
+                    ('O2_HighFlow',f"CASE WHEN regexp_matches({text},{q(EICU_DEVICE_HFNC)}) AND NOT regexp_matches({text},{q(EICU_DEVICE_HFNC_NOT)}) THEN 1.0 WHEN regexp_matches({text},'[a-z]') THEN 0.0 END"),
+                    ('O2_NIV',f"CASE WHEN regexp_matches({text},{q(EICU_DEVICE_NIV)}) THEN 1.0 WHEN regexp_matches({text},'[a-z]') THEN 0.0 END")]
+            # A value without a letter (e.g. '7' under 'Oxygen Delivery Method') names no device: unknown, not 0.
+            parts.append(f'''SELECT s.stay_id,{eh} event_hour,{ah} available_hour,m.feature,m.value AS "value",
+              '' unit,'state' kind,CAST(NULL AS DOUBLE) end_hour
+              FROM {raw} x JOIN stays s ON TRY_CAST(x.patientunitstayid AS BIGINT)=s.stay_id,
+              LATERAL (VALUES {','.join(f'({q(f)},{v})' for f,v in values)}) m(feature,value)
+              WHERE x.{lab} IN ({','.join(q(l) for l in labels)})''')
         if tr and {'treatmentstring','treatmentoffset'}<=self.cols(tr):
             for feat,pattern in [('O2_NIV','non-invasive ventilation|bipap|cpap'),('O2_HighFlow','high flow')]:
                 parts.append(f'''SELECT s.stay_id,TRY_CAST(x.treatmentoffset AS DOUBLE)/60 event_hour,
@@ -913,7 +940,8 @@ def normalize_events(d):
     d.loc[f.eq('FiO2')&d.value.between(.2,1),'value']*=100
     # eICU reports ionized calcium in mg/dL (~4-5); the channel is mmol/L (same 4x factor as total Calcium).
     for name,factor,units in [('Calcium',4.,['mmol/l']),('CalciumIonized',.25,['mg/dl']),('Magnesium',1/1.215,['meq/l']),('CRP',10.,['mg/dl']),
-                              ('Weight',.45359237,['lbs','lb']),('TroponinT',.001,['ng/l']),('TroponinI',.001,['ng/l'])]:
+                              ('Weight',.45359237,['lbs','lb']),('TroponinT',.001,['ng/l']),('TroponinI',.001,['ng/l']),
+                              ('DDimer',2.,['ng/mlddu'])]:   # MIMIC item 52551 is in D-dimer units; 1 DDU = 2 FEU (5 Nov 2026)
         d.loc[f.eq(name)&u.isin(units),'value']*=factor
     # Reject known incompatible units instead of accepting by numeric appearance.
     allowed={

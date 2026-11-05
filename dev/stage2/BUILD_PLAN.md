@@ -44,3 +44,5 @@ The consultants' three answers (alarm budget, course definition, threshold form)
 |---|---|---|---|---|
 | 16 | Full-release pathophysiology repeat on the all-comers data build (`_15_pathophysiology_full`; early-onset stays from the cohort index, arrival stays from the corpus) | `pathophys_15.py`, `build15.py` | 10c.1, section 11 step 1 | done 1 Nov (fixture run passed, 251 s) |
 | 17 | Data-build-only mode and the freeze gate in `_14_stage2`; `freeze_record.py`; runbook | cells, `dev/tools/freeze_record.py`, `RUNBOOK.md` | section 11 steps 1-4 | done 1 Nov |
+
+**5 Nov 2026.** The full data build (data key `7a70b04ae69347b0`) is superseded by the eICU mapping fix (arterial line dropped, 657 predictors; `STAGE2_CODE_NOTES.md`, fix of 5 Nov). Cohorts, label batches and the MIMIC label variant are reused; the raw stage, both supplementary stages, the hourly features and the unlabelled corpus are rebuilt by one run of the data-build copy.

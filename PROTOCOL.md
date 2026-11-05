@@ -89,6 +89,20 @@ YAIB ends a septic stay's follow-up at onset + 6 h and caps every stay at 7 days
 - Because the label looks 6 h ahead, a stay whose onset falls between 120 and 126 h has positive hours inside the window and counts as septic. A stay with a later onset counts as non-septic.
 - Post-onset hours are kept in the data but are not scored hours. The utility function still scores them, as the official scorer does, and the primary loss uses the onset hour and the 3 hours after it (Section 8).
 
+**Stage-2 full releases: cohort and feature index (data build of 3 Nov 2026, cohort `e2dbca97e122e6bc`; read-only check, recorded 5 Nov 2026).** The index holds the stays with at least one scored hour. The grid starts at hour 1, so hour 1 must be before onset, and a stay without onset needs at least 7 h of follow-up.
+
+| | MIMIC-IV | eICU |
+|---|---|---|
+| Raw ICU stays | 94,458 | 200,859 |
+| Cohort (YAIB exclusions; exclusion 7 not applied) | 92,969 | 138,292 |
+| Feature index | 86,223 | 124,262 |
+| Not in the index: no onset, follow-up under 7 h | 288 | 1,491 |
+| Not in the index: onset at or before ICU hour 1 | 6,458 | 12,517 |
+| Not in the index: onset more than 6 h after the recorded follow-up ends | 0 | 22 |
+| Arrival sepsis in the cohort (onset before hour 6) | 9,938 | 14,887 |
+
+*Arrival sepsis in the index* therefore means onset after ICU hour 1 and before hour 6 (MIMIC-IV 3,480 stays, eICU 2,370); it is 35 % and 16 % of all arrival sepsis. Stays septic at or before hour 1 have no scored hour. They enter the pathophysiology study through the unlabelled corpus (Section 10c.1, *septic on arrival*), and the pretraining corpus as inputs whose arrival target is unknown (it is set only for index stays). The primary incident cohort is not affected.
+
 ## 5. Splits and the sealed holdout
 
 1. **Protected holdout (20 % of patients).** A patient is protected if `int(sha256('sepsis-final-v1|' + pid).hexdigest()[:8], 16) mod 5 == 0`.
@@ -114,7 +128,24 @@ YAIB ends a septic stay's follow-up at onset + 6 h and caps every stay at 7 days
 
 ## 6. Predictors
 
-There are **659 predictors**: the V10.5 set of 655 plus the two prophylaxis features and their masks (`v9_data.py:41-42, 1166-1167`). Some are always missing in eICU because eICU does not record them: prophylaxis and the earlier-admission history. They include 257 "measured?" masks and 94 "how old?" age channels.
+There are **657 predictors**: the V10.5 set of 655 plus the two prophylaxis features and their masks (`v9_data.py:41-42, 1166-1167`), less the arterial-line flag and its hours. They include 257 "measured?" masks and 94 "how old?" age channels.
+
+**Arterial line dropped (5 Nov 2026, candidate's decision, before the freeze).** No definition is comparable across the databases. MIMIC-IV documents line placement as a procedure in many stays; eICU has the treatment entry in about 0.5 % of stays, and these barely overlap with the stays that chart an arterial-line pressure. The flag records a clinician's decision more than physiology, and the arterial pressures themselves remain predictors.
+
+**Checked against the full raw releases (read-only aggregate checks, 3-5 Nov 2026; `dev/stage2/STAGE2_CODE_NOTES.md`).** Every predictor that found no row in the full data build was traced to the raw tables.
+
+- *Mapping fixed before the freeze (5 Nov 2026):*
+  - eICU high-flow oxygen, non-invasive ventilation and invasive airway are read from the oxygen-device fields (respiratory charting and nurse charting), with the MIMIC-IV rules; before, they came from treatment entries only, and intubation status was known in about 20 % of eICU stays against 98 % in MIMIC-IV.
+  - eICU cardiac output (periodic vitals), SvO2 (nurse charting), urine WBC (laboratory) and the hemodialysis-catheter wording are mapped.
+  - A cardiac output of 0 is dropped in both databases (an eICU "no value" placeholder in at least 5 % of values).
+  - MIMIC-IV D-dimer in DDU is converted to FEU (×2; one item, 194 rows).
+- *Recorded in one database only (unknown in the other):*
+  - MIMIC-IV only: prophylactic antibiotics; earlier healthcare contact (admissions in the past year, days since last discharge, earlier positive cultures, antibiotics in the past 90 days, admission from a nursing facility, prior sepsis); urine nitrite and leukocyte esterase; capillary refill; skin colour; atrial fibrillation; D-dimer; NT-proBNP.
+  - eICU only: the admitting diagnosis (infection, operative); BNP; troponin I.
+  - Neither: procalcitonin.
+- *Recorded differently:* timing (MIMIC-IV store time; eICU entry time, monitor time for vital signs); monitor-streamed eICU vital signs against nurse-charted MIMIC-IV values, so measurement frequency and the age channels differ; comorbidities from earlier admissions' codes (MIMIC-IV) against entries made during the stay (eICU); medication start against order entry, with incomplete eICU medication tables in some hospitals; more missing values in eICU (mean 62 % against 54 %).
+
+The last two groups are the practice and recording differences the two-channel design measures; the label difference (Section 4) is the one artefact that stays, as a stated limitation.
 
 **Availability and causality** (`v9_data.py:383-457`):
 
@@ -152,7 +183,7 @@ There are **659 predictors**: the V10.5 set of 655 plus the two prophylaxis feat
   - renal replacement; bronchoscopy;
   - fluids and transfusion; parenteral and enteral nutrition;
   - drug classes, each recorded in the last 24 h: immunosuppressants, chemotherapy, corticosteroids, stress-dose hydrocortisone, beta-blockers, antipyretics, sedatives, opioids, diuretics, proton-pump inhibitors, insulin and anticoagulants.
-- **Devices** (flagged from first documentation onward): central, arterial and dialysis lines; urinary catheters; drains.
+- **Devices** (flagged from first documentation onward): central and dialysis lines; urinary catheters; drains (the arterial line was dropped on 5 Nov 2026).
 - **Context and history:**
   - hours in hospital before ICU; admission source; ICU type;
   - prior ICU stays in the same admission;
@@ -176,9 +207,9 @@ There are **659 predictors**: the V10.5 set of 655 plus the two prophylaxis feat
 
 | Set | Content | Arms |
 |---|---|---|
-| Rich (primary) | All 659 predictors | All arms |
+| Rich (primary) | All 657 predictors | All arms |
 | Raw | 267 columns: the 83 specified measurement channels plus GCS, weight, age, sex, vasopressor and inotrope flags and urine output, with masks and ages | OSTA, logistic regression, boosted trees |
-| No proxies | The rich set without hydrocortisone, imaging orders and the two prophylaxis features (653 columns), which may encode the team's existing suspicion | OSTA only |
+| No proxies | The rich set without hydrocortisone, imaging orders and the two prophylaxis features (651 columns), which may encode the team's existing suspicion | OSTA only |
 
 The eICU admitting-diagnosis features stay in the no-proxy set.
 
@@ -451,7 +482,7 @@ Stage-2 settings: `STAGE_1B=False`; project model `flat_osta` with input dropout
 ### 10c.2 Consequences for stage 2 (prespecified here; TO FREEZE with Section 11)
 
 1. **All-comers cohort.** The stage-2 cohort keeps YAIB exclusions 1 to 6 and drops exclusion 7: stays with onset before the sixth ICU hour (including before admission) stay in the cohort. Their hours before onset, if any, are scored as now; their hours from onset to onset + 6 h carry the positive label; later hours are not scored. The warning model is trained on all comers. **The primary evaluation stays the incident cohort** (onset at or after 6 h), reported exactly as in stage 1 so that it remains comparable with Section 10 and with the literature. The all-comers evaluation is a prespecified secondary, reported stratified: incident, arrived septic, controls. This makes the model learn sepsis physiology from every septic patient and tests it on the patients who can be warned.
-2. **Predictor-set arms.** Beside the full 659-predictor set: (a) *physiology only*, defined by class from the feature registry (raw measurements, derived criteria and ratios, renal windows, handcrafted physiology features, with their masks and ages, age and sex; no exposures, devices, medications, imaging, fluids, charted states, admission context, comorbidity flags or prophylaxis); (b) *shared physiology*, the channels the 10c.1 rule marks shared in the pre-onset comparisons C2, C2b, C2a or C6, applied to (a) (first run: albumin, heart rate, lymphocytes, neutrophil-to-lymphocyte ratio, PTT, respiratory rate, temperature and its 24-hour maximum, pH, qSOFA and NEWS2 among measured; 31 columns with masks and ages; recomputed on the full-release repeat and fixed at the freeze); (c) variant of (a) without the mask and age channels, to measure how much of home performance is charting practice. Judged by transfer and leave-hospital-out as well as at home.
+2. **Predictor-set arms.** Beside the full 657-predictor set: (a) *physiology only*, defined by class from the feature registry (raw measurements, derived criteria and ratios, renal windows, handcrafted physiology features, with their masks and ages, age and sex; no exposures, devices, medications, imaging, fluids, charted states, admission context, comorbidity flags or prophylaxis); (b) *shared physiology*, the channels the 10c.1 rule marks shared in the pre-onset comparisons C2, C2b, C2a or C6, applied to (a) (first run: albumin, heart rate, lymphocytes, neutrophil-to-lymphocyte ratio, PTT, respiratory rate, temperature and its 24-hour maximum, pH, qSOFA and NEWS2 among measured; 31 columns with masks and ages; recomputed on the full-release repeat and fixed at the freeze); (c) variant of (a) without the mask and age channels, to measure how much of home performance is charting practice. Judged by transfer and leave-hospital-out as well as at home.
 3. **Weakly supervised multi-task pretraining (revised 31 Oct 2026; formerly recognition-to-anticipation).** The pooled encoder is first trained on cheap clinical targets that are label-free with respect to the warning target: sepsis present at ICU arrival (the arrived-septic stays against non-septic stays), the six SOFA components, and treatment events in the next 6 h (vasopressor start, invasive ventilation, antibiotic start); the warning model is then trained on the cohort from that encoder. Evaluated zero-shot on the other database and with a 10 % target-site fine-tune. Basis: the pre-freeze review (`dev/literature/PRE_FREEZE_REVIEW.md`, item 2.5): generic masked or forecasting pretraining gives at most 0.01 AUROC at our data size, which matches Section 10; weakly supervised multi-task pretraining and pooled training are the better-supported levers. This does not reopen rule 10b.2.1, which rejected organ heads as auxiliary losses during supervised training of the warning model. One arm beside the generic masked arm of the shortlist; a pure contrastive arm is not run (no cross-site evidence in sepsis, small within-site gains, medium build cost).
 4. **Build consequence.** Dropping exclusion 7 changes the cohort key; labels are reused (the label batches cover every candidate), the cohort step reruns, and features are built for the added stays. Recorded here before any stage-2 result exists.
 5. **Arrival stays in training (added 30 Oct 2026).** Arrival and early-onset stays enter training only through the all-comers cohort of item 1 and the recognition pretraining of item 3; the primary evaluation remains incident-only, the all-comers evaluation stratified. The recognition pretraining arm is judged by its effect on the incident warning, not assumed to help: the first pathophysiology run showed that arrivals present treated, established sepsis (more organ dysfunction, acidosis and vasopressors; a lower temperature maximum), which is not the state a warning model must learn.

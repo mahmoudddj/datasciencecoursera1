@@ -100,3 +100,21 @@ Every model, store and loss used by the primary target is the stage-1 code path 
 * Decision of the candidate (5 Nov 2026): fix the eICU mapping gaps before the freeze. Second read-only check
   (`..._14_check_mappings2.ipynb`, `dev/tools/make_check_mappings2.py`) gives the value formats, units, ranges and timing columns
   for the fix, the eICU atrial-fibrillation sources, the MIMIC D-dimer units per item and the 22 eICU stays.
+
+## Fix of 5 Nov 2026 (eICU mapping gaps; arterial line dropped)
+
+Decided by the candidate on 5 Nov 2026, before the freeze, from the second read-only check:
+
+| Item | Change | Where |
+|---|---|---|
+| Arterial line | dropped from both databases (`Device_ArterialLine`, `Device_ArterialLine_Hours`): no comparable definition; 657 predictors | `v9_data.DEVICE_PATTERNS`, `v9_models` organ map |
+| eICU high-flow oxygen, NIV, invasive airway | read from respiratoryCharting `O2 Device` / `RETIRED O2 Device` / `Oxygen Delivery Method` and nurseCharting `O2 Admin Device` (entry time), with the MIMIC rules: high-flow nasal cannula (not mask or nebuliser); BiPAP/CPAP/NIV; ventilator/ETT/trach yes, other devices or room air no; a value without a letter (e.g. `7` under `Oxygen Delivery Method`) names no device and stays unknown | `v9_data.RawExtractor.airway`, `EICU_DEVICE_*` |
+| eICU dialysis catheter | pattern adds `catheter for hemodialysis` | `DEVICE_PATTERNS` |
+| eICU cardiac output, SvO2, urine WBC | vitalAperiodic `cardiacoutput`; nurseCharting `SVO2`; lab `WBC's in urine` | `feature_specs.json` |
+| Cardiac output of 0 | dropped in both databases (minimum 0.5 L/min) | `feature_specs.json` |
+| MIMIC D-dimer in DDU | ×2 to FEU (item 52551, 194 rows) | `v9_data.normalize_events` |
+| Unknown in eICU, documented | atrial fibrillation (physical exam has only "dysrhythmia/irregular"), capillary refill, skin colour, procalcitonin, D-dimer, NT-proBNP, nitrite, leukocyte esterase, nursing-facility admission | PROTOCOL.md Section 6 |
+
+Verification: `v9_selftest` 4 new checks (231 stage-1 checks pass; 64 stage-2 checks pass); old-vs-new extraction on one schema-shaped fixture of both databases differs only in the intended and derived columns; `_14`, the data-build copy and `_15` differ from the previous build only in these four embedded files and the markdown records; extraction-pending scenarios pass for all three. Keys: the cohort key is unchanged (worker untouched); `RAW_STAGE_KEY` (SPEC and extractor source), both supplement keys, `DATA_KEY` and the corpus key change, so one data-build run rebuilds the raw stage, supplements, features and corpus and reuses cohorts and labels.
+
+Open design point (not changed): the weak `arrival` pretraining target is set only for index stays, so it learns from arrival stays with onset after hour 1; arrival stays with onset at or before hour 1 sit in the corpus with the target unknown.
