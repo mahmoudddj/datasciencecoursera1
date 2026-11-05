@@ -168,11 +168,16 @@ print('Arrival sepsis (onset before hour 6) in the cohort:',{ds:mask(int(G[(G.da
 
 END = r'''print('CHECK COMPLETE (read-only; nothing was written). Download this notebook and send it back.')'''
 
-nb = nbf.v4.new_notebook()
-nb.cells = [nbf.v4.new_markdown_cell(INTRO), nbf.v4.new_code_cell(SETUP), nbf.v4.new_code_cell(EICU),
-            nbf.v4.new_code_cell(MIMIC), nbf.v4.new_code_cell(GAP), nbf.v4.new_code_cell(END)]
-nb.metadata = {'kernelspec': {'name': 'python3', 'display_name': 'Python 3'}, 'language_info': {'name': 'python'},
-               'colab': {'provenance': []}}
-nbf.validate(nb)
-nbf.write(nb, OUT)
-print('wrote', OUT)
+def write(cells, out):
+    nb = nbf.v4.new_notebook()
+    nb.cells = cells
+    nb.metadata = {'kernelspec': {'name': 'python3', 'display_name': 'Python 3'}, 'language_info': {'name': 'python'},
+                   'colab': {'provenance': []}}
+    nbf.validate(nb)
+    nbf.write(nb, out)
+    print('wrote', out)
+
+
+if __name__ == '__main__':
+    write([nbf.v4.new_markdown_cell(INTRO), nbf.v4.new_code_cell(SETUP), nbf.v4.new_code_cell(EICU),
+           nbf.v4.new_code_cell(MIMIC), nbf.v4.new_code_cell(GAP), nbf.v4.new_code_cell(END)], OUT)

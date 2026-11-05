@@ -86,3 +86,17 @@ Every model, store and loss used by the primary target is the stage-1 code path 
   with an eligible hour, so arrival stays with onset at or before hour 1 and non-septic stays followed for less than 7 hours are dropped.
   The check counts both groups and any other missing stays.
 * Fixture test: a fake project with every table; all counts as constructed, including one planted unexplained missing stay; no file written.
+
+## Results of the 3 Nov check and the decision of 5 Nov 2026
+
+* Truly absent (documented as unknown, no fix): eICU procalcitonin, D-dimer, NT-proBNP, urine nitrite and leukocyte esterase,
+  capillary refill, skin colour, admission from a nursing facility; MIMIC-IV procalcitonin, BNP, troponin I (670 rows in the whole
+  release, none in the cohort windows).
+* Present in eICU but missed by the mapping: high-flow oxygen (respiratoryCharting O2 device), arterial line (treatment
+  "vascular catheter placement|arterial", nurse-charted arterial-line MAP), dialysis catheter (treatment "insertion of venous catheter
+  for hemodialysis"), cardiac output (vitalAperiodic), SvO2 (nurseCharting), urine WBC (lab "WBC's in urine"). Atrial fibrillation open.
+* Stays missing from the index: MIMIC 6,746 (6,458 onset at or before hour 1; 288 non-septic with follow-up under 7 h); eICU 14,030
+  (12,517; 1,491; and 22 with onset at or after hour 6).
+* Decision of the candidate (5 Nov 2026): fix the eICU mapping gaps before the freeze. Second read-only check
+  (`..._14_check_mappings2.ipynb`, `dev/tools/make_check_mappings2.py`) gives the value formats, units, ranges and timing columns
+  for the fix, the eICU atrial-fibrillation sources, the MIMIC D-dimer units per item and the 22 eICU stays.
