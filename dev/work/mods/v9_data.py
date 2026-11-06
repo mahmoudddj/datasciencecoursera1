@@ -28,6 +28,16 @@ STATES=['O2_HighFlow','O2_NIV','Delirium','Rhythm_AF','CapRefill_Abnormal','Skin
 # Lab change features (latest minus previous result; latest minus first result of the stay).
 DELTA_LABS=['Lactate','Creatinine','Platelets','WBC','Bilirubin_total','BUN','CRP','Procalcitonin','pH','HCO3','Hgb','Albumin']
 DERIVED+=['NLR','BMI','SupplementalO2','NetBalance_24h','ICULOS','AKI_Stage']+[f'{l}_DeltaPrev' for l in DELTA_LABS]+[f'{l}_DeltaBaseline' for l in DELTA_LABS]
+# 6 Nov 2026 (candidate's decision): one concept per pair of assays that measure the same quantity on different scales, so
+# the signal can cross databases (MIMIC-IV records troponin T and NT-proBNP; eICU mostly troponin I and BNP). The raw
+# channels stay. 1 = the latest known result (24 h) of either assay is above its decision limit; 0 = at least one is known
+# and none is above; unknown if neither is known. Limits, fixed before any result (no per-site reference range exists in eICU):
+#   troponin T 0.01 ng/mL: 99th-percentile/decision limit of the conventional assay used in US hospitals before the
+#     high-sensitivity assay was approved in 2017 (eICU 2014-2015; MIMIC-IV reports troponin T in ng/mL);
+#   troponin I 0.04 ng/mL: a common decision limit of contemporary assays (assays differ, about 0.01-0.06, across hospitals);
+#   BNP 100 pg/mL and NT-proBNP 300 pg/mL: the acute rule-out levels of the ESC heart-failure guideline.
+CONCEPT_LIMITS={'Troponin_AboveLimit':[('TroponinT',.01),('TroponinI',.04)],'NatriureticPeptide_AboveLimit':[('BNP',100.),('NTproBNP',300.)]}
+DERIVED+=list(CONCEPT_LIMITS)
 # v10.4 (user: include every feature that could predict sepsis). Admission context is known at
 # ICU admission; the admitting diagnosis (eICU admissionDx) from its entry time (MIMIC-IV has none).
 ADMISSION=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
@@ -1177,6 +1187,11 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
     o2=np.where((d.FiO2>21)|(d.O2Flow>0)|d.Intubated.eq(1)|d.O2_NIV.eq(1)|d.O2_HighFlow.eq(1),1.,
                 np.where(d.FiO2.eq(21)|d.O2Flow.eq(0),0.,np.nan))
     new['SupplementalO2']=o2
+    for name,pairs in CONCEPT_LIMITS.items():
+        known=np.zeros(len(d),bool);above=np.zeros(len(d),bool)
+        for col,limit in pairs:
+            v=d[col].to_numpy(dtype=float);known|=np.isfinite(v);above|=np.isfinite(v)&(v>limit)
+        new[name]=np.where(above,1.,np.where(known,0.,np.nan))
     new['NetBalance_24h']=new['FluidIn_24h']-d.UrineOutput_24h.to_numpy()
     new['ICULOS']=hours.copy()
     for l in DELTA_LABS:new[l+'_DeltaPrev'],new[l+'_DeltaBaseline']=lab_changes(ev(l),hours)

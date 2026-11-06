@@ -260,6 +260,12 @@ def run_selftests():
         check('mimic_perfusion_signs_prior_antibiotics',mv.CapRefill_Abnormal.tolist()[:4]==[1.,1,1,0] and mv.Skin_Abnormal.iloc[1]==1
               and mv.PriorAntibiotics_90d.eq(1).all())
         check('mimic_ddimer_ddu_converted_to_feu',mv.DDimer.iloc[2]==600 and np.isnan(mv.DDimer.iloc[1]))
+        # 6 Nov 2026: troponin and natriuretic-peptide concepts across assays (limits 0.01/0.04 ng/mL, 100/300 pg/mL).
+        cev=pd.DataFrame({'stay_id':1,'event_hour':[1.,3.,5.,2.,6.],'available_hour':[1.,3.,5.,2.,6.],'feature':['TroponinT','TroponinT','TroponinI','NTproBNP','BNP'],
+            'value':[.005,.02,.03,250.,150.],'unit':['ng/mL','ng/mL','ng/mL','pg/mL','pg/mL'],'kind':'state','end_hour':np.nan})
+        cs=build_sequence(normalize_events(cev),{**meta,'Age':60.,'Gender':1.},12,6)
+        check('troponin_and_natriuretic_peptide_above_limit_concepts',cs.Troponin_AboveLimit.tolist()[:6]==[0.,0.,1.,1.,1.,1.]
+              and np.isnan(cs.NatriureticPeptide_AboveLimit.iloc[0]) and cs.NatriureticPeptide_AboveLimit.tolist()[1:6]==[0.,0.,0.,0.,1.])
         check('mimic_height_bmi_iculos',mv.Height.eq(170).all() and np.isclose(mv.BMI.iloc[0],80/1.7**2) and mv.ICULOS.tolist()==list(range(1,13)))
         check('lab_changes_and_aki',np.isnan(mv.Creatinine_DeltaPrev.iloc[0]) and np.isclose(mv.Creatinine_DeltaPrev.iloc[1],.2) and np.isclose(mv.Creatinine_DeltaBaseline.iloc[4],.6)
               and mv.AKI_Stage.tolist()[:8]==[0.,0.,0.,3.,3.,3.,3.,3.] and mv.LabResults_24h.iloc[7]==6)   # 6 since the D-dimer row of 5 Nov 2026

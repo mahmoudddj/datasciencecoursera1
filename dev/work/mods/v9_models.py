@@ -23,7 +23,7 @@ ORGAN_FEATURES={
    'Comorbidity_chronic_organ_insufficiency']}
 # v10.4 additions.
 for g,fs in {'inflammatory':['Procalcitonin','Ferritin'],'hematologic':['DDimer','RDW'],'hepatic':['Lipase'],
-             'metabolic':['LDH','AnionGap'],'cardiovascular':['BNP','NTproBNP','CVP','FluidIn_6h','FluidIn_24h','Transfusion_24h'],
+             'metabolic':['LDH','AnionGap'],'cardiovascular':['BNP','NTproBNP','NatriureticPeptide_AboveLimit','Troponin_AboveLimit','CVP','FluidIn_6h','FluidIn_24h','Transfusion_24h'],
              'respiratory':['PEEP','PF_Ratio','SF_Ratio']}.items():ORGAN_FEATURES[g]+=fs
 ORGAN_FEATURES['admission']=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
   'ICUType_Medical','ICUType_Surgical','ICUType_Cardiac','ICUType_Neuro','AdmitDx_Infection','AdmitDx_Operative']
