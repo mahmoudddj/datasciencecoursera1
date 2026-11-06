@@ -90,7 +90,7 @@ Built after stage 1b and the revised pathophysiology study, before the freeze. U
 | Policy | plain BCE; quantile operating point; persistence 2 h, all hours; abstention variants (reset / transparent / gated) on validation with the adoption rule |
 | Scoring passes | pre-treatment hours; documented vs undocumented strata; suspicion-label and alternative-label sensitivities; threshold transport per eICU hospital; MIMIC temporal validation by anchor-year group; lead versus the first antibiotic; transfer rows |
 | Training split | the retired observer bank's split joins training (70 % of development patients); recorded in `run_protocol.json` |
-| Predictors (5 Nov 2026) | 657: the arterial-line flag and its hours are dropped (no comparable definition across the databases); eICU high-flow oxygen, non-invasive ventilation and invasive airway are read from the oxygen-device fields, and eICU cardiac output, SvO2, urine WBC and the dialysis-catheter wording are mapped; cardiac output of 0 is dropped and MIMIC D-dimer in DDU is converted to FEU. Cohorts and labels are unchanged |
+| Predictors (5-6 Nov 2026) | 665: two concepts across assays (troponin I/T, BNP/NT-proBNP), each as "above the assay's decision limit" and as log10 multiples of the limit, with masks (6 Nov); laboratory results reported as one comparator and a number ('<0.01') take that number (6 Nov); the arterial-line flag and its hours are dropped (no comparable definition across the databases); eICU high-flow oxygen, non-invasive ventilation and invasive airway are read from the oxygen-device fields, and eICU cardiac output, SvO2, urine WBC and the dialysis-catheter wording are mapped; cardiac output of 0 is dropped and MIMIC D-dimer in DDU is converted to FEU. Cohorts and labels are unchanged |
 
 ---
 """+src(1))
@@ -138,10 +138,19 @@ Synthetic fixture numbers are meaningless as performance and are not shown.
 | Arterial line dropped from both databases (657 predictors); eICU oxygen-device fields (high-flow nasal cannula, non-invasive ventilation, invasive airway), cardiac output (0 dropped, both databases), SvO2, urine WBC, dialysis-catheter wording; MIMIC D-dimer DDU x2 | PASS | `v9_selftest`: 4 new checks (eICU device fields with entry times, cardiac output/SvO2/urine WBC, dialysis wording and no arterial-line column, D-dimer units) |
 | Old vs new extraction on one schema-shaped fixture of both databases | PASS | MIMIC: only the arterial-line columns, cardiac output (the 0 value) and D-dimer (the DDU row) differ; eICU: only the fixed predictors and the columns derived from them (hours intubated, lab count, supplemental oxygen, NEWS2) |
 | Cohort key unchanged (worker untouched): cohorts, label batches and the MIMIC label variant are reused; the raw stage, both supplementary stages, features and the unlabelled corpus are rebuilt under new keys | PASS | embedded-module comparison |
-| Top-to-bottom fixture run of the data-build copy and `_15` | PASS | rerun 5 Nov 2026 |""")
+| Top-to-bottom fixture run of the data-build copy and `_15` | PASS | rerun 5 Nov 2026 |
+
+### Additions of 6 Nov 2026 (decided before the freeze)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Troponin and natriuretic-peptide concepts: above the decision limit (troponin T 0.01, troponin I 0.04 ng/mL; BNP 100, NT-proBNP 300 pg/mL) and log10 multiples of the limit; raw channels kept; 665 predictors | PASS | `v9_selftest`: concept values hour by hour |
+| Comparator results ('<0.01', '>100') take their number in MIMIC labevents and eICU lab; ranges, words and titres stay unknown | PASS | `v9_selftest`: one check per database; each fails when its rule is removed |
+| Old vs new extraction on the fixture of both databases | PASS | new columns: the four concepts and their masks; changed values: only the intended predictors, the columns derived from them and the 24-hour laboratory count (results that were dropped are now counted) |
+| Top-to-bottom fixture run of the data-build copy and `_15` | PASS | rerun 6 Nov 2026 |""")
 for cl in cells:
     if cl['cell_type']=='code':ast.parse(''.join(cl['source']));cl['outputs']=[];cl['execution_count']=None
-nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24; extraction-environment fix 2 Nov 2026: scenario replay 7/7 and fixture rerun passed; eICU mapping fix 5 Nov 2026: 4 new extraction checks, old-vs-new extraction comparison, fixture reruns'}
+nb['metadata']['sepsis_validation']={'status':'fixture run passed 1 Nov 2026 (566 s, CPU, smoke settings); stage-2 driver check 24/24; extraction-environment fix 2 Nov 2026: scenario replay 7/7 and fixture rerun passed; eICU mapping fix 5 Nov 2026: 4 new extraction checks, old-vs-new extraction comparison, fixture reruns; concepts and comparator results 6 Nov 2026: 3 new checks, comparison, fixture reruns'}
 import nbformat
 _,nb=nbformat.validator.normalize(nb) if hasattr(nbformat.validator,'normalize') else (0,nb)
 out=R/'Sepsis_V11_Improved_MIMIC_eICU_14_stage2.ipynb'

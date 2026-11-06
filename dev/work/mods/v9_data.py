@@ -38,6 +38,11 @@ DERIVED+=['NLR','BMI','SupplementalO2','NetBalance_24h','ICULOS','AKI_Stage']+[f
 #   BNP 100 pg/mL and NT-proBNP 300 pg/mL: the acute rule-out levels of the ESC heart-failure guideline.
 CONCEPT_LIMITS={'Troponin_AboveLimit':[('TroponinT',.01),('TroponinI',.04)],'NatriureticPeptide_AboveLimit':[('BNP',100.),('NTproBNP',300.)]}
 DERIVED+=list(CONCEPT_LIMITS)
+# Continuous version of the same concepts (candidate's decision, 6 Nov 2026): log10(value / limit) of the latest known result,
+# the larger if both assays are known; 0 = at the limit, +1 = ten times the limit; floored at -2 (1/100 of the limit).
+CONCEPT_LOG_MULTIPLE={'Troponin_LogMultipleOfLimit':CONCEPT_LIMITS['Troponin_AboveLimit'],
+                      'NatriureticPeptide_LogMultipleOfLimit':CONCEPT_LIMITS['NatriureticPeptide_AboveLimit']}
+DERIVED+=list(CONCEPT_LOG_MULTIPLE)
 # v10.4 (user: include every feature that could predict sepsis). Admission context is known at
 # ICU admission; the admitting diagnosis (eICU admissionDx) from its entry time (MIMIC-IV has none).
 ADMISSION=['HospitalHoursBeforeICU','AdmitSource_ED','AdmitSource_OR','AdmitSource_Ward','AdmitSource_OtherHospital',
@@ -156,6 +161,13 @@ PROCEDURE_AIRWAY_YES=r'^intubation$|^invasive ventilation$|tracheostomy'
 PROCEDURE_AIRWAY_NO=r'extubation'
 # eICU treatment entries (entered at treatmentoffset).
 EICU_TREATMENT_YES=r'mechanical ventilation|endotracheal|intubation|tracheostomy'
+# 6 Nov 2026 (candidate's decision, convention a): a laboratory result reported as one comparator and a number
+# ('<0.01', '> 100', '<=5') takes that number as its value (the detection or reporting limit), in both databases.
+# Before, such results were dropped, so e.g. most normal MIMIC troponin T results (reported '<0.01') were missing and their
+# 'measured?' mask read 0. Ranges ('0-2'), words ('NEG') and titres ('1:40') stay unknown; dipstick rules are unchanged.
+LAB_COMPARATOR_RE=r'^(<=|>=|<|>)\s*([0-9]*\.?[0-9]+)$'
+def lab_comparator_value(text_sql):
+    return f"TRY_CAST(regexp_extract(lower(trim(coalesce(CAST({text_sql} AS VARCHAR),''))),{q(LAB_COMPARATOR_RE)},2) AS DOUBLE)"
 # eICU oxygen-device fields (5 Nov 2026): respiratoryCharting 'O2 Device' / 'RETIRED O2 Device' / 'Oxygen Delivery Method'
 # (picklists) and nurseCharting 'O2 Admin Device' (free text). Read with the MIMIC O2-delivery-device rules: a high-flow
 # nasal cannula (not a high-flow mask or nebuliser), non-invasive ventilation, an invasive airway; any other device
@@ -410,6 +422,7 @@ class RawExtractor:
                 unit=f"CASE WHEN m.unit<>'' THEN m.unit ELSE coalesce({self.col(raw,'valueuom')},'') END"
                 value='TRY_CAST(x.valuenum AS DOUBLE)'
                 if source=='labevents':
+                    value=f"coalesce({value},{lab_comparator_value(self.col(raw,'value'))})"
                     # Urine dipstick results are text: negative = 0; trace/small/moderate/large/positive = 1.
                     t=f"lower(trim(coalesce(CAST({self.col(raw,'value')} AS VARCHAR),'')))"
                     value=f'''CASE WHEN m.feature IN ('UrineNitrite','UrineLeukEsterase') THEN CASE WHEN {t} LIKE 'neg%' THEN 0.0
@@ -460,6 +473,8 @@ class RawExtractor:
                 unit=f"CASE WHEN m.unit<>'' THEN m.unit ELSE coalesce({unit},'') END"
                 eh=f'TRY_CAST(x.{t} AS DOUBLE)/60'; ah=f'CASE WHEN TRY_CAST(x.{entry} AS DOUBLE) IS NOT NULL THEN greatest({eh},TRY_CAST(x.{entry} AS DOUBLE)/60) END'
                 value=f"TRY_CAST(replace(x.{val},'%','') AS DOUBLE)"
+                if source=='lab' and 'labresulttext' in self.cols(raw):
+                    value=f"coalesce({value},{lab_comparator_value('x.labresulttext')})"
                 if source=='nursecharting':
                     t=f"lower(coalesce(x.{val},''))"
                     value=f"CASE WHEN m.feature='Delirium' THEN CASE WHEN {t} IN ('yes','positive') THEN 1.0 WHEN {t} IN ('no','negative') THEN 0.0 END ELSE {value} END"
@@ -1192,6 +1207,9 @@ def build_sequence(events,meta,max_hours=120,horizon=6):
         for col,limit in pairs:
             v=d[col].to_numpy(dtype=float);known|=np.isfinite(v);above|=np.isfinite(v)&(v>limit)
         new[name]=np.where(above,1.,np.where(known,0.,np.nan))
+    for name,pairs in CONCEPT_LOG_MULTIPLE.items():
+        logs=[np.log10(np.maximum(d[col].to_numpy(dtype=float),limit/100.)/limit) for col,limit in pairs]
+        new[name]=np.fmax.reduce(logs) if len(logs)>1 else logs[0]   # fmax ignores an unknown assay; both unknown -> unknown
     new['NetBalance_24h']=new['FluidIn_24h']-d.UrineOutput_24h.to_numpy()
     new['ICULOS']=hours.copy()
     for l in DELTA_LABS:new[l+'_DeltaPrev'],new[l+'_DeltaBaseline']=lab_changes(ev(l),hours)

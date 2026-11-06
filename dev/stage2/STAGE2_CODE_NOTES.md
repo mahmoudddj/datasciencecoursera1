@@ -118,3 +118,13 @@ Decided by the candidate on 5 Nov 2026, before the freeze, from the second read-
 Verification: `v9_selftest` 4 new checks (231 stage-1 checks pass; 64 stage-2 checks pass); old-vs-new extraction on one schema-shaped fixture of both databases differs only in the intended and derived columns; `_14`, the data-build copy and `_15` differ from the previous build only in these four embedded files and the markdown records; extraction-pending scenarios pass for all three. Keys: the cohort key is unchanged (worker untouched); `RAW_STAGE_KEY` (SPEC and extractor source), both supplement keys, `DATA_KEY` and the corpus key change, so one data-build run rebuilds the raw stage, supplements, features and corpus and reuses cohorts and labels.
 
 Open design point (not changed): the weak `arrival` pretraining target is set only for index stays, so it learns from arrival stays with onset after hour 1; arrival stays with onset at or before hour 1 sit in the corpus with the target unknown.
+
+## Additions of 6 Nov 2026 (candidate's decisions, before the freeze)
+
+| Item | Change | Where |
+|---|---|---|
+| Troponin I/T and BNP/NT-proBNP concepts | `Troponin_AboveLimit`, `NatriureticPeptide_AboveLimit` (1/0/unknown) and `Troponin_LogMultipleOfLimit`, `NatriureticPeptide_LogMultipleOfLimit` (log10 value/limit, floor −2, larger of the two assays); limits troponin T 0.01, troponin I 0.04 ng/mL, BNP 100, NT-proBNP 300 pg/mL; raw channels kept; with masks, 665 predictors | `v9_data.CONCEPT_LIMITS`, `CONCEPT_LOG_MULTIPLE`, `build_sequence`; `v9_models` organ map |
+| Comparator results | MIMIC labevents `value` and eICU lab `labresulttext` of the form `<0.01`, `> 100`, `<=5` take the number (convention a, the limit itself) when no numeric result exists | `v9_data.LAB_COMPARATOR_RE`, `lab_comparator_value`, `RawExtractor.standard` |
+| Not changed | the model's own standardisation (mean/SD per database, training patients) is unchanged; a log transform of heavy-tailed labs before it is a training setting for the freeze | `v12_train.fit_norms` |
+
+Verification: 3 new `v9_selftest` checks (234 stage-1 checks pass); each comparator check fails when its database's rule is removed; old-vs-new extraction: new columns are exactly the four concepts and their masks, changed values only the intended predictors, their derived columns and `LabResults_24h` (dropped results are now counted); the three notebooks differ from the previous build only in the embedded modules and the markdown records; extraction-pending scenarios pass.

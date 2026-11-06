@@ -146,13 +146,18 @@ def run_selftests():
         pd.DataFrame({'stay_id':[1]*3,'itemid':[224385,225794,227194],'starttime':['2100-01-01 02:00:00','2100-01-01 03:00:00','2100-01-01 06:00:00'],
             'storetime':['2100-01-01 02:30:00','2100-01-01 03:00:00','2100-01-01 07:00:00']}).to_csv(root/'icu/procedureevents.csv',index=False)
         pd.DataFrame({'stay_id':[1,1],'itemid':[228640,228641],'charttime':['2100-01-01 01:00:00']*2,'storetime':['2100-01-01 01:00:00']*2,'valuenum':[35.,60.],'value':['35','60'],'valueuom':['mmHg']*2}).to_csv(root/'icu/chartevents.csv',index=False)
-        pd.DataFrame({'hadm_id':[10,10],'itemid':[52642,51003],'charttime':['2100-01-01 01:00:00']*2,'storetime':['2100-01-01 02:00:00']*2,'valuenum':[250.,.05],'valueuom':['ng/L','ng/mL']}).to_csv(root/'hosp/labevents.csv',index=False)
+        # 6 Nov 2026: '<0.01' (below detection) takes the value 0.01; a non-comparator text ('see note') stays unknown.
+        pd.DataFrame({'hadm_id':[10]*4,'itemid':[52642,51003,51003,51003],'charttime':['2100-01-01 01:00:00']*2+['2100-01-01 05:00:00','2100-01-01 08:00:00'],
+            'storetime':['2100-01-01 02:00:00']*2+['2100-01-01 06:00:00','2100-01-01 08:00:00'],'valuenum':[250.,.05,np.nan,np.nan],'value':['250','0.05','<0.01','see note'],
+            'valueuom':['ng/L','ng/mL','ng/mL','ng/mL']}).to_csv(root/'hosp/labevents.csv',index=False)
         pd.DataFrame({'stay_id':[1],'itemid':[226559],'charttime':['2100-01-01 01:00:00'],'storetime':['2100-01-01 01:00:00'],'value':[50.],'valueuom':['mL']}).to_csv(root/'icu/outputevents.csv',index=False)
         paths=RawExtractor('miiv',root,sel,td/'st',12).extract()
         d=pd.read_csv(td/'st/item_dictionary.csv')
         check('label_resolved_items_without_alarm_limits',set(d.key[d.feature.eq('TroponinI')])=={51002,52642} and set(d.key[d.feature.eq('EtCO2')])=={228640})
         mv=build_sequence(normalize_events(pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)),{**sel.iloc[0].to_dict(),'Age':60.,'Gender':1.},12,6)
         check('troponin_ng_per_litre_converted',mv.TroponinI.iloc[1]==.25 and mv.TroponinT.iloc[1]==.05 and mv.EtCO2.iloc[0]==35)
+        check('mimic_lab_comparator_text_takes_its_number',mv.TroponinT.iloc[4]==.05 and mv.TroponinT.iloc[5]==.01 and mv.TroponinT.iloc[7]==.01
+              and np.isclose(mv.Troponin_LogMultipleOfLimit.iloc[5],np.log10(.25/.04)))
         check('airway_procedures_causal_and_noninvasive_excluded',mv.Intubated.iloc[:7].tolist()[2:]==[1.,1,1,1,0] and np.isnan(mv.Intubated.iloc[1])
               and mv.IntubatedHours.iloc[7]==4)
 
@@ -205,7 +210,8 @@ def run_selftests():
         pd.DataFrame({'patientunitstayid':[1,1],'nursingchartcelltypecat':['Vital Signs','SVO2'],'nursingchartcelltypevallabel':['O2 Admin Device','SVO2'],
             'nursingchartcelltypevalname':['O2 Admin Device','SVO2'],'nursingchartvalue':['BiPAP/CPAP','65'],'nursingchartoffset':[180,120],'nursingchartentryoffset':[240,130]}).to_csv(root/'nurseCharting.csv',index=False)
         pd.DataFrame({'patientunitstayid':[1,1],'observationoffset':[60,120],'cardiacoutput':[0.,4.6]}).to_csv(root/'vitalAperiodic.csv',index=False)
-        pd.DataFrame({'patientunitstayid':[1],'labresultoffset':[120],'labresultrevisedoffset':[180],'labname':["WBC's in urine"],'labresult':['12'],'labmeasurenamesystem':['/hpf']}).to_csv(root/'lab.csv',index=False)
+        pd.DataFrame({'patientunitstayid':[1]*3,'labresultoffset':[120,400,500],'labresultrevisedoffset':[180,400,500],'labname':["WBC's in urine"]*3,'labresult':['12','',''],
+            'labresulttext':['12','<1','0-2'],'labmeasurenamesystem':['/hpf']*3}).to_csv(root/'lab.csv',index=False)
         tr_=pd.read_csv(root/'treatment.csv');pd.concat([tr_,pd.DataFrame({'patientunitstayid':[1,1],'treatmentoffset':[240,240],
             'treatmentstring':['renal|dialysis|insertion of venous catheter for hemodialysis','infectious diseases|procedures|vascular catheter placement|arterial']})]).to_csv(root/'treatment.csv',index=False)
         paths=RawExtractor('eicu',root,sel,td/'es',12).extract()
@@ -221,6 +227,7 @@ def run_selftests():
               and pd.read_parquet(td/'es/airway.parquet').event_hour.eq(1).sum()==3)   # the '7' at hour 1 adds no row (the HFNC row gives 3)
         check('eicu_cardiac_output_zero_dropped_svo2_urine_wbc',np.isnan(es.CardiacOutput.iloc[0]) and es.CardiacOutput.iloc[1]==4.6
               and np.isnan(es.ScvO2.iloc[1]) and es.ScvO2.iloc[2]==65 and np.isnan(es.UrineWBC.iloc[1]) and es.UrineWBC.iloc[2]==12)
+        check('eicu_lab_comparator_text_takes_its_number_range_stays_unknown',es.UrineWBC.iloc[6]==1 and es.UrineWBC.iloc[8]==1)
         check('eicu_dialysis_catheter_wording_no_arterial_line',es.Device_DialysisCatheter.tolist()[2:4]==[0.,1.] and 'Device_ArterialLine' not in es.columns)
 
     # v10.5: text states, vasopressor dose, procedures, nutrition, stool, prior contact, lab changes, AKI (both databases).
@@ -265,7 +272,9 @@ def run_selftests():
             'value':[.005,.02,.03,250.,150.],'unit':['ng/mL','ng/mL','ng/mL','pg/mL','pg/mL'],'kind':'state','end_hour':np.nan})
         cs=build_sequence(normalize_events(cev),{**meta,'Age':60.,'Gender':1.},12,6)
         check('troponin_and_natriuretic_peptide_above_limit_concepts',cs.Troponin_AboveLimit.tolist()[:6]==[0.,0.,1.,1.,1.,1.]
-              and np.isnan(cs.NatriureticPeptide_AboveLimit.iloc[0]) and cs.NatriureticPeptide_AboveLimit.tolist()[1:6]==[0.,0.,0.,0.,1.])
+              and np.isnan(cs.NatriureticPeptide_AboveLimit.iloc[0]) and cs.NatriureticPeptide_AboveLimit.tolist()[1:6]==[0.,0.,0.,0.,1.]
+              and np.allclose(cs.Troponin_LogMultipleOfLimit.iloc[:6],[np.log10(.5)]*2+[np.log10(2.)]*4)
+              and np.isnan(cs.NatriureticPeptide_LogMultipleOfLimit.iloc[0]) and np.allclose(cs.NatriureticPeptide_LogMultipleOfLimit.iloc[1:6],[np.log10(250/300)]*4+[np.log10(1.5)]))
         check('mimic_height_bmi_iculos',mv.Height.eq(170).all() and np.isclose(mv.BMI.iloc[0],80/1.7**2) and mv.ICULOS.tolist()==list(range(1,13)))
         check('lab_changes_and_aki',np.isnan(mv.Creatinine_DeltaPrev.iloc[0]) and np.isclose(mv.Creatinine_DeltaPrev.iloc[1],.2) and np.isclose(mv.Creatinine_DeltaBaseline.iloc[4],.6)
               and mv.AKI_Stage.tolist()[:8]==[0.,0.,0.,3.,3.,3.,3.,3.] and mv.LabResults_24h.iloc[7]==6)   # 6 since the D-dimer row of 5 Nov 2026
